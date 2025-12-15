@@ -1,0 +1,271 @@
+// Prisma Schema for AI Mindful Journal
+// PostgreSQL database
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum UserStatus {
+  active
+  banned
+  deleted
+}
+
+enum SubscriptionTier {
+  free
+  basic
+  premium
+}
+
+enum ServiceType {
+  gpt_4o_mini  @map("gpt-4o-mini")
+  whisper_1    @map("whisper-1")
+}
+
+enum BroadcastStatus {
+  draft
+  scheduled
+  sending
+  sent
+  failed
+}
+
+enum BroadcastAudience {
+  all
+  premium
+  free
+}
+
+enum TransactionType {
+  stars_payment
+  adsgram_reward
+  refund
+}
+
+// ============================================
+// MODELS
+// ============================================
+
+model User {
+  id                  String            @id @default(uuid()) @db.Uuid
+  telegramId          BigInt            @unique @map("telegram_id")
+  username            String?           @db.VarChar(255)
+  firstName           String?           @map("first_name") @db.VarChar(255)
+  lastName            String?           @map("last_name") @db.VarChar(255)
+  languageCode        String            @default("ru") @map("language_code") @db.VarChar(10)
+  timezone            String            @default("UTC") @db.VarChar(50)
+
+  // Subscription & Balance
+  subscriptionTier    SubscriptionTier  @default(free) @map("subscription_tier")
+  subscriptionExpiresAt DateTime?       @map("subscription_expires_at") @db.Timestamptz
+  balanceStars        Int               @default(0) @map("balance_stars")
+
+  // Aggregated stats
+  totalEntriesCount   Int               @default(0) @map("total_entries_count")
+  totalVoiceCount     Int               @default(0) @map("total_voice_count")
+  totalSpendUsd       Decimal           @default(0) @map("total_spend_usd") @db.Decimal(10, 4)
+
+  // Status & Admin
+  status              UserStatus        @default(active)
+  isAdmin             Boolean           @default(false) @map("is_admin")
+
+  // Timestamps
+  dateCreated         DateTime          @default(now()) @map("date_created") @db.Timestamptz
+  dateUpdated         DateTime          @updatedAt @map("date_updated") @db.Timestamptz
+
+  // Relations
+  entries             JournalEntry[]
+  usageLogs           UsageLog[]
+  transactions        Transaction[]
+  subscriptions       Subscription[]
+
+  @@map("users")
+}
+
+model JournalEntry {
+  id                  String            @id @default(uuid()) @db.Uuid
+  userId              String            @map("user_id") @db.Uuid
+  
+  // Content
+  textContent         String            @map("text_content") @db.Text
+  voiceFileId         String?           @map("voice_file_id") @db.VarChar(255)
+  voiceDurationSeconds Int?             @map("voice_duration_seconds")
+  isVoice             Boolean           @default(false) @map("is_voice")
+
+  // AI Analysis
+  moodScore           Int?              @map("mood_score")
+  moodLabel           String?           @map("mood_label") @db.VarChar(50)
+  aiTags              Json              @default("[]") @map("ai_tags") @db.JsonB
+  aiSummary           String?           @map("ai_summary") @db.Text
+  aiSuggestions       String?           @map("ai_suggestions") @db.Text
+
+  // Processing status
+  isProcessed         Boolean           @default(false) @map("is_processed")
+  processingError     String?           @map("processing_error") @db.Text
+
+  // Timestamps
+  dateCreated         DateTime          @default(now()) @map("date_created") @db.Timestamptz
+  dateUpdated         DateTime          @updatedAt @map("date_updated") @db.Timestamptz
+
+  // Relations
+  user                User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  usageLogs           UsageLog[]
+
+  @@index([userId])
+  @@index([dateCreated(sort: Desc)])
+  @@index([moodScore])
+  @@map("journal_entries")
+}
+
+model UsageLog {
+  id                  String            @id @default(uuid()) @db.Uuid
+  userId              String            @map("user_id") @db.Uuid
+  entryId             String?           @map("entry_id") @db.Uuid
+
+  // Service details
+  serviceType         ServiceType       @map("service_type")
+  modelName           String            @map("model_name") @db.VarChar(50)
+
+  // Usage metrics
+  inputTokens         Int               @default(0) @map("input_tokens")
+  outputTokens        Int               @default(0) @map("output_tokens")
+  durationSeconds     Int               @default(0) @map("duration_seconds")
+
+  // Cost
+  costUsd             Decimal           @map("cost_usd") @db.Decimal(10, 6)
+
+  // Metadata
+  requestId           String?           @map("request_id") @db.VarChar(100)
+  latencyMs           Int?              @map("latency_ms")
+
+  // Timestamp
+  dateCreated         DateTime          @default(now()) @map("date_created") @db.Timestamptz
+
+  // Relations
+  user                User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entry               JournalEntry?     @relation(fields: [entryId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([serviceType])
+  @@index([dateCreated(sort: Desc)])
+  @@map("usage_logs")
+}
+
+model Transaction {
+  id                    String            @id @default(uuid()) @db.Uuid
+  userId                String            @map("user_id") @db.Uuid
+
+  // Transaction details
+  transactionType       TransactionType   @map("transaction_type")
+  amountStars           Int               @default(0) @map("amount_stars")
+  amountUsd             Decimal           @default(0) @map("amount_usd") @db.Decimal(10, 4)
+
+  // Telegram payment info
+  telegramPaymentId     String?           @map("telegram_payment_id") @db.VarChar(255)
+  telegramPaymentChargeId String?         @map("telegram_payment_charge_id") @db.VarChar(255)
+
+  // Status
+  isSuccessful          Boolean           @default(true) @map("is_successful")
+  failureReason         String?           @map("failure_reason") @db.Text
+
+  // Timestamp
+  dateCreated           DateTime          @default(now()) @map("date_created") @db.Timestamptz
+
+  // Relations
+  user                  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscription          Subscription?
+
+  @@index([userId])
+  @@index([transactionType])
+  @@index([dateCreated(sort: Desc)])
+  @@map("transactions")
+}
+
+model Subscription {
+  id                  String            @id @default(uuid()) @db.Uuid
+  userId              String            @map("user_id") @db.Uuid
+  transactionId       String?           @unique @map("transaction_id") @db.Uuid
+
+  // Subscription details
+  tier                SubscriptionTier
+  startsAt            DateTime          @default(now()) @map("starts_at") @db.Timestamptz
+  expiresAt           DateTime          @map("expires_at") @db.Timestamptz
+
+  // Pricing at time of purchase
+  priceStars          Int               @map("price_stars")
+  priceUsd            Decimal           @map("price_usd") @db.Decimal(10, 4)
+
+  // Status
+  isActive            Boolean           @default(true) @map("is_active")
+  cancelledAt         DateTime?         @map("cancelled_at") @db.Timestamptz
+
+  // Timestamps
+  dateCreated         DateTime          @default(now()) @map("date_created") @db.Timestamptz
+  dateUpdated         DateTime          @updatedAt @map("date_updated") @db.Timestamptz
+
+  // Relations
+  user                User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transaction         Transaction?      @relation(fields: [transactionId], references: [id])
+
+  @@index([userId])
+  @@index([isActive, expiresAt])
+  @@map("subscriptions")
+}
+
+model Broadcast {
+  id                  String            @id @default(uuid()) @db.Uuid
+
+  // Content
+  title               String            @db.VarChar(255)
+  messageText         String            @map("message_text") @db.Text
+  messagePhotoUrl     String?           @map("message_photo_url") @db.Text
+
+  // Targeting
+  targetAudience      BroadcastAudience @default(all) @map("target_audience")
+
+  // Scheduling
+  scheduledAt         DateTime?         @map("scheduled_at") @db.Timestamptz
+
+  // Execution status
+  status              BroadcastStatus   @default(draft)
+  startedAt           DateTime?         @map("started_at") @db.Timestamptz
+  completedAt         DateTime?         @map("completed_at") @db.Timestamptz
+
+  // Stats
+  totalRecipients     Int               @default(0) @map("total_recipients")
+  sentCount           Int               @default(0) @map("sent_count")
+  failedCount         Int               @default(0) @map("failed_count")
+
+  // Error tracking
+  lastError           String?           @map("last_error") @db.Text
+
+  // Timestamps
+  dateCreated         DateTime          @default(now()) @map("date_created") @db.Timestamptz
+  dateUpdated         DateTime          @updatedAt @map("date_updated") @db.Timestamptz
+  userCreated         String?           @map("user_created") @db.Uuid
+  userUpdated         String?           @map("user_updated") @db.Uuid
+
+  @@index([status])
+  @@map("broadcasts")
+}
+
+model AppSetting {
+  id                  String            @id @default(uuid()) @db.Uuid
+  key                 String            @unique @db.VarChar(100)
+  value               Json              @db.JsonB
+  description         String?           @db.Text
+
+  dateCreated         DateTime          @default(now()) @map("date_created") @db.Timestamptz
+  dateUpdated         DateTime          @updatedAt @map("date_updated") @db.Timestamptz
+
+  @@map("app_settings")
+}

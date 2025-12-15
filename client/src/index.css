@@ -1,0 +1,135 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Telegram WebApp CSS Variables */
+:root {
+  --tg-theme-bg-color: #F2F2F7;
+  --tg-theme-text-color: #000000;
+  --tg-theme-hint-color: #8E8E93;
+  --tg-theme-link-color: #007AFF;
+  --tg-theme-button-color: #007AFF;
+  --tg-theme-button-text-color: #ffffff;
+  --tg-theme-secondary-bg-color: #FFFFFF;
+  --tg-theme-card-bg: #FFFFFF;
+}
+
+/* Dark mode */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --tg-theme-bg-color: #1C1C1E;
+    --tg-theme-text-color: #FFFFFF;
+    --tg-theme-hint-color: #8E8E93;
+    --tg-theme-link-color: #0A84FF;
+    --tg-theme-button-color: #0A84FF;
+    --tg-theme-secondary-bg-color: #2C2C2E;
+    --tg-theme-card-bg: #2C2C2E;
+  }
+}
+
+/* Base styles */
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Roboto', 'Helvetica Neue', sans-serif;
+  background-color: #F1F3F5;
+  color: var(--tg-theme-text-color);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Better text rendering */
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Hide scrollbar for mood selector */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Safe area padding for iOS */
+.safe-area-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Mood score colors */
+.mood-gradient-1 { background: linear-gradient(135deg, #ef4444, #dc2626); }
+.mood-gradient-2 { background: linear-gradient(135deg, #f97316, #ea580c); }
+.mood-gradient-3 { background: linear-gradient(135deg, #f59e0b, #d97706); }
+.mood-gradient-4 { background: linear-gradient(135deg, #eab308, #ca8a04); }
+.mood-gradient-5 { background: linear-gradient(135deg, #a3a3a3, #737373); }
+.mood-gradient-6 { background: linear-gradient(135deg, #84cc16, #65a30d); }
+.mood-gradient-7 { background: linear-gradient(135deg, #22c55e, #16a34a); }
+.mood-gradient-8 { background: linear-gradient(135deg, #10b981, #059669); }
+.mood-gradient-9 { background: linear-gradient(135deg, #06b6d4, #0891b2); }
+.mood-gradient-10 { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+
+/* Entry card animation */
+.entry-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.entry-card:active {
+  transform: scale(0.98);
+}
+
+/* Skeleton loading */
+.skeleton {
+  background: linear-gradient(90deg, var(--tg-theme-secondary-bg-color) 25%, rgba(0,0,0,0.05) 50%, var(--tg-theme-secondary-bg-color) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s infinite;
+}
+
+@keyframes skeleton-loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Fade in animation */
+.fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--tg-theme-hint-color);
+  border-radius: 2px;
+}
+
+/* Konsta UI overrides for Telegram theme */
+.k-ios .k-navbar,
+.k-material .k-navbar {
+  background-color: var(--tg-theme-bg-color) !important;
+}
+
+.k-ios .k-tabbar,
+.k-material .k-tabbar {
+  background-color: var(--tg-theme-bg-color) !important;
+}

@@ -1,121 +1,325 @@
-# AI Mindful Journal 🧠📝
+# 🧠 AI Mindful Journal
 
-Telegram Mini App для трекинга настроения с AI-анализом.
+> **Telegram Mini App для ведения дневника настроения с AI-анализом эмоций**
 
-## 🏗️ Архитектура
+Интеллектуальный дневник, который помогает пользователям отслеживать своё эмоциональное состояние через текстовые и голосовые записи. AI анализирует каждую запись, определяет настроение (1-10), выделяет ключевые темы и даёт мягкие рекомендации.
+
+---
+
+## ✨ Возможности
+
+| Функция | Описание |
+|---------|----------|
+| 📝 **Текстовые записи** | Пиши о своих мыслях и чувствах |
+| 🎤 **Голосовые сообщения** | Расшифровка через OpenAI Whisper (Premium) |
+| 🤖 **AI-анализ** | GPT-4o-mini определяет настроение и даёт советы |
+| 📊 **Статистика** | Графики настроения, streak, теги |
+| 🌍 **Часовые пояса** | Автоматическая синхронизация с устройством |
+| ⭐ **Telegram Stars** | Встроенные платежи за подписку |
+| 📢 **Broadcast** | Массовая рассылка через Directus Flows |
+
+---
+
+## 🛠 Технологический стек
+
+### Frontend (Telegram Mini App)
+
+| Технология | Версия | Назначение |
+|------------|--------|------------|
+| React | 18.3.1 | UI Framework |
+| Vite | 6.0.2 | Сборка и dev-сервер |
+| TypeScript | 5.6.3 | Типизация |
+| Konsta UI | 5.0.6 | iOS-style компоненты |
+| Tailwind CSS | 3.4.15 | Стилизация |
+| Zustand | 5.0.1 | State Management |
+| Lucide React | 0.561.0 | Иконки |
+| Recharts | 2.13.3 | Графики статистики |
+| @telegram-apps/sdk-react | 2.0.3 | Telegram SDK |
+| date-fns | 4.1.0 | Работа с датами |
+
+### Backend (Node.js)
+
+| Технология | Версия | Назначение |
+|------------|--------|------------|
+| Node.js | ≥20.0.0 | Runtime |
+| Express | 4.21.0 | HTTP сервер |
+| grammY | 1.30.0 | Telegram Bot Framework |
+| Prisma | 5.22.0 | ORM для PostgreSQL |
+| OpenAI SDK | 4.71.0 | GPT-4o-mini + Whisper |
+| Pino | 9.5.0 | Структурированное логирование |
+| Zod | 3.23.8 | Валидация схем |
+| ioredis | 5.4.1 | Кэширование (опционально) |
+| Helmet | 8.0.0 | Безопасность HTTP заголовков |
+| express-rate-limit | 7.4.1 | Rate limiting |
+
+### Инфраструктура
+
+| Компонент | Версия | Назначение |
+|-----------|--------|------------|
+| PostgreSQL | 15-alpine | Основная БД |
+| Directus | 10.13 | CMS для конфигурации и админки |
+| Redis | 7-alpine | Кэш и rate limiting |
+| Docker Compose | 3.8 | Оркестрация сервисов |
+
+---
+
+## 🏗 Архитектура
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    TELEGRAM MINI APP                        │
-├─────────────────────────────────────────────────────────────┤
-│  Client (React + Vite)    │    Server (Node.js + grammY)    │
-│  ├── Konsta UI            │    ├── Express API              │
-│  ├── Tailwind CSS         │    ├── Telegram Bot             │
-│  ├── Zustand              │    ├── OpenAI Integration       │
-│  └── Recharts             │    └── Prisma ORM               │
-├─────────────────────────────────────────────────────────────┤
-│                      PostgreSQL                             │
-├─────────────────────────────────────────────────────────────┤
-│                   Directus (Admin Panel)                    │
-│  ├── Insights Dashboard (Revenue vs Costs)                  │
-│  ├── Flows (Broadcast automation)                           │
-│  └── User Management                                        │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                        Telegram Client                          │
+│                    (iOS / Android / Desktop)                    │
+└─────────────────────────┬───────────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     Telegram Mini App                           │
+│              React + Konsta UI (iOS Style)                      │
+│                                                                 │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐        │
+│  │  Home    │  │  New     │  │  Stats   │  │ Premium  │        │
+│  │  Page    │  │  Entry   │  │  Page    │  │  Page    │        │
+│  └──────────┘  └──────────┘  └──────────┘  └──────────┘        │
+└─────────────────────────┬───────────────────────────────────────┘
+                          │ HTTP + X-Telegram-Init-Data
+                          │ + X-Timezone
+                          ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     Node.js Backend                             │
+│                                                                 │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │                    Express API                           │   │
+│  │   /api/user  /api/entries  /api/analyze  /api/internal   │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │                    grammY Bot                            │   │
+│  │   /start  /stats  /premium  Text/Voice handlers          │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │                  Config Service                          │   │
+│  │   In-memory cache ← app_settings (PostgreSQL/Directus)   │   │
+│  └─────────────────────────────────────────────────────────┘   │
+└──────────┬────────────────────────────────┬─────────────────────┘
+           │                                │
+           ▼                                ▼
+┌─────────────────────┐          ┌─────────────────────┐
+│    PostgreSQL 15    │          │    OpenAI API       │
+│                     │          │                     │
+│  • users            │          │  • GPT-4o-mini      │
+│  • journal_entries  │          │    (Mood Analysis)  │
+│  • usage_logs       │          │                     │
+│  • transactions     │          │  • Whisper          │
+│  • subscriptions    │          │    (Transcription)  │
+│  • app_settings     │          │                     │
+│  • broadcasts       │          └─────────────────────┘
+└─────────────────────┘
+           ▲
+           │ Directus управляет
+           │ теми же таблицами
+┌─────────────────────┐
+│    Directus CMS     │
+│    (Port 8055)      │
+│                     │
+│  • Визуальный UI    │
+│  • Управление       │
+│    app_settings     │
+│  • Broadcast Flows  │
+│  • User Management  │
+└─────────────────────┘
 ```
 
-## 🚀 Быстрый старт
+### Поток данных
 
-### 1. Клонирование и настройка
+1. **Пользователь** открывает Mini App через бота или inline-кнопку
+2. **Frontend** получает `initData` от Telegram и отправляет с каждым запросом в заголовке `X-Telegram-Init-Data`
+3. **Backend** валидирует подпись через HMAC-SHA256 и извлекает `user_id`
+4. **Prisma** взаимодействует с PostgreSQL для CRUD операций
+5. **ConfigService** кэширует настройки из `app_settings` с TTL 5 минут
+6. **OpenAI** получает текст/аудио и возвращает структурированный анализ
+
+---
+
+## 🚀 Установка и запуск
+
+### Требования
+
+- **Node.js** ≥ 20.0.0
+- **Docker** & **Docker Compose**
+- **Telegram Bot Token** (от [@BotFather](https://t.me/BotFather))
+- **OpenAI API Key** (с доступом к GPT-4o-mini и Whisper)
+
+### 1. Клонирование репозитория
 
 ```bash
-git clone <repo-url>
-cd web-app
+git clone https://github.com/your-username/mindful-journal.git
+cd mindful-journal
+```
+
+### 2. Настройка переменных окружения
+
+```bash
+# Скопируй example и заполни значения
 cp .env.example .env
-# Заполни .env своими ключами
 ```
 
-### 2. Запуск через Docker
+📖 Подробнее о переменных — см. [ENVIRONMENT_VARIABLES.md](./docs/ENVIRONMENT_VARIABLES.md)
+
+### 3. Запуск инфраструктуры (Docker)
 
 ```bash
+# Запуск PostgreSQL, Directus, Redis
 docker-compose up -d
+
+# Проверка статуса
+docker-compose ps
+
+# Логи
+docker-compose logs -f directus
 ```
 
-Это запустит:
-- PostgreSQL на порту `5432`
-- Directus на порту `8055`
-- Redis на порту `6379`
+Сервисы будут доступны:
+- **PostgreSQL**: `localhost:5432`
+- **Directus**: `http://localhost:8055`
+- **Redis**: `localhost:6379`
 
-### 3. Настройка Directus
+### 4. Настройка Directus
 
 1. Открой http://localhost:8055
-2. Войди с credentials из `.env`
-3. Следуй инструкции в [docs/DIRECTUS_SETUP.md](docs/DIRECTUS_SETUP.md)
+2. Войди с `ADMIN_EMAIL` / `ADMIN_PASSWORD` из `.env`
+3. Создай коллекцию `app_settings` — см. [DIRECTUS_SETUP.md](./docs/DIRECTUS_SETUP.md)
+
+### 5. Установка зависимостей
+
+```bash
+# Backend
+cd server
+npm install
+npm run db:generate   # Генерация Prisma Client
+npm run db:push       # Применение схемы к БД
+
+# Frontend
+cd ../client
+npm install
+```
+
+### 6. Запуск в режиме разработки
+
+```bash
+# Terminal 1: Backend (порт 3000)
+cd server
+npm run dev
+
+# Terminal 2: Frontend (порт 5173 с прокси на backend)
+cd client
+npm run dev
+```
+
+### 7. Production Build
+
+```bash
+# Frontend
+cd client
+npm run build
+# Output: dist/
+
+# Backend
+cd server
+npm run build
+npm start
+```
+
+---
 
 ## 📁 Структура проекта
 
 ```
-web-app/
-├── client/                 # Frontend (React + Vite)
+mindful-journal/
+├── client/                    # 🎨 React Mini App
 │   ├── src/
-│   │   ├── components/     # UI компоненты
-│   │   ├── pages/          # Страницы
-│   │   ├── stores/         # Zustand stores
-│   │   ├── services/       # API клиент
-│   │   └── hooks/          # Кастомные хуки
-│   └── ...
+│   │   ├── components/        # UI компоненты (EntryCard, etc.)
+│   │   ├── pages/             # Страницы (Home, New, Stats, Premium, Profile)
+│   │   ├── hooks/             # useTelegram, useHaptic
+│   │   ├── store/             # Zustand store (useAppStore)
+│   │   ├── lib/               # API client, utils
+│   │   ├── config/            # App constants (MIN_ENTRY_CHARS, etc.)
+│   │   └── types/             # TypeScript types
+│   ├── index.html
+│   └── package.json
 │
-├── server/                 # Backend (Node.js)
+├── server/                    # ⚙️ Node.js Backend
 │   ├── src/
-│   │   ├── bot/            # grammY bot
-│   │   ├── api/            # Express routes
-│   │   ├── services/       # Бизнес-логика
-│   │   └── utils/          # Утилиты
-│   └── prisma/             # Схема БД
+│   │   ├── api/               # Express routes & middleware
+│   │   │   ├── routes/        # user.ts, entries.ts, internal.ts
+│   │   │   └── middleware/    # auth.ts, rateLimit.ts, timezone.ts
+│   │   ├── bot/               # grammY bot handlers (index.ts)
+│   │   ├── services/          # openai.ts, config.ts, user.ts
+│   │   └── utils/             # logger.ts, pricing.ts, telegram.ts
+│   ├── prisma/
+│   │   └── schema.prisma      # 📊 Database schema
+│   └── package.json
 │
-├── database/               # SQL схемы
-│   └── schema.sql          # Основная схема
+├── docs/                      # 📖 Документация
+│   ├── ENVIRONMENT_VARIABLES.md
+│   ├── DATABASE_SCHEMA.md
+│   └── DIRECTUS_SETUP.md
 │
-├── docs/                   # Документация
-│   └── DIRECTUS_SETUP.md   # Настройка админки
-│
-├── docker-compose.yml      # Docker конфигурация
-└── .env.example            # Пример переменных окружения
+├── docker-compose.yml         # 🐳 Инфраструктура
+├── .env.example               # Пример переменных
+└── README.md                  # Этот файл
 ```
+
+---
 
 ## 💰 Монетизация
 
-| Тариф | Цена | Возможности |
-|-------|------|-------------|
-| Free | 0 ⭐ | 5 записей/день, только текст |
-| Basic | 50 ⭐/мес | 20 записей/день, 5 голосовых |
-| Premium | 150 ⭐/мес | Безлимит, все функции |
+| Тариф | Цена | Записей/день | Голосовые | Дополнительно |
+|-------|------|--------------|-----------|---------------|
+| **Free** | 0 ⭐ | 5 | ❌ | — |
+| **Basic** | 50 ⭐/мес | 20 | 5/день | Приоритетная поддержка |
+| **Premium** | 150 ⭐/мес | ∞ | ∞ | Все функции |
 
-## 📊 Admin Dashboard
+> 💡 Цены и лимиты настраиваются через Directus без перезапуска сервера!
 
-Доступен через Directus:
-- 💰 Расходы API в реальном времени
-- 💵 Доходы от подписок
-- 📈 Графики использования
-- 👥 Управление пользователями
-- 📢 Рассылки
+---
 
 ## 🔒 Безопасность
 
-- Все AI запросы через backend
-- API ключи только на сервере
-- Telegram initData валидация
-- Rate limiting
+- ✅ **Telegram initData валидация** — HMAC-SHA256 проверка подписи
+- ✅ **Rate Limiting** — защита от DDoS (60 req/min API, 10 req/min AI)
+- ✅ **API ключи только на сервере** — OpenAI ключ никогда не попадает в клиент
+- ✅ **Helmet.js** — безопасные HTTP заголовки
+- ✅ **ENV validation** — сервер не запустится без обязательных переменных
 
-## 📝 TODO
+---
 
-- [ ] Настроить Directus
-- [ ] Создать backend (grammY + Express)
-- [ ] Создать frontend (React + Vite)
-- [ ] Интеграция OpenAI
-- [ ] Telegram Stars payments
-- [ ] Adsgram интеграция
-- [ ] Deploy
+## 📖 Дополнительная документация
+
+| Документ | Описание |
+|----------|----------|
+| [ENVIRONMENT_VARIABLES.md](./docs/ENVIRONMENT_VARIABLES.md) | Все переменные окружения |
+| [DATABASE_SCHEMA.md](./docs/DATABASE_SCHEMA.md) | Схема базы данных Prisma |
+| [DIRECTUS_SETUP.md](./docs/DIRECTUS_SETUP.md) | Настройка CMS, ключи конфигурации, Broadcast |
+
+---
+
+## 🤝 Contributing
+
+1. Fork репозитория
+2. Создай feature branch: `git checkout -b feature/amazing-feature`
+3. Commit изменений: `git commit -m 'Add amazing feature'`
+4. Push в branch: `git push origin feature/amazing-feature`
+5. Открой Pull Request
+
+---
 
 ## 📄 Лицензия
 
-MIT
+MIT License — см. [LICENSE](./LICENSE)
+
+---
+
+<p align="center">
+  Made with ❤️ and 🤖 AI
+</p>

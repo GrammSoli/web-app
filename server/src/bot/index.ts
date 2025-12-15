@@ -1,0 +1,431 @@
+import { Bot, Context, session, SessionFlavor, GrammyError, HttpError } from 'grammy';
+import { hydrate, HydrateFlavor } from '@grammyjs/hydrate';
+import { botLogger } from '../utils/logger.js';
+import {
+  getOrCreateUser,
+  createEntry,
+  processEntry,
+  logUsage,
+  countTodayEntries,
+  getEffectiveTier,
+} from '../services/user.js';
+import { analyzeMood, processVoiceMessage } from '../services/openai.js';
+import { checkLimitsAsync, getSubscriptionPricing, getTierLimits } from '../utils/pricing.js';
+import { configService, getMessage } from '../services/config.js';
+
+// ============================================
+// ТИПЫ
+// ============================================
+
+interface SessionData {
+  lastMessageId?: number;
+}
+
+type MyContext = HydrateFlavor<Context> & SessionFlavor<SessionData>;
+
+// ============================================
+// СОЗДАНИЕ БОТА
+// ============================================
+
+let botInstance: Bot<MyContext> | null = null;
+
+export function createBot(token: string): Bot<MyContext> {
+  const bot = new Bot<MyContext>(token);
+  
+  // Middleware
+  bot.use(session({ initial: () => ({}) }));
+  bot.use(hydrate());
+  
+  // ============================================
+  // КОМАНДЫ
+  // ============================================
+
+  bot.command('start', async (ctx) => {
+    const user = ctx.from;
+    if (!user) return;
+    
+    const dbUser = await getOrCreateUser({
+      telegramId: BigInt(user.id),
+      username: user.username,
+      firstName: user.first_name,
+      lastName: user.last_name,
+      languageCode: user.language_code,
+    });
+    
+    botLogger.info({ telegramId: user.id, oderId: dbUser.id }, 'User started bot');
+    
+    const webAppUrl = process.env.WEBAPP_URL;
+    
+    // Формируем клавиатуру: WebApp кнопка только если URL настроен
+    const keyboard = [];
+    
+    if (webAppUrl && webAppUrl.startsWith('https://')) {
+      keyboard.push([{ text: '📊 Открыть дневник', web_app: { url: webAppUrl } }]);
+    }
+    keyboard.push([{ text: '⭐ Premium подписка', callback_data: 'show_premium' }]);
+    
+    // Get dynamic welcome message
+    const welcomeMessage = await getMessage('msg.welcome', { name: user.first_name });
+    
+    await ctx.reply(
+      welcomeMessage,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: keyboard as any,
+        },
+      }
+    );
+  });
+
+  bot.command('help', async (ctx) => {
+    const helpMessage = await getMessage('msg.help');
+    await ctx.reply(helpMessage, { parse_mode: 'Markdown' });
+  });
+
+  bot.command('stats', async (ctx) => {
+    const user = ctx.from;
+    if (!user) return;
+    
+    const dbUser = await getOrCreateUser({
+      telegramId: BigInt(user.id),
+      username: user.username,
+      firstName: user.first_name,
+    });
+    
+    const userTimezone = (dbUser as { timezone?: string }).timezone || 'UTC';
+    const today = await countTodayEntries(dbUser.id, userTimezone);
+    const tier = await getEffectiveTier(dbUser.id);
+    const limits = await getTierLimits(tier);
+    
+    const dailyLimit = limits.dailyEntries === -1 ? '∞' : limits.dailyEntries;
+    const voiceLimit = limits.voiceDaily === -1 ? '∞' : limits.voiceDaily;
+    
+    await ctx.reply(
+      `📊 *Твоя статистика:*\n\n` +
+      `📝 Записей сегодня: ${today.total}/${dailyLimit}\n` +
+      `🎤 Голосовых сегодня: ${today.voice}/${voiceLimit}\n` +
+      `⭐ Тариф: ${tier === 'free' ? 'Бесплатный' : tier === 'basic' ? 'Basic' : 'Premium'}\n` +
+      `💰 Баланс: ${dbUser.balanceStars} Stars`,
+      { parse_mode: 'Markdown' }
+    );
+  });
+
+  bot.command('premium', async (ctx) => {
+    // Get dynamic pricing
+    const [basicPricing, premiumPricing, basicLimits, premiumLimits] = await Promise.all([
+      getSubscriptionPricing('basic'),
+      getSubscriptionPricing('premium'),
+      configService.getTierLimits('basic'),
+      configService.getTierLimits('premium'),
+    ]);
+    
+    const premiumEntriesText = premiumLimits.dailyEntries === -1 ? 'Безлимитные записи' : `${premiumLimits.dailyEntries} записей в день`;
+    const premiumVoiceText = premiumLimits.voiceDaily === -1 ? 'Безлимитные голосовые' : `${premiumLimits.voiceDaily} голосовых в день`;
+    
+    await ctx.reply(
+      `⭐ *Premium подписка*\n\n` +
+      `*Basic (${basicPricing.stars} Stars/мес):*\n` +
+      `• ${basicLimits.dailyEntries} записей в день\n` +
+      `• ${basicLimits.voiceDaily} голосовых в день\n\n` +
+      `*Premium (${premiumPricing.stars} Stars/мес):*\n` +
+      `• ${premiumEntriesText}\n` +
+      `• ${premiumVoiceText}\n` +
+      `• Расширенная аналитика\n\n` +
+      `Для оформления подписки нажми кнопку ниже:`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: `💳 Оформить Basic — ${basicPricing.stars} ⭐`, callback_data: 'buy_basic' }],
+            [{ text: `💳 Оформить Premium — ${premiumPricing.stars} ⭐`, callback_data: 'buy_premium' }],
+          ],
+        },
+      }
+    );
+  });
+
+  // ============================================
+  // CALLBACK QUERIES
+  // ============================================
+
+  bot.callbackQuery('show_premium', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    
+    const [basicPricing, premiumPricing] = await Promise.all([
+      getSubscriptionPricing('basic'),
+      getSubscriptionPricing('premium'),
+    ]);
+    
+    await ctx.reply(
+      `⭐ *Выбери тариф:*`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: `💳 Basic — ${basicPricing.stars} ⭐/мес`, callback_data: 'buy_basic' }],
+            [{ text: `💳 Premium — ${premiumPricing.stars} ⭐/мес`, callback_data: 'buy_premium' }],
+          ],
+        },
+      }
+    );
+  });
+
+  bot.callbackQuery(/^buy_(basic|premium)$/, async (ctx) => {
+    const tier = ctx.match![1] as 'basic' | 'premium';
+    
+    await ctx.answerCallbackQuery();
+    
+    // Get dynamic pricing
+    const pricing = await getSubscriptionPricing(tier);
+    
+    await ctx.replyWithInvoice(
+      `Подписка ${tier === 'basic' ? 'Basic' : 'Premium'}`,
+      `Ежемесячная подписка на AI Mindful Journal`,
+      `sub_${tier}_${Date.now()}`,
+      'XTR',
+      [{ label: 'Подписка', amount: pricing.stars }]
+    );
+  });
+
+  // ============================================
+  // ОБРАБОТКА ПЛАТЕЖЕЙ
+  // ============================================
+
+  bot.on('pre_checkout_query', async (ctx) => {
+    await ctx.answerPreCheckoutQuery(true);
+  });
+
+  bot.on('message:successful_payment', async (ctx) => {
+    const payment = ctx.message.successful_payment;
+    const user = ctx.from;
+    
+    if (!user || !payment) return;
+    
+    botLogger.info({
+      telegramId: user.id,
+      amount: payment.total_amount,
+      currency: payment.currency,
+      payload: payment.invoice_payload,
+    }, 'Successful payment received');
+    
+    const successMessage = await getMessage('msg.payment_success');
+    await ctx.reply(successMessage);
+  });
+
+  // ============================================
+  // ОБРАБОТКА ТЕКСТОВЫХ СООБЩЕНИЙ
+  // ============================================
+
+  bot.on('message:text', async (ctx) => {
+    const user = ctx.from;
+    const text = ctx.message.text;
+    
+    if (!user || !text) return;
+    if (text.startsWith('/')) return;
+    
+    const dbUser = await getOrCreateUser({
+      telegramId: BigInt(user.id),
+      username: user.username,
+      firstName: user.first_name,
+    });
+    
+    const userTimezone = (dbUser as { timezone?: string }).timezone || 'UTC';
+    const today = await countTodayEntries(dbUser.id, userTimezone);
+    const tier = await getEffectiveTier(dbUser.id);
+    const limitCheck = await checkLimitsAsync(tier, today.total, today.voice, false);
+    
+    if (!limitCheck.allowed) {
+      const limitMessage = await getMessage('msg.limit_exceeded', { reason: limitCheck.reason || '' });
+      await ctx.reply(limitMessage);
+      return;
+    }
+    
+    await ctx.replyWithChatAction('typing');
+    
+    try {
+      const entry = await createEntry({
+        userId: dbUser.id,
+        textContent: text,
+        isVoice: false,
+      });
+      
+      const analysis = await analyzeMood(text);
+      
+      await processEntry(entry.id, analysis.result);
+      
+      await logUsage({
+        userId: dbUser.id,
+        entryId: entry.id,
+        serviceType: 'gpt_4o_mini',
+        modelName: 'gpt-4o-mini',
+        inputTokens: analysis.usage.inputTokens,
+        outputTokens: analysis.usage.outputTokens,
+        costUsd: analysis.usage.costUsd,
+        requestId: analysis.requestId,
+      });
+      
+      const moodEmoji = getMoodEmoji(analysis.result.moodScore);
+      const tags = analysis.result.tags.map(t => `#${t}`).join(' ');
+      
+      await ctx.reply(
+        `${moodEmoji} *Настроение: ${analysis.result.moodScore}/10* (${analysis.result.moodLabel})\n\n` +
+        `📝 ${analysis.result.summary}\n\n` +
+        `💡 ${analysis.result.suggestions}\n\n` +
+        `${tags}`,
+        { parse_mode: 'Markdown' }
+      );
+      
+    } catch (error) {
+      botLogger.error({ error }, 'Failed to process text message');
+      const errorMessage = await getMessage('msg.error_generic');
+      await ctx.reply(errorMessage);
+    }
+  });
+
+  // ============================================
+  // ОБРАБОТКА ГОЛОСОВЫХ СООБЩЕНИЙ
+  // ============================================
+
+  bot.on('message:voice', async (ctx) => {
+    const user = ctx.from;
+    const voice = ctx.message.voice;
+    
+    if (!user || !voice) return;
+    
+    const dbUser = await getOrCreateUser({
+      telegramId: BigInt(user.id),
+      username: user.username,
+      firstName: user.first_name,
+    });
+    
+    const userTimezone = (dbUser as { timezone?: string }).timezone || 'UTC';
+    const today = await countTodayEntries(dbUser.id, userTimezone);
+    const tier = await getEffectiveTier(dbUser.id);
+    const limitCheck = await checkLimitsAsync(tier, today.total, today.voice, true);
+    
+    if (!limitCheck.allowed) {
+      const limitMessage = await getMessage('msg.limit_exceeded', { reason: limitCheck.reason || '' });
+      await ctx.reply(limitMessage);
+      return;
+    }
+    
+    await ctx.replyWithChatAction('typing');
+    const voiceProcessingMsg = await getMessage('msg.voice_processing');
+    const statusMsg = await ctx.reply(voiceProcessingMsg);
+    
+    try {
+      const file = await ctx.api.getFile(voice.file_id);
+      const fileUrl = `https://api.telegram.org/file/bot${token}/${file.file_path}`;
+      
+      const result = await processVoiceMessage(fileUrl, voice.duration);
+      
+      const entry = await createEntry({
+        userId: dbUser.id,
+        textContent: result.transcription.text,
+        isVoice: true,
+        voiceFileId: voice.file_id,
+        voiceDurationSeconds: voice.duration,
+      });
+      
+      await processEntry(entry.id, result.analysis.result);
+      
+      await logUsage({
+        userId: dbUser.id,
+        entryId: entry.id,
+        serviceType: 'whisper_1',
+        modelName: 'whisper-1',
+        durationSeconds: voice.duration,
+        costUsd: result.transcription.usage.costUsd,
+      });
+      
+      await logUsage({
+        userId: dbUser.id,
+        entryId: entry.id,
+        serviceType: 'gpt_4o_mini',
+        modelName: 'gpt-4o-mini',
+        inputTokens: result.analysis.usage.inputTokens,
+        outputTokens: result.analysis.usage.outputTokens,
+        costUsd: result.analysis.usage.costUsd,
+      });
+      
+      await statusMsg.delete().catch(() => {});
+      
+      const moodEmoji = getMoodEmoji(result.analysis.result.moodScore);
+      const tags = result.analysis.result.tags.map(t => `#${t}`).join(' ');
+      
+      await ctx.reply(
+        `${moodEmoji} *Настроение: ${result.analysis.result.moodScore}/10* (${result.analysis.result.moodLabel})\n\n` +
+        `🎤 _"${truncate(result.transcription.text, 200)}"_\n\n` +
+        `📝 ${result.analysis.result.summary}\n\n` +
+        `💡 ${result.analysis.result.suggestions}\n\n` +
+        `${tags}`,
+        { parse_mode: 'Markdown' }
+      );
+      
+    } catch (error) {
+      botLogger.error({ error }, 'Failed to process voice message');
+      await statusMsg.delete().catch(() => {});
+      const errorMessage = await getMessage('msg.error_generic');
+      await ctx.reply(errorMessage);
+    }
+  });
+
+  // ============================================
+  // ERROR HANDLING
+  // ============================================
+
+  bot.catch((err) => {
+    const ctx = err.ctx;
+    const e = err.error;
+    
+    botLogger.error({ error: e, update: ctx.update }, 'Bot error');
+    
+    if (e instanceof GrammyError) {
+      botLogger.error(`Grammy error: ${e.description}`);
+    } else if (e instanceof HttpError) {
+      botLogger.error(`HTTP error: ${e}`);
+    }
+  });
+  
+  return bot;
+}
+
+// ============================================
+// ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+// ============================================
+
+function getMoodEmoji(score: number): string {
+  if (score >= 9) return '🤩';
+  if (score >= 7) return '😊';
+  if (score >= 5) return '😐';
+  if (score >= 3) return '😔';
+  return '😢';
+}
+
+function truncate(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text;
+  return text.slice(0, maxLength - 3) + '...';
+}
+
+// ============================================
+// ЭКСПОРТ
+// ============================================
+
+export function getBot(): Bot<MyContext> | null {
+  return botInstance;
+}
+
+export function initBot(): Bot<MyContext> | null {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  
+  if (!token) {
+    botLogger.warn('TELEGRAM_BOT_TOKEN not set, bot disabled');
+    return null;
+  }
+  
+  botInstance = createBot(token);
+  return botInstance;
+}
+
+export { botInstance as bot };
