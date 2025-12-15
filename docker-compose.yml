@@ -1,0 +1,115 @@
+# AI Mindful Journal - Docker Setup
+# Run: docker-compose up -d
+
+version: '3.8'
+
+services:
+  # ============================================
+  # PostgreSQL Database
+  # ============================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: mindful_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: mindful_journal
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-your-secure-password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d mindful_journal"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================
+  # Directus CMS (Admin Panel)
+  # ============================================
+  directus:
+    image: directus/directus:10.13
+    container_name: mindful_directus
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8055:8055"
+    volumes:
+      - directus_uploads:/directus/uploads
+      - directus_extensions:/directus/extensions
+    environment:
+      # Security
+      KEY: ${DIRECTUS_KEY:-replace-with-random-uuid}
+      SECRET: ${DIRECTUS_SECRET:-replace-with-random-secret}
+      
+      # Database
+      DB_CLIENT: pg
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: mindful_journal
+      DB_USER: postgres
+      DB_PASSWORD: ${DB_PASSWORD:-your-secure-password}
+      
+      # Admin Account
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@mindfuljournal.app}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-your-admin-password}
+      
+      # CORS (for Mini App)
+      CORS_ENABLED: "true"
+      CORS_ORIGIN: "true"
+      
+      # Flows
+      FLOWS_EXEC_ALLOWED_MODULES: "axios,node-fetch"
+      
+      # Cache (optional, for production)
+      # CACHE_ENABLED: "true"
+      # CACHE_STORE: "redis"
+      # REDIS_HOST: redis
+
+  # ============================================
+  # Redis (Optional - for caching & rate limiting)
+  # ============================================
+  redis:
+    image: redis:7-alpine
+    container_name: mindful_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+
+  # ============================================
+  # Bot + API Server (will be added later)
+  # ============================================
+  # server:
+  #   build: ./server
+  #   container_name: mindful_server
+  #   restart: unless-stopped
+  #   depends_on:
+  #     - postgres
+  #     - redis
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     NODE_ENV: production
+  #     DATABASE_URL: postgresql://postgres:${DB_PASSWORD}@postgres:5432/mindful_journal
+  #     REDIS_URL: redis://redis:6379
+  #     DIRECTUS_URL: http://directus:8055
+  #     DIRECTUS_TOKEN: ${DIRECTUS_TOKEN}
+  #     TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+  #     OPENAI_API_KEY: ${OPENAI_API_KEY}
+
+volumes:
+  postgres_data:
+  directus_uploads:
+  directus_extensions:
+  redis_data:
+
+networks:
+  default:
+    name: mindful_network
