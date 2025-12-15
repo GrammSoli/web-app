@@ -7,6 +7,7 @@ import {
   processEntry,
   logUsage,
   countTodayEntries,
+  getTodayVoiceUsageSeconds,
   getEffectiveTier,
 } from '../services/user.js';
 import { analyzeMood, processVoiceMessage } from '../services/openai.js';
@@ -94,17 +95,24 @@ export function createBot(token: string): Bot<MyContext> {
     });
     
     const userTimezone = (dbUser as { timezone?: string }).timezone || 'UTC';
-    const today = await countTodayEntries(dbUser.id, userTimezone);
+    
+    // Get both entry count and voice usage
+    const [today, usedVoiceSeconds] = await Promise.all([
+      countTodayEntries(dbUser.id, userTimezone),
+      getTodayVoiceUsageSeconds(dbUser.id, userTimezone),
+    ]);
+    
     const tier = await getEffectiveTier(dbUser.id);
     const limits = await getTierLimits(tier);
     
     const dailyLimit = limits.dailyEntries === -1 ? '∞' : limits.dailyEntries;
-    const voiceLimit = limits.voiceDaily === -1 ? '∞' : limits.voiceDaily;
+    const voiceLimitMinutes = limits.voiceMinutesDaily === -1 ? '∞' : limits.voiceMinutesDaily;
+    const usedVoiceMinutes = Math.round((usedVoiceSeconds / 60) * 10) / 10; // Round to 1 decimal
     
     await ctx.reply(
       `📊 *Твоя статистика:*\n\n` +
       `📝 Записей сегодня: ${today.total}/${dailyLimit}\n` +
-      `🎤 Голосовых сегодня: ${today.voice}/${voiceLimit}\n` +
+      `🎤 Голосовых минут сегодня: ${usedVoiceMinutes}/${voiceLimitMinutes}\n` +
       `⭐ Тариф: ${tier === 'free' ? 'Бесплатный' : tier === 'basic' ? 'Basic' : 'Premium'}\n` +
       `💰 Баланс: ${dbUser.balanceStars} Stars`,
       { parse_mode: 'Markdown' }
@@ -121,13 +129,13 @@ export function createBot(token: string): Bot<MyContext> {
     ]);
     
     const premiumEntriesText = premiumLimits.dailyEntries === -1 ? 'Безлимитные записи' : `${premiumLimits.dailyEntries} записей в день`;
-    const premiumVoiceText = premiumLimits.voiceDaily === -1 ? 'Безлимитные голосовые' : `${premiumLimits.voiceDaily} голосовых в день`;
+    const premiumVoiceText = premiumLimits.voiceMinutesDaily === -1 ? 'Безлимит голосовых минут' : `${premiumLimits.voiceMinutesDaily} минут голосовых в день`;
     
     await ctx.reply(
       `⭐ *Premium подписка*\n\n` +
       `*Basic (${basicPricing.stars} Stars/мес):*\n` +
       `• ${basicLimits.dailyEntries} записей в день\n` +
-      `• ${basicLimits.voiceDaily} голосовых в день\n\n` +
+      `• ${basicLimits.voiceMinutesDaily} минут голосовых в день\n\n` +
       `*Premium (${premiumPricing.stars} Stars/мес):*\n` +
       `• ${premiumEntriesText}\n` +
       `• ${premiumVoiceText}\n` +
@@ -233,7 +241,8 @@ export function createBot(token: string): Bot<MyContext> {
     const userTimezone = (dbUser as { timezone?: string }).timezone || 'UTC';
     const today = await countTodayEntries(dbUser.id, userTimezone);
     const tier = await getEffectiveTier(dbUser.id);
-    const limitCheck = await checkLimitsAsync(tier, today.total, today.voice, false);
+    // For text messages: pass 0 for voice seconds (not a voice message)
+    const limitCheck = await checkLimitsAsync(tier, today.total, 0, false, 0);
     
     if (!limitCheck.allowed) {
       const limitMessage = await getMessage('msg.limit_exceeded', { reason: limitCheck.reason || '' });
@@ -300,9 +309,25 @@ export function createBot(token: string): Bot<MyContext> {
     });
     
     const userTimezone = (dbUser as { timezone?: string }).timezone || 'UTC';
-    const today = await countTodayEntries(dbUser.id, userTimezone);
+    
+    // Get today's usage data
+    const [todayEntries, usedVoiceSecondsToday] = await Promise.all([
+      countTodayEntries(dbUser.id, userTimezone),
+      getTodayVoiceUsageSeconds(dbUser.id, userTimezone),
+    ]);
+    
     const tier = await getEffectiveTier(dbUser.id);
-    const limitCheck = await checkLimitsAsync(tier, today.total, today.voice, true);
+    
+    // CRITICAL: Check limits BEFORE sending to OpenAI Whisper
+    // We use voice.duration from Telegram (available immediately) to check
+    // if the user will exceed their limit after this message
+    const limitCheck = await checkLimitsAsync(
+      tier,
+      todayEntries.total,
+      usedVoiceSecondsToday,
+      true,
+      voice.duration // Duration of the new voice message in seconds
+    );
     
     if (!limitCheck.allowed) {
       const limitMessage = await getMessage('msg.limit_exceeded', { reason: limitCheck.reason || '' });

@@ -52,17 +52,17 @@ const DEFAULTS: Record<string, unknown> = {
   // Limits - Free
   'limits.free.daily_entries': 5,
   'limits.free.voice_allowed': false,
-  'limits.free.voice_daily': 0,
+  'limits.free.voice_minutes_daily': 0,
   
   // Limits - Basic
   'limits.basic.daily_entries': 20,
   'limits.basic.voice_allowed': true,
-  'limits.basic.voice_daily': 5,
+  'limits.basic.voice_minutes_daily': 5,
   
   // Limits - Premium
   'limits.premium.daily_entries': -1,
   'limits.premium.voice_allowed': true,
-  'limits.premium.voice_daily': -1,
+  'limits.premium.voice_minutes_daily': -1,
   
   // AI
   'ai.default_model': 'gpt-4o-mini',
@@ -214,15 +214,15 @@ class ConfigService {
   async getTierLimits(tier: 'free' | 'basic' | 'premium'): Promise<{
     dailyEntries: number;
     voiceAllowed: boolean;
-    voiceDaily: number;
+    voiceMinutesDaily: number;
   }> {
-    const [dailyEntries, voiceAllowed, voiceDaily] = await Promise.all([
+    const [dailyEntries, voiceAllowed, voiceMinutesDaily] = await Promise.all([
       this.getNumber(`limits.${tier}.daily_entries`),
       this.getBool(`limits.${tier}.voice_allowed`),
-      this.getNumber(`limits.${tier}.voice_daily`),
+      this.getNumber(`limits.${tier}.voice_minutes_daily`),
     ]);
 
-    return { dailyEntries, voiceAllowed, voiceDaily };
+    return { dailyEntries, voiceAllowed, voiceMinutesDaily };
   }
 
   /**

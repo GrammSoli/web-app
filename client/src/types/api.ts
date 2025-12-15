@@ -65,7 +65,7 @@ export interface SubscriptionPlan {
   features: string[];
   limits: {
     dailyEntries: number | null;
-    voiceDaily: number | null;
+    voiceMinutesDaily: number | null;
   };
 }
 

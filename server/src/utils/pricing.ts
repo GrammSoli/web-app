@@ -27,9 +27,9 @@ const DEFAULT_OPENAI_PRICING = {
 const DEFAULT_STARS_RATE = 0.02;
 
 const DEFAULT_TIER_LIMITS = {
-  free: { dailyEntries: 5, voiceAllowed: false, voiceDaily: 0 },
-  basic: { dailyEntries: 20, voiceAllowed: true, voiceDaily: 5 },
-  premium: { dailyEntries: -1, voiceAllowed: true, voiceDaily: -1 },
+  free: { dailyEntries: 5, voiceAllowed: false, voiceMinutesDaily: 0 },
+  basic: { dailyEntries: 20, voiceAllowed: true, voiceMinutesDaily: 5 },
+  premium: { dailyEntries: -1, voiceAllowed: true, voiceMinutesDaily: -1 },
 } as const;
 
 const DEFAULT_SUBSCRIPTION_PRICES = {
@@ -88,7 +88,7 @@ export async function getStarsToUsdRate(): Promise<number> {
 export async function getTierLimits(tier: SubscriptionTier): Promise<{
   dailyEntries: number;
   voiceAllowed: boolean;
-  voiceDaily: number;
+  voiceMinutesDaily: number;
 }> {
   return configService.getTierLimits(tier);
 }
@@ -215,15 +215,40 @@ export async function usdToStarsAsync(usd: number): Promise<number> {
 // LIMIT CHECKING (async)
 // ============================================
 
+export interface VoiceLimitCheckParams {
+  tier: SubscriptionTier;
+  currentDailyEntries: number;
+  /** Total voice seconds used today (from usage_logs) */
+  usedVoiceSecondsToday: number;
+  /** Duration of the new voice message in seconds (from Telegram) */
+  newVoiceDurationSeconds?: number;
+}
+
+export interface LimitCheckResult {
+  allowed: boolean;
+  reason?: string;
+  /** Used voice minutes today (for display) */
+  usedVoiceMinutes?: number;
+  /** Limit in minutes (for display) */
+  limitVoiceMinutes?: number;
+}
+
 /**
  * Check user limits against tier (async version)
+ * 
+ * For voice messages, checks are based on TOTAL DURATION (minutes) per day,
+ * not the count of messages. This aligns with OpenAI Whisper pricing.
+ * 
+ * IMPORTANT: This check must be performed BEFORE sending audio to OpenAI
+ * to avoid paying for audio that won't be processed.
  */
 export async function checkLimitsAsync(
   tier: SubscriptionTier,
   currentDailyEntries: number,
-  currentDailyVoice: number,
-  isVoice: boolean
-): Promise<{ allowed: boolean; reason?: string }> {
+  usedVoiceSecondsToday: number,
+  isVoice: boolean,
+  newVoiceDurationSeconds: number = 0
+): Promise<LimitCheckResult> {
   // Check maintenance mode first
   const maintenanceMode = await configService.getBool('feature.maintenance_mode', false);
   if (maintenanceMode) {
@@ -254,12 +279,20 @@ export async function checkLimitsAsync(
     };
   }
   
-  // Check voice daily limit
-  if (isVoice && limits.voiceDaily !== -1 && currentDailyVoice >= limits.voiceDaily) {
-    return {
-      allowed: false,
-      reason: `Достигнут лимит голосовых записей (${limits.voiceDaily}/день)`,
-    };
+  // Check voice minutes daily limit (duration-based, not count-based)
+  if (isVoice && limits.voiceMinutesDaily !== -1) {
+    const totalSecondsAfterThis = usedVoiceSecondsToday + newVoiceDurationSeconds;
+    const totalMinutesAfterThis = totalSecondsAfterThis / 60;
+    const usedMinutes = Math.round((usedVoiceSecondsToday / 60) * 10) / 10; // Round to 1 decimal
+    
+    if (totalMinutesAfterThis > limits.voiceMinutesDaily) {
+      return {
+        allowed: false,
+        reason: `⏳ Вы использовали ${usedMinutes}/${limits.voiceMinutesDaily} минут голосового лимита.\n\nОформи Premium для увеличения лимита! /premium`,
+        usedVoiceMinutes: usedMinutes,
+        limitVoiceMinutes: limits.voiceMinutesDaily,
+      };
+    }
   }
   
   // Check total daily limit
@@ -275,13 +308,15 @@ export async function checkLimitsAsync(
 
 /**
  * Check limits (sync version with static defaults)
+ * For voice, checks duration in minutes (not count)
  */
 export function checkLimits(
   tier: SubscriptionTier,
   currentDailyEntries: number,
-  currentDailyVoice: number,
-  isVoice: boolean
-): { allowed: boolean; reason?: string } {
+  usedVoiceSecondsToday: number,
+  isVoice: boolean,
+  newVoiceDurationSeconds: number = 0
+): LimitCheckResult {
   const limits = DEFAULT_TIER_LIMITS[tier];
   
   if (isVoice && !limits.voiceAllowed) {
@@ -291,11 +326,20 @@ export function checkLimits(
     };
   }
   
-  if (isVoice && limits.voiceDaily !== -1 && currentDailyVoice >= limits.voiceDaily) {
-    return {
-      allowed: false,
-      reason: `Достигнут лимит голосовых записей (${limits.voiceDaily}/день)`,
-    };
+  // Check voice minutes limit (duration-based)
+  if (isVoice && limits.voiceMinutesDaily !== -1) {
+    const totalSecondsAfterThis = usedVoiceSecondsToday + newVoiceDurationSeconds;
+    const totalMinutesAfterThis = totalSecondsAfterThis / 60;
+    const usedMinutes = Math.round((usedVoiceSecondsToday / 60) * 10) / 10;
+    
+    if (totalMinutesAfterThis > limits.voiceMinutesDaily) {
+      return {
+        allowed: false,
+        reason: `⏳ Вы использовали ${usedMinutes}/${limits.voiceMinutesDaily} минут голосового лимита.\n\nОформи Premium для увеличения лимита! /premium`,
+        usedVoiceMinutes: usedMinutes,
+        limitVoiceMinutes: limits.voiceMinutesDaily,
+      };
+    }
   }
   
   if (limits.dailyEntries !== -1 && currentDailyEntries >= limits.dailyEntries) {

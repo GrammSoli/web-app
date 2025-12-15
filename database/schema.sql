@@ -249,9 +249,9 @@ INSERT INTO app_settings (key, value, description) VALUES
     ('pricing_stars', '{"basic_monthly": 50, "premium_monthly": 150}', 'Subscription prices in Telegram Stars'),
     ('pricing_usd_rate', '{"stars_to_usd": 0.02}', 'Conversion rate: 1 Star = $0.02'),
     ('ai_pricing', '{"gpt4o_mini_input": 0.00000015, "gpt4o_mini_output": 0.0000006, "whisper_per_minute": 0.006}', 'OpenAI API pricing'),
-    ('limits_free', '{"daily_entries": 5, "voice_allowed": false}', 'Free tier limits'),
-    ('limits_basic', '{"daily_entries": 20, "voice_allowed": true, "voice_daily": 5}', 'Basic tier limits'),
-    ('limits_premium', '{"daily_entries": -1, "voice_allowed": true, "voice_daily": -1}', 'Premium tier limits (-1 = unlimited)'),
+    ('limits_free', '{"daily_entries": 5, "voice_allowed": false, "voice_minutes_daily": 0}', 'Free tier limits'),
+    ('limits_basic', '{"daily_entries": 20, "voice_allowed": true, "voice_minutes_daily": 5}', 'Basic tier limits'),
+    ('limits_premium', '{"daily_entries": -1, "voice_allowed": true, "voice_minutes_daily": -1}', 'Premium tier limits (-1 = unlimited)'),
     ('maintenance_mode', 'false', 'Enable maintenance mode'),
     ('admin_telegram_ids', '[437257453]', 'List of admin Telegram IDs');
 

@@ -89,17 +89,17 @@ INSERT INTO app_config (key, value, value_type, category, description, default_v
 -- === LIMITS: Free tier ===
 ('limits.free.daily_entries', '5', 'number', 'limits', 'Free tier daily entries limit', '5'),
 ('limits.free.voice_allowed', 'false', 'boolean', 'limits', 'Free tier voice messages allowed', 'false'),
-('limits.free.voice_daily', '0', 'number', 'limits', 'Free tier daily voice limit', '0'),
+('limits.free.voice_minutes_daily', '0', 'number', 'limits', 'Free tier daily voice limit in minutes', '0'),
 
 -- === LIMITS: Basic tier ===
 ('limits.basic.daily_entries', '20', 'number', 'limits', 'Basic tier daily entries limit', '20'),
 ('limits.basic.voice_allowed', 'true', 'boolean', 'limits', 'Basic tier voice messages allowed', 'true'),
-('limits.basic.voice_daily', '5', 'number', 'limits', 'Basic tier daily voice limit', '5'),
+('limits.basic.voice_minutes_daily', '5', 'number', 'limits', 'Basic tier daily voice limit in minutes', '5'),
 
 -- === LIMITS: Premium tier ===
 ('limits.premium.daily_entries', '-1', 'number', 'limits', 'Premium tier daily entries limit (-1 = unlimited)', '-1'),
 ('limits.premium.voice_allowed', 'true', 'boolean', 'limits', 'Premium tier voice messages allowed', 'true'),
-('limits.premium.voice_daily', '-1', 'number', 'limits', 'Premium tier daily voice limit (-1 = unlimited)', '-1'),
+('limits.premium.voice_minutes_daily', '-1', 'number', 'limits', 'Premium tier daily voice limit in minutes (-1 = unlimited)', '-1'),
 
 -- === AI SETTINGS ===
 ('ai.default_model', 'gpt-4o-mini', 'string', 'ai', 'Default AI model for mood analysis', 'gpt-4o-mini'),

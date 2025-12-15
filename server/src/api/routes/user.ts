@@ -72,7 +72,7 @@ router.get('/me', async (req: Request, res: Response) => {
       limits: {
         dailyEntries: limits.dailyEntries,
         voiceAllowed: limits.voiceAllowed,
-        voiceDaily: limits.voiceDaily,
+        voiceMinutesDaily: limits.voiceMinutesDaily,
       },
     });
   } catch (error) {

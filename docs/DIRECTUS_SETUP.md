@@ -185,7 +185,7 @@ npx directus start
 |------|-----|----------------------|----------|
 | `limits.free.daily_entries` | number | `5` | Записей в день |
 | `limits.free.voice_allowed` | boolean | `false` | Голосовые разрешены |
-| `limits.free.voice_daily` | number | `0` | Голосовых в день |
+| `limits.free.voice_minutes_daily` | number | `0` | Минут голосовых в день |
 
 ##### Limits - Basic
 
@@ -193,7 +193,7 @@ npx directus start
 |------|-----|----------------------|----------|
 | `limits.basic.daily_entries` | number | `20` | Записей в день |
 | `limits.basic.voice_allowed` | boolean | `true` | Голосовые разрешены |
-| `limits.basic.voice_daily` | number | `5` | Голосовых в день |
+| `limits.basic.voice_minutes_daily` | number | `5` | Минут голосовых в день |
 
 ##### Limits - Premium
 
@@ -201,7 +201,7 @@ npx directus start
 |------|-----|----------------------|----------|
 | `limits.premium.daily_entries` | number | `-1` | Записей в день (-1 = безлимит) |
 | `limits.premium.voice_allowed` | boolean | `true` | Голосовые разрешены |
-| `limits.premium.voice_daily` | number | `-1` | Голосовых в день (-1 = безлимит) |
+| `limits.premium.voice_minutes_daily` | number | `-1` | Минут голосовых в день (-1 = безлимит) |
 
 ##### AI Settings
 

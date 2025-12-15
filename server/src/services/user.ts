@@ -267,6 +267,35 @@ export async function countTodayEntries(
 }
 
 /**
+ * Получить общую длительность голосовых сообщений за сегодня (в секундах)
+ * Суммирует duration_seconds из usage_logs для whisper-1 за текущий день
+ * 
+ * ВАЖНО: Используется для проверки лимитов ПЕРЕД отправкой в OpenAI Whisper
+ */
+export async function getTodayVoiceUsageSeconds(
+  userId: string,
+  timezone: string = 'UTC'
+): Promise<number> {
+  const { start, end } = getTodayBoundsForTimezone(timezone);
+  
+  const result = await prisma.usageLog.aggregate({
+    where: {
+      userId,
+      serviceType: 'whisper_1',
+      dateCreated: {
+        gte: start,
+        lte: end,
+      },
+    },
+    _sum: {
+      durationSeconds: true,
+    },
+  });
+  
+  return result._sum.durationSeconds || 0;
+}
+
+/**
  * Получить границы "сегодня" в указанной таймзоне (возвращает UTC Date)
  */
 function getTodayBoundsForTimezone(timezone: string): { start: Date; end: Date } {
@@ -494,6 +523,7 @@ export default {
   markEntryError,
   getUserEntries,
   countTodayEntries,
+  getTodayVoiceUsageSeconds,
   getTodayEntries,
   logUsage,
   activateSubscription,
