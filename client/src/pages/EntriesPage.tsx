@@ -328,12 +328,12 @@ export default function EntriesPage() {
                 <Calendar className="w-3.5 h-3.5" />
                 Период
               </div>
-              <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
+              <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
                 {(['all', 'today', 'week', 'month'] as DateFilter[]).map((filter) => (
                   <button
                     key={filter}
                     onClick={() => setDateFilter(filter)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all flex-shrink-0
                       ${dateFilter === filter 
                         ? 'bg-indigo-500 text-white shadow-sm' 
                         : 'bg-gray-50 text-gray-600 active:bg-gray-100'}`}
@@ -344,7 +344,7 @@ export default function EntriesPage() {
                 {/* Custom date - Premium */}
                 <button
                   onClick={() => isFree ? handlePremiumFeature() : setDateFilter('custom')}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all flex items-center gap-1
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all flex items-center gap-1 flex-shrink-0
                     ${dateFilter === 'custom' 
                       ? 'bg-indigo-500 text-white shadow-sm' 
                       : 'bg-gray-50 text-gray-600 active:bg-gray-100'}`}
