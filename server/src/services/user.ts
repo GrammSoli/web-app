@@ -1,7 +1,7 @@
 import { prisma } from './database.js';
 import { Prisma, User, JournalEntry, SubscriptionTier } from '@prisma/client';
 import { dbLogger } from '../utils/logger.js';
-import { SUBSCRIPTION_PRICES } from '../utils/pricing.js';
+import { getSubscriptionPricing } from '../utils/pricing.js';
 import type { MoodAnalysisResult } from './openai.js';
 
 // ============================================
@@ -414,7 +414,7 @@ export async function activateSubscription(
   tier: 'basic' | 'premium',
   transactionId?: string
 ): Promise<void> {
-  const pricing = SUBSCRIPTION_PRICES[tier];
+  const pricing = await getSubscriptionPricing(tier);
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + pricing.durationDays);
   

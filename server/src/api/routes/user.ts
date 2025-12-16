@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { telegramAuth } from '../middleware/auth.js';
 import { timezoneMiddleware, isValidTimezone } from '../middleware/timezone.js';
 import { getUserEntries, countTodayEntries, getEffectiveTier, updateUserTimezone, createEntry, processEntry, logUsage, getTodayVoiceUsageSeconds } from '../../services/user.js';
-import { getTierLimits, SUBSCRIPTION_PRICES } from '../../utils/pricing.js';
+import { getTierLimits, getSubscriptionPricing } from '../../utils/pricing.js';
 import { analyzeMood } from '../../services/openai.js';
 import { apiLogger } from '../../utils/logger.js';
 
@@ -602,10 +602,19 @@ router.get('/subscription', async (req: Request, res: Response) => {
   const user = req.user!;
   const tier = await getEffectiveTier(user.id);
   
+  // Get prices from config (async)
+  const [basicPricing, premiumPricing] = await Promise.all([
+    getSubscriptionPricing('basic'),
+    getSubscriptionPricing('premium'),
+  ]);
+  
   res.json({
     currentTier: tier,
     expiresAt: user.subscriptionExpiresAt,
-    prices: SUBSCRIPTION_PRICES,
+    prices: {
+      basic: basicPricing,
+      premium: premiumPricing,
+    },
   });
 });
 
