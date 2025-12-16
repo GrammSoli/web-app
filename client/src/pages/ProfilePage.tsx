@@ -40,14 +40,17 @@ export default function ProfilePage() {
     window.location.reload();
   };
 
-  // Usage limits (daily)
-  const limits = {
-    free: { entries: 5, label: '5' },
+  // Usage limits from server (fallback to defaults)
+  const serverLimit = appUser?.limits?.dailyEntries;
+  const defaultLimits: Record<string, { entries: number; label: string }> = {
+    free: { entries: 3, label: '3' },
     basic: { entries: 20, label: '20' },
     premium: { entries: Infinity, label: '∞' },
   };
-  const limit = limits[currentTier];
-  const usagePercent = currentTier === 'premium' 
+  const limit = serverLimit !== undefined && serverLimit !== null
+    ? { entries: serverLimit === -1 ? Infinity : serverLimit, label: serverLimit === -1 ? '∞' : String(serverLimit) }
+    : defaultLimits[currentTier];
+  const usagePercent = limit.entries === Infinity 
     ? 0 
     : Math.min(((appUser?.stats?.todayEntries || 0) / limit.entries) * 100, 100);
 
