@@ -24,40 +24,10 @@ export function createApp() {
     credentials: true,
   }));
   
-  // Body parsing
-  app.use(express.json({ limit: '1mb' }));
-  app.use(express.urlencoded({ extended: true }));
-  
-  // Request logging
-  app.use((req, res, next) => {
-    const start = Date.now();
-    res.on('finish', () => {
-      const duration = Date.now() - start;
-      apiLogger.debug({
-        method: req.method,
-        path: req.path,
-        status: res.statusCode,
-        duration,
-      }, 'Request completed');
-    });
-    next();
-  });
-  
-  // Rate limiting для публичных API
-  app.use('/api/user', apiLimiter);
-  app.use('/api/admin', apiLimiter);
-  
-  // Routes
-  app.use('/api/user', userRoutes);
-  app.use('/api/admin', adminRoutes);
-  app.use('/api/internal', internalRoutes);
-  
-  // Health check (публичный)
-  app.get('/health', (_req, res) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
-  });
-  
-  // CryptoPay webhook (публичный, без rate limiting)
+  // ============================================
+  // CryptoPay webhook (MUST be before express.json()!)
+  // Needs raw body for signature verification
+  // ============================================
   app.post('/api/webhook/cryptopay', express.raw({ type: 'application/json' }), async (req, res) => {
     try {
       const signature = req.headers['crypto-pay-api-signature'] as string;
@@ -122,6 +92,39 @@ export function createApp() {
       apiLogger.error({ error }, 'CryptoPay webhook error');
       res.status(500).json({ error: 'Webhook processing failed' });
     }
+  });
+  
+  // Body parsing (AFTER webhook route!)
+  app.use(express.json({ limit: '1mb' }));
+  app.use(express.urlencoded({ extended: true }));
+  
+  // Request logging
+  app.use((req, res, next) => {
+    const start = Date.now();
+    res.on('finish', () => {
+      const duration = Date.now() - start;
+      apiLogger.debug({
+        method: req.method,
+        path: req.path,
+        status: res.statusCode,
+        duration,
+      }, 'Request completed');
+    });
+    next();
+  });
+  
+  // Rate limiting для публичных API
+  app.use('/api/user', apiLimiter);
+  app.use('/api/admin', apiLimiter);
+  
+  // Routes
+  app.use('/api/user', userRoutes);
+  app.use('/api/admin', adminRoutes);
+  app.use('/api/internal', internalRoutes);
+  
+  // Health check (публичный)
+  app.get('/health', (_req, res) => {
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
   });
   
   // 404 handler
