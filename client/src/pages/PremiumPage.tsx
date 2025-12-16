@@ -323,19 +323,19 @@ export default function PremiumPage() {
               haptic.light();
               openLink(plans.promo!.url);
             }}
-            className="bg-white rounded-2xl p-4 cursor-pointer active:scale-[0.98] transition-all border border-gray-100 shadow-sm"
+            className="bg-white dark:bg-gray-800 rounded-2xl p-4 cursor-pointer active:scale-[0.98] transition-all border border-gray-100 dark:border-gray-700 shadow-sm"
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center">
                   <Star className="w-5 h-5 text-amber-500 fill-amber-500" />
                 </div>
                 <div>
-                  <p className="font-semibold text-gray-900 text-sm">{plans.promo.title.replace(/^⭐\s*/, '')}</p>
-                  <p className="text-xs text-gray-500">{plans.promo.subtitle}</p>
+                  <p className="font-semibold text-gray-900 dark:text-white text-sm">{plans.promo.title.replace(/^⭐\s*/, '')}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{plans.promo.subtitle}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-1 text-indigo-500 text-sm font-medium">
+              <div className="flex items-center gap-1 text-indigo-500 dark:text-indigo-400 text-sm font-medium">
                 {plans.promo.buttonText}
                 <ExternalLink className="w-3.5 h-3.5" />
               </div>
@@ -345,7 +345,7 @@ export default function PremiumPage() {
 
         {/* FAQ */}
         <div className="pt-4">
-          <h2 className="text-lg font-bold text-gray-700 mb-3 px-1">Вопросы</h2>
+          <h2 className="text-lg font-bold text-gray-700 dark:text-gray-200 mb-3 px-1">Вопросы</h2>
           <div className="space-y-3">
             <FaqItem 
               q="Как работает оплата?" 
@@ -377,15 +377,15 @@ function FaqItem({ q, a }: { q: string; a: string }) {
   
   return (
     <div 
-      className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
+      className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden"
       onClick={() => setOpen(!open)}
     >
       <div className="p-4 flex justify-between items-center cursor-pointer">
-        <span className="font-medium text-sm text-gray-700">{q}</span>
+        <span className="font-medium text-sm text-gray-700 dark:text-gray-200">{q}</span>
         <span className={`text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`}>▼</span>
       </div>
       {open && (
-        <div className="px-4 pb-4 text-sm text-gray-500 border-t border-gray-100 pt-3">
+        <div className="px-4 pb-4 text-sm text-gray-500 dark:text-gray-400 border-t border-gray-100 dark:border-gray-700 pt-3">
           {a}
         </div>
       )}
