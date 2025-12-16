@@ -11,7 +11,7 @@ import {
 } from 'recharts';
 import { format, subDays } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { FileText, Smile, Flame, Trophy, TrendingUp, TrendingDown, ArrowRight, BarChart3, Mic, Crown, Lock, Tag, Calendar } from 'lucide-react';
+import { FileText, Smile, Flame, Trophy, TrendingUp, TrendingDown, ArrowRight, BarChart3, Mic, Crown, Tag, Calendar } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import { useTelegram } from '@/hooks/useTelegram';
 
@@ -85,8 +85,8 @@ export default function StatsPage() {
   };
 
   return (
-    <div className="fade-in min-h-screen">
-      <div className="p-4 space-y-4 pt-6">
+    <div className="fade-in min-h-screen relative">
+      <div className={`p-4 space-y-4 pt-6 ${isFree ? 'blur-[6px] pointer-events-none select-none' : ''}`}>
         
         {/* Header */}
         <div className="px-1">
@@ -231,15 +231,14 @@ export default function StatsPage() {
           </div>
         </div>
 
-        {/* Top Tags - Premium Feature */}
+        {/* Top Tags */}
         <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 relative overflow-hidden">
           <h2 className="text-base font-bold text-gray-700 mb-4 flex items-center gap-2">
             <Tag className="w-5 h-5 text-blue-500" />
             Частые теги
-            {isFree && <span className="text-xs text-purple-500 ml-auto">Premium</span>}
           </h2>
           
-          <div className={`flex flex-wrap gap-2 ${isFree ? 'blur-[4px]' : ''}`}>
+          <div className="flex flex-wrap gap-2">
             {(stats.topTags || []).slice(0, 8).map((item, i) => (
               <span
                 key={i}
@@ -253,17 +252,6 @@ export default function StatsPage() {
               <p className="text-gray-400 text-sm">Пока нет тегов</p>
             )}
           </div>
-          
-          {isFree && stats.topTags && stats.topTags.length > 0 && (
-            <div 
-              className="absolute inset-0 flex items-center justify-center cursor-pointer bg-white/30"
-              onClick={() => { haptic.light(); navigate('/premium'); }}
-            >
-              <span className="flex items-center gap-1.5 text-sm text-purple-600 bg-white/95 px-4 py-2 rounded-full shadow-lg border border-purple-100">
-                <Lock className="w-4 h-4" /> Открыть с подпиской
-              </span>
-            </div>
-          )}
         </div>
 
         {/* Daily Limits */}
@@ -289,6 +277,28 @@ export default function StatsPage() {
           </div>
         </div>
       </div>
+
+      {/* Premium CTA Overlay for Free users */}
+      {isFree && (
+        <div 
+          className="absolute inset-0 flex items-center justify-center z-10"
+          onClick={() => { haptic.light(); navigate('/premium'); }}
+        >
+          <div className="bg-white/95 backdrop-blur-sm rounded-3xl p-6 shadow-2xl border border-purple-100 text-center max-w-xs mx-4">
+            <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-purple-500/30">
+              <BarChart3 className="w-8 h-8 text-white" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-800 mb-2">Статистика Premium</h3>
+            <p className="text-gray-500 text-sm mb-4">
+              Графики настроения, тренды, серии и топ теги доступны с подпиской
+            </p>
+            <button className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold py-3 px-6 rounded-xl shadow-lg shadow-purple-500/30 flex items-center justify-center gap-2">
+              <Crown className="w-5 h-5" />
+              Открыть Premium
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
