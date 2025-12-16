@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Preloader } from 'konsta/react';
-import { subDays, isAfter, isBefore, startOfDay, endOfDay, format } from 'date-fns';
+import { subDays, isAfter, isBefore, startOfDay, endOfDay } from 'date-fns';
 import { FileText, ArrowLeft, Search, Filter, X, Calendar, Tag, Eye, EyeOff, Lock, Crown, Sparkles, ArrowUpDown, CalendarRange } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import { useTelegram } from '@/hooks/useTelegram';
@@ -60,7 +60,7 @@ export default function EntriesPage() {
   }, [entriesLoading, hasMoreEntries, searchQuery, fetchEntries]);
 
   // Need to define hasActiveFilters earlier
-  const hasActiveFilters = dateFilter !== 'all' || selectedTags.length > 0 || sortOrder !== 'newest' || (dateFilter === 'custom' && (customDateFrom || customDateTo));
+  const hasActiveFilters = dateFilter !== 'all' || selectedTags.length > 0 || sortOrder !== 'newest';
 
   // Показываем фильтры если пришли с тегом
   useEffect(() => {
