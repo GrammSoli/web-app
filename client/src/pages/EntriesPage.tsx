@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Preloader } from 'konsta/react';
 import { subDays, isAfter, isBefore, startOfDay, endOfDay } from 'date-fns';
-import { FileText, ArrowLeft, Search, Filter, X, Calendar, Tag, Eye, EyeOff, Lock, Crown, Sparkles, ArrowUpDown, CalendarRange } from 'lucide-react';
+import { FileText, ArrowLeft, Search, Filter, X, Calendar, Tag, Eye, EyeOff, Lock, Sparkles, ArrowUpDown, CalendarRange } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import { useTelegram } from '@/hooks/useTelegram';
 import EntryCard from '@/components/EntryCard';
