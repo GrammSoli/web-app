@@ -623,7 +623,7 @@ router.get('/subscription', async (req: Request, res: Response) => {
  * GET /api/user/subscription/plans
  * Получение информации о планах подписки
  */
-router.get('/subscription/plans', async (req: Request, res: Response) => {
+router.get('/subscription/plans', async (_req: Request, res: Response) => {
   try {
     const [basicPricing, premiumPricing] = await Promise.all([
       getSubscriptionPricing('basic'),
@@ -667,10 +667,12 @@ router.post('/subscription/invoice', async (req: Request, res: Response) => {
     const pricing = await getSubscriptionPricing(tier);
     
     // Создаём invoice link через бота
+    // provider_token должен быть пустой строкой для Telegram Stars (XTR)
     const invoiceUrl = await bot.api.createInvoiceLink(
       `Подписка ${tier === 'basic' ? 'Basic' : 'Premium'}`,
       `Ежемесячная подписка на AI Mindful Journal (${pricing.durationDays} дней)`,
       `sub_${tier}_${req.user!.telegramId}_${Date.now()}`,
+      '', // provider_token - пустой для Telegram Stars
       'XTR', // Telegram Stars currency
       [{ label: 'Подписка', amount: pricing.stars }]
     );
