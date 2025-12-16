@@ -494,9 +494,9 @@ export default function EntryDetailPage() {
               {isFree && <span className="text-xs text-purple-500 ml-auto">Premium</span>}
             </h3>
             <div className="flex flex-wrap gap-1.5 relative">
-              {entry.tags.map((tag, i) => (
+              {entry.tags.map((tag) => (
                 <button
-                  key={i}
+                  key={tag}
                   onClick={() => !isFree && navigate(`/entries?tag=${encodeURIComponent(tag)}`)}
                   disabled={isFree}
                   className={`px-2.5 py-1 rounded-full bg-gray-50 text-gray-600 text-xs font-medium

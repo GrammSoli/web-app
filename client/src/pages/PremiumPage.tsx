@@ -191,8 +191,8 @@ export default function PremiumPage() {
               </div>
               
               <ul className="space-y-2 mb-5">
-                {(plans?.premium.features || DEFAULT_FEATURES.premium).map((f, i) => (
-                  <li key={i} className="flex items-center gap-2 text-sm text-gray-600">
+                {(plans?.premium.features || DEFAULT_FEATURES.premium).map((f) => (
+                  <li key={f} className="flex items-center gap-2 text-sm text-gray-600">
                     <Check className="w-4 h-4 text-green-500" />
                     {f}
                   </li>
@@ -261,8 +261,8 @@ export default function PremiumPage() {
             </div>
             
             <ul className="space-y-1.5 mb-4">
-              {(plans?.basic.features || DEFAULT_FEATURES.basic).map((f, i) => (
-                <li key={i} className="flex items-center gap-2 text-sm text-gray-500">
+              {(plans?.basic.features || DEFAULT_FEATURES.basic).map((f) => (
+                <li key={f} className="flex items-center gap-2 text-sm text-gray-500">
                   <Check className="w-4 h-4 text-green-500" />
                   {f}
                 </li>

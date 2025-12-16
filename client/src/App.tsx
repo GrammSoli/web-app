@@ -27,6 +27,34 @@ export default function App() {
     }
   }, [webApp]);
 
+  // Sync Dark Mode with Telegram colorScheme
+  useEffect(() => {
+    const applyTheme = () => {
+      const colorScheme = window.Telegram?.WebApp?.colorScheme;
+      if (colorScheme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    };
+
+    // Apply on mount
+    applyTheme();
+
+    // Listen for theme changes (Telegram WebApp event)
+    // Using type assertion since SDK types may not include on/off methods
+    const tgApp = window.Telegram?.WebApp as { 
+      on?: (event: string, callback: () => void) => void;
+      off?: (event: string, callback: () => void) => void;
+    } | undefined;
+    
+    tgApp?.on?.('themeChanged', applyTheme);
+
+    return () => {
+      tgApp?.off?.('themeChanged', applyTheme);
+    };
+  }, []);
+
   // Handle back button
   useEffect(() => {
     if (!webApp) return;
