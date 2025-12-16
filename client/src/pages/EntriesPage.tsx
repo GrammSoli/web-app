@@ -435,7 +435,6 @@ export default function EntriesPage() {
               </button>
             )}
           </div>
-          </div>
         )}
 
         {/* Active filters pills */}
