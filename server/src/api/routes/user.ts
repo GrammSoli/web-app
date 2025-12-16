@@ -350,9 +350,16 @@ router.delete('/entries/:id', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Запись не найдена' });
     }
     
-    await prisma.journalEntry.delete({
-      where: { id },
-    });
+    // Use transaction to ensure atomicity
+    await prisma.$transaction([
+      prisma.journalEntry.delete({
+        where: { id },
+      }),
+      prisma.user.update({
+        where: { id: user.id },
+        data: { totalEntriesCount: { decrement: 1 } },
+      }),
+    ]);
     
     apiLogger.info({ userId: user.id, entryId: id }, 'Entry deleted');
     

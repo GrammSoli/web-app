@@ -93,6 +93,7 @@ model User {
   transactions        Transaction[]
   subscriptions       Subscription[]
 
+  @@index([reminderEnabled, status])
   @@map("users")
 }
 
@@ -173,10 +174,17 @@ model Transaction {
   transactionType       TransactionType   @map("transaction_type")
   amountStars           Int               @default(0) @map("amount_stars")
   amountUsd             Decimal           @default(0) @map("amount_usd") @db.Decimal(10, 4)
+  currency              String?           @db.VarChar(10)
+  
+  // Invoice ID for idempotency (Telegram charge ID or CryptoPay invoice ID)
+  invoiceId             String?           @unique @map("invoice_id") @db.VarChar(255)
 
-  // Telegram payment info
+  // Telegram payment info (legacy, use invoiceId)
   telegramPaymentId     String?           @map("telegram_payment_id") @db.VarChar(255)
   telegramPaymentChargeId String?         @map("telegram_payment_charge_id") @db.VarChar(255)
+  
+  // Additional metadata
+  metadata              Json?             @db.JsonB
 
   // Status
   isSuccessful          Boolean           @default(true) @map("is_successful")

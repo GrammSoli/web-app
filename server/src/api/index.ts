@@ -52,6 +52,7 @@ export function createApp() {
       
       if (update.update_type === 'invoice_paid') {
         const invoice = update.payload;
+        const cryptoInvoiceId = String(invoice.invoice_id);
         
         apiLogger.info({
           invoiceId: invoice.invoice_id,
@@ -59,6 +60,16 @@ export function createApp() {
           paidAsset: invoice.paid_asset,
           payload: invoice.payload,
         }, 'CryptoPay invoice paid');
+        
+        // Idempotency check: check if transaction already processed
+        const existingTx = await prisma.transaction.findFirst({
+          where: { invoiceId: cryptoInvoiceId },
+        });
+        
+        if (existingTx) {
+          apiLogger.info({ invoiceId: cryptoInvoiceId }, 'CryptoPay payment already processed (idempotency)');
+          return res.json({ ok: true });
+        }
         
         // Parse payload to get user info
         if (invoice.payload) {
@@ -72,12 +83,40 @@ export function createApp() {
               });
               
               if (user) {
-                await activateSubscription(user.id, payloadData.tier);
+                // Create transaction record (idempotency key)
+                const transaction = await prisma.transaction.create({
+                  data: {
+                    userId: user.id,
+                    invoiceId: cryptoInvoiceId,
+                    transactionType: 'subscription',
+                    amountStars: 0, // Crypto payment, no stars
+                    amountUsd: parseFloat(invoice.amount) || 0,
+                    currency: invoice.paid_asset || 'USDT',
+                    isSuccessful: true,
+                    metadata: { 
+                      tier: payloadData.tier, 
+                      cryptoPayInvoiceId: invoice.invoice_id,
+                      paidAmount: invoice.paid_amount,
+                      paidAsset: invoice.paid_asset,
+                    },
+                  },
+                });
+                
+                await activateSubscription(user.id, payloadData.tier, transaction.id);
+                
+                // Update user total spend
+                await prisma.user.update({
+                  where: { id: user.id },
+                  data: { 
+                    totalSpendUsd: { increment: parseFloat(invoice.amount) || 0 },
+                  },
+                });
                 
                 apiLogger.info({
                   userId: user.id,
                   tier: payloadData.tier,
                   invoiceId: invoice.invoice_id,
+                  transactionId: transaction.id,
                 }, 'Crypto subscription activated');
               }
             }

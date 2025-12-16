@@ -1,6 +1,7 @@
 import { Bot, Context, session, SessionFlavor, GrammyError, HttpError } from 'grammy';
 import { hydrate, HydrateFlavor } from '@grammyjs/hydrate';
 import { botLogger } from '../utils/logger.js';
+import prisma from '../services/database.js';
 import {
   getOrCreateUser,
   createEntry,
@@ -9,6 +10,7 @@ import {
   countTodayEntries,
   getTodayVoiceUsageSeconds,
   getEffectiveTier,
+  activateSubscription,
 } from '../services/user.js';
 import { analyzeMood, processVoiceMessage } from '../services/openai.js';
 import { checkLimitsAsync, getSubscriptionPricing, getTierLimits } from '../utils/pricing.js';
@@ -220,15 +222,97 @@ export function createBot(token: string): Bot<MyContext> {
     
     if (!user || !payment) return;
     
+    const telegramPaymentId = payment.telegram_payment_charge_id;
+    
     botLogger.info({
       telegramId: user.id,
       amount: payment.total_amount,
       currency: payment.currency,
       payload: payment.invoice_payload,
+      telegramPaymentId,
     }, 'Successful payment received');
     
-    const successMessage = await getMessage('msg.payment_success');
-    await ctx.reply(successMessage);
+    // Parse payload: sub_tier_telegramId_timestamp
+    const payload = payment.invoice_payload;
+    if (!payload?.startsWith('sub_')) {
+      botLogger.warn({ payload }, 'Unknown payment payload format');
+      const successMessage = await getMessage('msg.payment_success');
+      await ctx.reply(successMessage);
+      return;
+    }
+    
+    // Idempotency check: check if transaction already processed
+    const existingTx = await prisma.transaction.findFirst({
+      where: { invoiceId: telegramPaymentId },
+    });
+    
+    if (existingTx) {
+      botLogger.info({ telegramPaymentId }, 'Payment already processed (idempotency)');
+      const successMessage = await getMessage('msg.payment_success');
+      await ctx.reply(successMessage);
+      return;
+    }
+    
+    try {
+      // Parse tier from payload: sub_basic_123456_1234567890
+      const parts = payload.split('_');
+      const tier = parts[1] as 'basic' | 'premium';
+      
+      if (!['basic', 'premium'].includes(tier)) {
+        botLogger.error({ tier, payload }, 'Invalid subscription tier in payload');
+        return;
+      }
+      
+      // Get user from DB
+      const dbUser = await getOrCreateUser({
+        telegramId: BigInt(user.id),
+        username: user.username,
+        firstName: user.first_name,
+      });
+      
+      const pricing = await getSubscriptionPricing(tier);
+      
+      // Create transaction record (idempotency key)
+      const transaction = await prisma.transaction.create({
+        data: {
+          userId: dbUser.id,
+          invoiceId: telegramPaymentId,
+          transactionType: 'subscription',
+          amountStars: payment.total_amount,
+          amountUsd: pricing.usd,
+          currency: payment.currency,
+          isSuccessful: true,
+          metadata: { tier, payload },
+        },
+      });
+      
+      // Activate subscription
+      await activateSubscription(dbUser.id, tier, transaction.id);
+      
+      // Update user total spend
+      await prisma.user.update({
+        where: { id: dbUser.id },
+        data: { 
+          totalSpendUsd: { increment: pricing.usd },
+        },
+      });
+      
+      botLogger.info({
+        userId: dbUser.id,
+        tier,
+        transactionId: transaction.id,
+        telegramPaymentId,
+      }, 'Telegram Stars subscription activated');
+      
+      const successMessage = await getMessage('msg.payment_success');
+      await ctx.reply(successMessage);
+      
+    } catch (error) {
+      botLogger.error({ error, telegramPaymentId }, 'Failed to process payment');
+      // Still reply success to user since payment was received
+      const successMessage = await getMessage('msg.payment_success');
+      await ctx.reply(successMessage);
+    }
   });
 
   // ============================================
