@@ -638,6 +638,22 @@ router.get('/subscription/plans', async (_req: Request, res: Response) => {
     const basicName = await configService.getString('subscription.basic.name', 'Basic');
     const premiumName = await configService.getString('subscription.premium.name', 'Premium');
     
+    // Get promo banner config
+    const promoEnabled = await configService.getBool('promo.stars_banner.enabled', false);
+    let promo = null;
+    
+    if (promoEnabled) {
+      promo = {
+        enabled: true,
+        title: await configService.getString('promo.stars_banner.title', '⭐ Купить Stars дешевле'),
+        subtitle: await configService.getString('promo.stars_banner.subtitle', 'Экономия до 40%'),
+        buttonText: await configService.getString('promo.stars_banner.button_text', 'Перейти →'),
+        url: await configService.getString('promo.stars_banner.url', ''),
+        discount: await configService.getNumber('promo.stars_banner.discount', 30),
+        gradient: await configService.getString('promo.stars_banner.gradient', 'from-yellow-400 to-orange-500'),
+      };
+    }
+    
     res.json({
       basic: {
         name: basicName,
@@ -651,6 +667,7 @@ router.get('/subscription/plans', async (_req: Request, res: Response) => {
         durationDays: premiumPricing.durationDays,
         features: premiumFeatures,
       },
+      promo,
     });
   } catch (error) {
     apiLogger.error({ error }, 'Failed to get subscription plans');
