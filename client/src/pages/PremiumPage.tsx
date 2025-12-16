@@ -325,20 +325,22 @@ export default function PremiumPage() {
               haptic.light();
               openLink(plans.promo!.url);
             }}
-            className={`bg-gradient-to-r ${plans.promo.gradient} rounded-2xl p-4 cursor-pointer active:scale-[0.98] transition-all shadow-lg`}
+            className="bg-white rounded-2xl p-4 cursor-pointer active:scale-[0.98] transition-all border border-gray-100 shadow-sm"
           >
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3 text-white">
-                <Star className="w-6 h-6 fill-white" />
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center">
+                  <Star className="w-5 h-5 text-amber-500 fill-amber-500" />
+                </div>
                 <div>
-                  <p className="font-bold text-lg leading-tight">{plans.promo.title.replace(/^⭐\s*/, '')}</p>
-                  <p className="text-sm opacity-90">{plans.promo.subtitle}</p>
+                  <p className="font-semibold text-gray-900 text-sm">{plans.promo.title.replace(/^⭐\s*/, '')}</p>
+                  <p className="text-xs text-gray-500">{plans.promo.subtitle}</p>
                 </div>
               </div>
-              <button className="bg-white/20 backdrop-blur-sm text-white font-semibold px-4 py-2 rounded-xl flex items-center gap-1 hover:bg-white/30 transition-colors">
+              <div className="flex items-center gap-1 text-indigo-500 text-sm font-medium">
                 {plans.promo.buttonText}
-                <ExternalLink className="w-4 h-4" />
-              </button>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </div>
             </div>
           </div>
         )}
