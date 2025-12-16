@@ -57,7 +57,7 @@ const PLAN_STYLES = {
 };
 
 export default function PremiumPage() {
-  const { haptic, openInvoice, showAlert, openLink } = useTelegram();
+  const { haptic, openInvoice, showAlert, openLink, openTelegramLink } = useTelegram();
   const { user, fetchUser } = useAppStore();
   
   const [plans, setPlans] = useState<Plans | null>(null);
@@ -114,9 +114,8 @@ export default function PremiumPage() {
 
     try {
       const { invoiceUrl } = await api.subscription.createCryptoInvoice(tier);
-      // Открываем ссылку на CryptoBot
-      openLink(invoiceUrl);
-      showAlert('Откройте @CryptoBot для завершения оплаты');
+      // Открываем CryptoBot нативно в Telegram
+      openTelegramLink(invoiceUrl);
     } catch (error) {
       haptic.error();
       showAlert(error instanceof Error ? error.message : 'Ошибка при создании счёта');
