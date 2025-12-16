@@ -227,11 +227,8 @@ export default function ProfilePage() {
                 <div className="text-xs text-white/70">Подряд</div>
               </div>
               <div className="bg-white/10 rounded-2xl p-3 text-center backdrop-blur-sm">
-                <div className="text-2xl font-bold flex items-center justify-center gap-1">
-                  <TierIcon className="w-5 h-5" />
-                  <span className="text-sm font-medium">{tierInfo.name}</span>
-                </div>
-                <div className="text-xs text-white/70">Тариф</div>
+                <div className="text-2xl font-bold">{appUser.stats?.averageMood?.toFixed(1) || '—'}</div>
+                <div className="text-xs text-white/70">Ср. оценка</div>
               </div>
             </div>
           )}
@@ -243,27 +240,39 @@ export default function ProfilePage() {
           const isExpired = expiresAt < new Date();
           
           return (
-            <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 relative overflow-hidden">
+            <div className="bg-white rounded-3xl p-4 shadow-sm border border-gray-100 relative overflow-hidden">
               {isExpired && (
                 <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-10 flex items-center justify-center">
                   <button 
                     onClick={() => navigate('/premium')}
-                    className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold rounded-2xl shadow-lg"
+                    className="px-5 py-2.5 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold rounded-xl shadow-lg text-sm"
                   >
                     Возобновить подписку
                   </button>
                 </div>
               )}
-              <div className={`text-center ${isExpired ? 'blur-sm' : ''}`}>
-                <div className={`w-14 h-14 mx-auto mb-3 rounded-2xl flex items-center justify-center bg-gradient-to-br ${isExpired ? 'from-gray-400 to-gray-500' : tierInfo.gradient}`}>
-                  <Clock className="w-7 h-7 text-white" />
+              <div className={`flex items-center gap-3 ${isExpired ? 'blur-sm' : ''}`}>
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center bg-gradient-to-br ${tierInfo.gradient}`}>
+                  <TierIcon className="w-5 h-5 text-white" />
                 </div>
-                <p className="text-2xl font-bold text-gray-900">
-                  {format(expiresAt, 'd MMMM yyyy', { locale: ru })}
-                </p>
-                <p className="text-sm text-gray-500 mt-1">
-                  {isExpired ? 'Подписка истекла' : 'Подписка активна до'}
-                </p>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-gray-900">{tierInfo.name}</span>
+                    <span className="text-xs text-gray-400">•</span>
+                    <span className="text-sm text-gray-500">
+                      до {format(expiresAt, 'd MMM yyyy', { locale: ru })}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-400">
+                    {isExpired ? 'Подписка истекла' : 'Активна'}
+                  </p>
+                </div>
+                <button 
+                  onClick={() => navigate('/premium')}
+                  className="text-indigo-500 text-sm font-medium"
+                >
+                  Продлить
+                </button>
               </div>
             </div>
           );
