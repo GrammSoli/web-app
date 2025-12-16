@@ -329,9 +329,12 @@ export default function PremiumPage() {
             className={`bg-gradient-to-r ${plans.promo.gradient} rounded-2xl p-4 cursor-pointer active:scale-[0.98] transition-all shadow-lg`}
           >
             <div className="flex items-center justify-between">
-              <div className="text-white">
-                <p className="font-bold text-lg">{plans.promo.title}</p>
-                <p className="text-sm opacity-90">{plans.promo.subtitle}</p>
+              <div className="flex items-center gap-3 text-white">
+                <Star className="w-6 h-6 fill-white" />
+                <div>
+                  <p className="font-bold text-lg leading-tight">{plans.promo.title.replace(/^⭐\s*/, '')}</p>
+                  <p className="text-sm opacity-90">{plans.promo.subtitle}</p>
+                </div>
               </div>
               <button className="bg-white/20 backdrop-blur-sm text-white font-semibold px-4 py-2 rounded-xl flex items-center gap-1 hover:bg-white/30 transition-colors">
                 {plans.promo.buttonText}
