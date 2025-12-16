@@ -85,9 +85,9 @@ export default function App() {
 
   return (
     // Фон всего приложения
-    <div className="min-h-screen bg-[#F1F3F5] flex justify-center font-sans">
+    <div className="min-h-screen bg-[#F1F3F5] dark:bg-[#1C1C1E] flex justify-center font-sans">
       {/* Мобильный контейнер - имитация экрана телефона */}
-      <div className="w-full max-w-[450px] bg-[#F8F9FA] min-h-screen relative shadow-2xl overflow-hidden">
+      <div className="w-full max-w-[450px] bg-[#F8F9FA] dark:bg-[#1C1C1E] min-h-screen relative shadow-2xl overflow-hidden">
         
         {/* Main content с отступом под floating dock */}
         <div className="min-h-screen pb-28">
@@ -105,7 +105,7 @@ export default function App() {
         {/* Floating Dock Navigation */}
         {showTabbar && (
           <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-[400px] z-50">
-            <div className="flex justify-around items-center bg-white/90 backdrop-blur-xl border border-white/40 shadow-[0_8px_32px_rgba(0,0,0,0.12)] rounded-[28px] py-3 px-4">
+            <div className="flex justify-around items-center bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl border border-white/40 dark:border-gray-700/40 shadow-[0_8px_32px_rgba(0,0,0,0.12)] rounded-[28px] py-3 px-4">
               
               {/* Home */}
               <NavButton 
@@ -190,15 +190,15 @@ function NavButton({
       className={`flex flex-col items-center justify-center gap-0.5 
                   transition-all duration-200 min-w-[48px]
                   ${active 
-                    ? 'text-blue-600 scale-105' 
-                    : 'text-gray-400 hover:text-gray-600'
+                    ? 'text-blue-600 dark:text-blue-400 scale-105' 
+                    : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'
                   }`}
     >
       <span className={`transition-transform ${active ? 'scale-110' : ''}`}>
         {icon}
       </span>
       {label && (
-        <span className={`text-[10px] font-medium ${active ? 'text-blue-600' : 'text-gray-400'}`}>
+        <span className={`text-[10px] font-medium ${active ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}>
           {label}
         </span>
       )}
