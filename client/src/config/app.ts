@@ -7,6 +7,9 @@ export const APP_CONFIG = {
   /** Minimum characters required for journal entry text */
   MIN_ENTRY_CHARS: 10,
   
+  /** Maximum characters allowed for journal entry text */
+  MAX_ENTRY_CHARS: 4000,
+  
   /** How many entries to show on home page */
   HOME_ENTRIES_LIMIT: 5,
   

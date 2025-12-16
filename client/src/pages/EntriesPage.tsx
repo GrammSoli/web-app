@@ -2,16 +2,15 @@ import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Preloader } from 'konsta/react';
 import { subDays, isAfter, isBefore, startOfDay, endOfDay } from 'date-fns';
-import { FileText, ArrowLeft, Search, Filter, X, Calendar, Tag, Eye, EyeOff, Lock, Sparkles, ArrowUpDown, CalendarRange } from 'lucide-react';
+import { FileText, Search, Filter, X, Calendar, Tag, Eye, EyeOff, Lock, Sparkles, ArrowUpDown, CalendarRange, ArrowLeft } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import { useTelegram } from '@/hooks/useTelegram';
 import EntryCard from '@/components/EntryCard';
+import { FREE_SEARCH_LIMIT, MAX_VISIBLE_TAGS } from '@/config/constants';
 
 type DateFilter = 'all' | 'today' | 'week' | 'month' | 'custom';
 type SortOrder = 'newest' | 'oldest' | 'mood-high' | 'mood-low';
 type SearchMode = 'text' | 'ai';
-
-const FREE_SEARCH_LIMIT = 30; // Free users can only search last N entries
 
 export default function EntriesPage() {
   const navigate = useNavigate();
@@ -42,16 +41,20 @@ export default function EntriesPage() {
   const [customDateFrom, setCustomDateFrom] = useState('');
   const [customDateTo, setCustomDateTo] = useState('');
   
-  const MAX_VISIBLE_TAGS = 8;
+  // Need to define hasActiveFilters earlier
+  const hasActiveFilters = dateFilter !== 'all' || selectedTags.length > 0 || sortOrder !== 'newest';
   
-  // Infinite scroll observer
+  // Infinite scroll observer - using ref to prevent re-creation
   const observerRef = useRef<IntersectionObserver | null>(null);
+  const hasActiveFiltersRef = useRef(hasActiveFilters);
+  hasActiveFiltersRef.current = hasActiveFilters;
+  
   const loadMoreRef = useCallback((node: HTMLDivElement | null) => {
     if (entriesLoading) return;
     if (observerRef.current) observerRef.current.disconnect();
     
-    observerRef.current = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting && hasMoreEntries && !searchQuery && !hasActiveFilters) {
+    observerRef.current = new IntersectionObserver(observedEntries => {
+      if (observedEntries[0].isIntersecting && hasMoreEntries && !searchQuery && !hasActiveFiltersRef.current) {
         fetchEntries(false);
       }
     });
@@ -59,12 +62,10 @@ export default function EntriesPage() {
     if (node) observerRef.current.observe(node);
   }, [entriesLoading, hasMoreEntries, searchQuery, fetchEntries]);
 
-  // Need to define hasActiveFilters earlier
-  const hasActiveFilters = dateFilter !== 'all' || selectedTags.length > 0 || sortOrder !== 'newest';
-
-  // Показываем фильтры если пришли с тегом
+  // Показываем фильтры если пришли с тегом - only on mount
+  const initialTagParam = useRef(searchParams.get('tag'));
   useEffect(() => {
-    if (searchParams.get('tag')) {
+    if (initialTagParam.current) {
       setShowFilters(true);
     }
   }, []);

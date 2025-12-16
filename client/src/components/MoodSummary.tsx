@@ -70,13 +70,13 @@ export default function MoodSummary({ stats }: MoodSummaryProps) {
         
         {/* Mini chart */}
         <div className="flex items-end gap-1 h-8">
-          {stats.weeklyMoods.slice(-7).map((day, i) => (
+          {stats.weeklyMoods.slice(-7).map((day) => (
             <div
-              key={i}
+              key={day.date}
               className="w-2.5 bg-gradient-to-t from-blue-500 to-blue-400 rounded-full transition-all"
               style={{ 
                 height: `${Math.max((day.score / 10) * 100, 10)}%`,
-                opacity: 0.5 + (i / 12)
+                opacity: 0.7
               }}
             />
           ))}

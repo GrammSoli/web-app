@@ -8,24 +8,8 @@ import { useTelegram } from '@/hooks/useTelegram';
 import { useAppStore } from '@/store/useAppStore';
 import { api } from '@/lib/api';
 import type { JournalEntry } from '@/types/api';
-
-const moodEmojis: Record<number, string> = {
-  1: '😢', 2: '😔', 3: '😕', 4: '😐', 5: '🙂',
-  6: '😊', 7: '😄', 8: '😁', 9: '🤩', 10: '🥳',
-};
-
-const moodGradients: Record<number, string> = {
-  1: 'from-red-500 to-rose-600',
-  2: 'from-orange-500 to-red-500',
-  3: 'from-amber-500 to-orange-500',
-  4: 'from-yellow-500 to-amber-500',
-  5: 'from-gray-400 to-gray-500',
-  6: 'from-lime-500 to-green-500',
-  7: 'from-green-500 to-emerald-500',
-  8: 'from-emerald-500 to-teal-500',
-  9: 'from-cyan-500 to-blue-500',
-  10: 'from-purple-500 to-pink-500',
-};
+import { getMoodEmoji, getMoodGradient } from '@/config/moods';
+import { MAX_TAGS_PER_ENTRY, MAX_TAG_LENGTH } from '@/config/constants';
 
 export default function EntryDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -132,8 +116,8 @@ export default function EntryDetailPage() {
   };
   
   const addTag = () => {
-    const tag = newTag.trim().toLowerCase();
-    if (tag && !editTags.includes(tag) && editTags.length < 10) {
+    const tag = newTag.trim().toLowerCase().slice(0, MAX_TAG_LENGTH);
+    if (tag && !editTags.includes(tag) && editTags.length < MAX_TAGS_PER_ENTRY) {
       setEditTags([...editTags, tag]);
       setNewTag('');
       haptic.light();
@@ -210,7 +194,7 @@ export default function EntryDetailPage() {
   if (!entry) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100 text-center">
+        <div className="bg-white dark:bg-gray-800 rounded-3xl p-8 shadow-sm border border-gray-100 dark:border-gray-700 text-center">
           <div className="mb-4 flex justify-center">
             <FileText className="w-12 h-12 text-gray-400" />
           </div>
@@ -221,8 +205,8 @@ export default function EntryDetailPage() {
   }
 
   const moodScore = isEditing ? editMood : (entry.moodScore || 5);
-  const emoji = moodEmojis[moodScore];
-  const gradient = moodGradients[moodScore];
+  const emoji = getMoodEmoji(moodScore);
+  const gradient = getMoodGradient(moodScore);
   
   // Safe date parsing
   const dateValue = entry.dateCreated || (entry as { createdAt?: string }).createdAt;
@@ -394,16 +378,16 @@ export default function EntryDetailPage() {
                   {isFree && <span className="text-xs text-purple-500 ml-auto">Premium</span>}
                 </h4>
                 <div className={`flex flex-wrap gap-1.5 mb-3 relative ${isFree ? 'blur-[4px] pointer-events-none select-none' : ''}`}>
-                  {editTags.map((tag, i) => (
+                  {editTags.map((tag) => (
                     <span
-                      key={i}
-                      className="px-2.5 py-1 rounded-full bg-gray-50 text-gray-600 text-xs font-medium
+                      key={tag}
+                      className="px-2.5 py-1 rounded-full bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs font-medium
                                  flex items-center gap-1 group"
                     >
                       #{tag}
                       <button
                         onClick={() => removeTag(tag)}
-                        className="ml-1 p-0.5 rounded-full bg-gray-200 hover:bg-red-100 hover:text-red-500 
+                        className="ml-1 p-0.5 rounded-full bg-gray-200 dark:bg-gray-600 hover:bg-red-100 hover:text-red-500 
                                    transition-colors opacity-70 group-hover:opacity-100"
                       >
                         <X className="w-3 h-3" />
@@ -417,12 +401,12 @@ export default function EntryDetailPage() {
                 {isFree && (
                   <button 
                     onClick={() => navigate('/premium')}
-                    className="w-full py-2 mb-3 text-sm text-purple-600 bg-purple-50 rounded-xl flex items-center justify-center gap-1.5"
+                    className="w-full py-2 mb-3 text-sm text-purple-600 bg-purple-50 dark:bg-purple-900/30 rounded-xl flex items-center justify-center gap-1.5"
                   >
                     <Lock className="w-3.5 h-3.5" /> Открыть с подпиской
                   </button>
                 )}
-                {editTags.length < 10 && !isFree && (
+                {editTags.length < MAX_TAGS_PER_ENTRY && !isFree && (
                   <div className="flex gap-2">
                     <input
                       type="text"

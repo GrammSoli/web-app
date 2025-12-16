@@ -4,29 +4,13 @@ import type { JournalEntry } from '@/types/api';
 import { useTelegram } from '@/hooks/useTelegram';
 import { useAppStore } from '@/store/useAppStore';
 import { Mic, Lightbulb, ChevronRight } from 'lucide-react';
+import { getMoodEmoji, getMoodGradient } from '@/config/moods';
+import { MAX_TEXT_PREVIEW_LENGTH } from '@/config/constants';
 
 interface EntryCardProps {
   entry: JournalEntry;
   onClick?: () => void;
 }
-
-const moodEmojis: Record<number, string> = {
-  1: '😢', 2: '😔', 3: '😕', 4: '😐', 5: '🙂',
-  6: '😊', 7: '😄', 8: '😁', 9: '🤩', 10: '🥳',
-};
-
-const moodGradients: Record<number, string> = {
-  1: 'from-red-400 to-red-500',
-  2: 'from-orange-400 to-orange-500',
-  3: 'from-amber-400 to-amber-500',
-  4: 'from-yellow-400 to-yellow-500',
-  5: 'from-gray-400 to-gray-500',
-  6: 'from-lime-400 to-lime-500',
-  7: 'from-green-400 to-green-500',
-  8: 'from-emerald-400 to-emerald-500',
-  9: 'from-cyan-400 to-cyan-500',
-  10: 'from-purple-400 to-purple-500',
-};
 
 export default function EntryCard({ entry, onClick }: EntryCardProps) {
   const { haptic } = useTelegram();
@@ -39,8 +23,8 @@ export default function EntryCard({ entry, onClick }: EntryCardProps) {
   };
 
   const moodScore = entry.moodScore || 5;
-  const emoji = moodEmojis[moodScore] || '🙂';
-  const gradientClass = moodGradients[moodScore] || 'from-gray-400 to-gray-500';
+  const emoji = getMoodEmoji(moodScore);
+  const gradientClass = getMoodGradient(moodScore, true);
 
   // Safe date parsing
   const dateValue = entry.dateCreated || (entry as { createdAt?: string }).createdAt;
@@ -49,10 +33,9 @@ export default function EntryCard({ entry, onClick }: EntryCardProps) {
     : 'Сегодня';
   
   // Truncate text
-  const maxLength = 100;
-  const isTruncated = entry.textContent.length > maxLength;
+  const isTruncated = entry.textContent.length > MAX_TEXT_PREVIEW_LENGTH;
   const displayText = isTruncated 
-    ? entry.textContent.slice(0, maxLength) + '...'
+    ? entry.textContent.slice(0, MAX_TEXT_PREVIEW_LENGTH) + '...'
     : entry.textContent;
 
   return (
@@ -89,7 +72,7 @@ export default function EntryCard({ entry, onClick }: EntryCardProps) {
           )}
           
           {/* Arrow indicator */}
-          <ChevronRight className="w-5 h-5 text-gray-300" />
+          <ChevronRight className="w-5 h-5 text-gray-300 dark:text-gray-600" />
         </div>
       </div>
 
@@ -105,10 +88,10 @@ export default function EntryCard({ entry, onClick }: EntryCardProps) {
       {/* Tags */}
       {entry.tags && entry.tags.length > 0 && !privacyBlur && (
         <div className="flex flex-wrap gap-1.5 mt-3 relative">
-          {entry.tags.slice(0, 4).map((tag, i) => (
+          {entry.tags.slice(0, 4).map((tag) => (
             <span
-              key={i}
-              className={`text-xs px-2.5 py-1 rounded-full bg-gray-50 text-gray-600 font-medium
+              key={tag}
+              className={`text-xs px-2.5 py-1 rounded-full bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-medium
                          ${isFree ? 'blur-[3px] select-none' : ''} transition-all duration-200`}
             >
               #{tag}
@@ -116,7 +99,7 @@ export default function EntryCard({ entry, onClick }: EntryCardProps) {
           ))}
           {isFree && entry.tags.length > 0 && (
             <span className="absolute inset-0 flex items-center justify-center">
-              <span className="text-xs text-gray-400 bg-white/80 px-2 py-0.5 rounded-full">Premium</span>
+              <span className="text-xs text-gray-400 bg-white/80 dark:bg-gray-800/80 px-2 py-0.5 rounded-full">Premium</span>
             </span>
           )}
         </div>

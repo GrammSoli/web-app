@@ -7,9 +7,7 @@ import { Flame, FileText, Smile, CalendarDays, BookOpen, User, AlertCircle, Refr
 import { useAppStore } from '@/store/useAppStore';
 import { useTelegram } from '@/hooks/useTelegram';
 import EntryCard from '@/components/EntryCard';
-
-const MOOD_EMOJIS = ['😔', '😐', '🙂', '🤩'];
-const MOOD_SCORES = [2, 5, 7, 9];
+import { QUICK_MOOD_OPTIONS } from '@/config/moods';
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -40,10 +38,8 @@ export default function HomePage() {
     }
   };
 
-  const handleQuickMood = (index: number) => {
-    const score = MOOD_SCORES[index];
-    const emoji = MOOD_EMOJIS[index];
-    navigate('/new', { state: { mood: { emoji, score, label: '' } } });
+  const handleQuickMood = (mood: typeof QUICK_MOOD_OPTIONS[0]) => {
+    navigate('/new', { state: { mood: { emoji: mood.emoji, score: mood.score, label: mood.label } } });
   };
 
   const handleToggleBlur = () => {
@@ -101,15 +97,15 @@ export default function HomePage() {
           <h3 className="text-lg font-semibold opacity-90 relative z-10">Как настроение?</h3>
           
           <div className="flex justify-between mt-5 relative z-10">
-            {MOOD_EMOJIS.map((emoji, i) => (
+            {QUICK_MOOD_OPTIONS.map((mood) => (
               <button 
-                key={i}
-                onClick={() => handleQuickMood(i)}
+                key={mood.score}
+                onClick={() => handleQuickMood(mood)}
                 className="text-3xl hover:scale-110 active:scale-95 transition-all duration-200 
                            bg-white/20 w-14 h-14 rounded-2xl flex items-center justify-center 
                            backdrop-blur-sm border border-white/20 shadow-inner"
               >
-                {emoji}
+                {mood.emoji}
               </button>
             ))}
           </div>

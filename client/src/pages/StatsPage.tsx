@@ -232,20 +232,21 @@ export default function StatsPage() {
         </div>
 
         {/* Top Tags */}
-        <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 relative overflow-hidden">
-          <h2 className="text-base font-bold text-gray-700 mb-4 flex items-center gap-2">
+        <div className="bg-white dark:bg-gray-800/50 rounded-3xl p-5 shadow-sm border border-gray-100 dark:border-gray-700/50 relative overflow-hidden">
+          <h2 className="text-base font-bold text-gray-700 dark:text-gray-200 mb-4 flex items-center gap-2">
             <Tag className="w-5 h-5 text-blue-500" />
             Частые теги
           </h2>
           
           <div className="flex flex-wrap gap-2">
-            {(stats.topTags || []).slice(0, 8).map((item, i) => (
+            {(stats.topTags || []).slice(0, 8).map((item) => (
               <span
-                key={i}
+                key={item.tag}
                 className="px-3 py-1.5 rounded-full bg-gradient-to-r from-blue-50 to-indigo-50
-                           text-blue-600 text-sm font-medium border border-blue-100 shadow-sm"
+                           dark:from-blue-900/30 dark:to-indigo-900/30
+                           text-blue-600 dark:text-blue-400 text-sm font-medium border border-blue-100 dark:border-blue-800/50 shadow-sm"
               >
-                #{item.tag} <span className="text-blue-400 text-xs">({item.count})</span>
+                #{item.tag} <span className="text-blue-400 dark:text-blue-500 text-xs">({item.count})</span>
               </span>
             ))}
             {(!stats.topTags || stats.topTags.length === 0) && (

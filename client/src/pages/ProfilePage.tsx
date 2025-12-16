@@ -6,6 +6,7 @@ import { ru } from 'date-fns/locale';
 import { useTelegram } from '@/hooks/useTelegram';
 import { useAppStore } from '@/store/useAppStore';
 import { exportData, getUserSettings, updateUserSettings } from '@/lib/api';
+import { DEFAULT_LIMITS, SUPPORT_LINK } from '@/config/constants';
 import type { UserSettings } from '@/types/api';
 
 // Bottom Sheet Component
@@ -164,20 +165,15 @@ export default function ProfilePage() {
 
   const handleContactSupport = () => {
     haptic.light();
-    window.Telegram?.WebApp?.openTelegramLink?.('https://t.me/mindful_support') ||
-    window.open('https://t.me/mindful_support', '_blank');
+    window.Telegram?.WebApp?.openTelegramLink?.(SUPPORT_LINK) ||
+    window.open(SUPPORT_LINK, '_blank');
   };
 
   // Usage limits from server (fallback to defaults)
   const serverLimit = appUser?.limits?.dailyEntries;
-  const defaultLimits: Record<string, { entries: number; label: string }> = {
-    free: { entries: 3, label: '3' },
-    basic: { entries: 20, label: '20' },
-    premium: { entries: Infinity, label: '∞' },
-  };
   const limit = serverLimit !== undefined && serverLimit !== null
     ? { entries: serverLimit === -1 ? Infinity : serverLimit, label: serverLimit === -1 ? '∞' : String(serverLimit) }
-    : defaultLimits[currentTier];
+    : DEFAULT_LIMITS[currentTier as keyof typeof DEFAULT_LIMITS];
   const usagePercent = limit.entries === Infinity 
     ? 0 
     : Math.min(((appUser?.stats?.todayEntries || 0) / limit.entries) * 100, 100);

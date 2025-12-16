@@ -1,13 +1,5 @@
 import { useState } from 'react';
-
-const moods = [
-  { emoji: '😢', label: 'Грустно', score: 2, color: 'from-red-400 to-red-500' },
-  { emoji: '😔', label: 'Плохо', score: 3, color: 'from-orange-400 to-orange-500' },
-  { emoji: '😐', label: 'Нормально', score: 5, color: 'from-gray-400 to-gray-500' },
-  { emoji: '🙂', label: 'Хорошо', score: 7, color: 'from-green-400 to-green-500' },
-  { emoji: '😊', label: 'Отлично', score: 8, color: 'from-emerald-400 to-emerald-500' },
-  { emoji: '🤩', label: 'Супер!', score: 10, color: 'from-purple-400 to-purple-500' },
-];
+import { MOOD_SELECTOR_OPTIONS } from '@/config/moods';
 
 interface MoodSelectorProps {
   onSelect?: (mood: { emoji: string; label: string; score: number }) => void;
@@ -17,14 +9,14 @@ interface MoodSelectorProps {
 export default function MoodSelector({ onSelect, selected }: MoodSelectorProps) {
   const [selectedScore, setSelectedScore] = useState<number | null>(selected || null);
 
-  const handleSelect = (mood: typeof moods[0]) => {
+  const handleSelect = (mood: typeof MOOD_SELECTOR_OPTIONS[0]) => {
     setSelectedScore(mood.score);
     onSelect?.(mood);
   };
 
   return (
     <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2 px-1">
-      {moods.map((mood) => {
+      {MOOD_SELECTOR_OPTIONS.map((mood) => {
         const isSelected = selectedScore === mood.score;
         return (
           <button

@@ -4,6 +4,7 @@ import { Gem, Star, Crown, Check, Zap, ExternalLink } from 'lucide-react';
 import { useTelegram } from '@/hooks/useTelegram';
 import { useAppStore } from '@/store/useAppStore';
 import { api } from '@/lib/api';
+import { DEFAULT_FEATURES, DEFAULT_PLANS } from '@/config/constants';
 
 interface PromoBanner {
   enabled: boolean;
@@ -27,23 +28,6 @@ interface CryptoPrices {
   premium: { usdt: number; durationDays: number };
 }
 
-// Default features (fallback if not loaded from server)
-const DEFAULT_FEATURES = {
-  basic: [
-    '20 записей в день',
-    '5 голосовых в день',
-    'Расширенный анализ',
-    'Теги и рекомендации',
-  ],
-  premium: [
-    'Безлимитные записи',
-    'Безлимитные голосовые',
-    'Глубокий анализ с ИИ',
-    'Персональные инсайты',
-    'Приоритетная поддержка',
-  ],
-};
-
 const PLAN_STYLES = {
   basic: {
     icon: Star,
@@ -63,6 +47,7 @@ export default function PremiumPage() {
   const [plans, setPlans] = useState<Plans | null>(null);
   const [cryptoPrices, setCryptoPrices] = useState<CryptoPrices | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [purchasing, setPurchasing] = useState<string | null>(null);
 
   useEffect(() => {
@@ -71,6 +56,8 @@ export default function PremiumPage() {
   }, [fetchUser]);
 
   const loadPlans = async () => {
+    setLoadError(false);
+    setLoading(true);
     try {
       const [plansData, cryptoData] = await Promise.all([
         api.subscription.getPlans(),
@@ -79,7 +66,9 @@ export default function PremiumPage() {
       setPlans(plansData);
       if (cryptoData) setCryptoPrices(cryptoData);
     } catch {
-      // Plans will use default values from PLANS constant
+      // Use default plans as fallback
+      setPlans(DEFAULT_PLANS);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -138,6 +127,15 @@ export default function PremiumPage() {
     <div className="fade-in min-h-screen">
       <div className="p-4 space-y-4 pt-6">
         
+        {/* Fallback notice */}
+        {loadError && (
+          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-2xl p-3 text-center">
+            <p className="text-amber-600 dark:text-amber-400 text-sm">
+              Не удалось загрузить актуальные цены. Показаны базовые тарифы.
+            </p>
+          </div>
+        )}
+
         {/* Header */}
         <div className="text-center px-4">
           <div className="mb-3 flex justify-center">
