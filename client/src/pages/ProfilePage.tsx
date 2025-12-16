@@ -45,27 +45,27 @@ function BottomSheet({
       />
       {/* Sheet */}
       <div 
-        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-2xl transform transition-transform duration-300 ease-out animate-slide-up safe-area-bottom"
+        className="absolute bottom-0 left-0 right-0 bg-white dark:bg-gray-900 rounded-t-3xl shadow-2xl transform transition-transform duration-300 ease-out animate-slide-up safe-area-bottom"
         style={{ maxHeight: '80vh' }}
       >
         {/* Handle */}
         <div className="flex justify-center pt-3 pb-1">
-          <div className="w-12 h-1.5 bg-gray-300 rounded-full" />
+          <div className="w-12 h-1.5 bg-gray-300 dark:bg-gray-600 rounded-full" />
         </div>
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3">
-          <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
             {icon} {title}
           </h3>
           <button 
             onClick={onClose}
-            className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 active:bg-gray-200 transition-colors"
+            className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 active:bg-gray-200 dark:active:bg-gray-700 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
         {/* Divider */}
-        <div className="h-px bg-gray-100 mx-5" />
+        <div className="h-px bg-gray-100 dark:bg-gray-800 mx-5" />
         {/* Content */}
         <div className="p-5 pb-10 overflow-y-auto" style={{ maxHeight: 'calc(80vh - 100px)' }}>
           {children}
@@ -240,9 +240,9 @@ export default function ProfilePage() {
 
         {/* Usage Card */}
         {appUser && (
-          <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
             <div className="flex justify-between items-center mb-3">
-              <span className="font-bold text-gray-700 flex items-center gap-2">
+              <span className="font-bold text-gray-700 dark:text-gray-200 flex items-center gap-2">
                 <BarChart3 className="w-5 h-5 text-gray-500" /> Использование
               </span>
               {currentTier === 'premium' ? (
@@ -258,7 +258,7 @@ export default function ProfilePage() {
             </div>
             {currentTier !== 'premium' && (
               <>
-                <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
+                <div className="h-3 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                   <div
                     className={`h-full rounded-full bg-gradient-to-r ${tierInfo.gradient} transition-all`}
                     style={{ width: `${usagePercent}%` }}
@@ -276,7 +276,7 @@ export default function ProfilePage() {
         )}
 
         {/* Menu */}
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
           <MenuItem icon={<Gem className="w-6 h-6 text-purple-500" />} title="Premium" subtitle="Открой все возможности" onClick={() => navigate('/premium')} />
           <MenuItem 
             icon={<Settings className="w-6 h-6 text-gray-500" />} 
@@ -319,8 +319,8 @@ export default function ProfilePage() {
             onClick={handleRefresh}
             disabled={userLoading || refreshing}
             className="w-full flex items-center justify-center gap-2 py-4 
-                       bg-white text-gray-700 rounded-2xl shadow-sm border border-gray-100
-                       active:bg-gray-50 transition-colors font-semibold"
+                       bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700
+                       active:bg-gray-50 dark:active:bg-gray-700 transition-colors font-semibold"
           >
             <RefreshCw className={`w-5 h-5 ${refreshing || userLoading ? 'animate-spin' : ''}`} />
             {refreshing || userLoading ? 'Обновление...' : 'Обновить статус'}
@@ -347,13 +347,13 @@ export default function ProfilePage() {
           <div className="space-y-6">
             {/* Timezone */}
             <div className="space-y-2">
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
                 <Globe className="w-4 h-4" /> Часовой пояс
               </label>
               <select
                 value={settings.timezone}
                 onChange={(e) => handleUpdateSetting('timezone', e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-gray-800 bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-800 dark:text-white bg-white dark:bg-gray-800 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               >
                 <option value="Europe/Moscow">Москва (UTC+3)</option>
                 <option value="Europe/Kaliningrad">Калининград (UTC+2)</option>
@@ -377,13 +377,13 @@ export default function ProfilePage() {
             {/* Privacy default */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
                   <Shield className="w-4 h-4" /> Приватность по умолчанию
                 </label>
                 <button
                   onClick={() => handleUpdateSetting('privacyBlurDefault', !settings.privacyBlurDefault)}
                   className={`w-12 h-7 rounded-full transition-colors flex items-center px-1 ${
-                    settings.privacyBlurDefault ? 'bg-indigo-500 justify-end' : 'bg-gray-300 justify-start'
+                    settings.privacyBlurDefault ? 'bg-indigo-500 justify-end' : 'bg-gray-300 dark:bg-gray-600 justify-start'
                   }`}
                 >
                   <span className="w-5 h-5 bg-white rounded-full shadow-sm" />
@@ -410,13 +410,13 @@ export default function ProfilePage() {
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="font-medium text-gray-800">Ежедневное напоминание</p>
-                <p className="text-sm text-gray-500">Получать уведомление каждый день</p>
+                <p className="font-medium text-gray-800 dark:text-white">Ежедневное напоминание</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Получать уведомление каждый день</p>
               </div>
               <button
                 onClick={() => handleUpdateSetting('reminderEnabled', !settings.reminderEnabled)}
                 className={`w-14 h-8 rounded-full transition-colors flex items-center px-1 ${
-                  settings.reminderEnabled ? 'bg-indigo-500 justify-end' : 'bg-gray-300 justify-start'
+                  settings.reminderEnabled ? 'bg-indigo-500 justify-end' : 'bg-gray-300 dark:bg-gray-600 justify-start'
                 }`}
               >
                 <span className="w-6 h-6 bg-white rounded-full shadow-sm" />
@@ -425,14 +425,14 @@ export default function ProfilePage() {
             
             {settings.reminderEnabled && (
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-200 flex items-center gap-2">
                   <Clock className="w-4 h-4" /> Время напоминания
                 </label>
                 <input
                   type="time"
                   value={settings.reminderTime || '20:00'}
                   onChange={(e) => handleUpdateSetting('reminderTime', e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl text-gray-800 bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-800 dark:text-white bg-white dark:bg-gray-800 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 />
                 <p className="text-xs text-gray-400">
                   Напоминание придёт в указанное время по вашему часовому поясу
@@ -451,14 +451,14 @@ export default function ProfilePage() {
         icon={<Download className="w-5 h-5 text-blue-500" />}
       >
         <div className="space-y-4">
-          <p className="text-gray-600 text-sm">
+          <p className="text-gray-600 dark:text-gray-300 text-sm">
             Выберите формат для экспорта всех ваших записей:
           </p>
           <div className="space-y-3">
             <button
               onClick={() => { handleExport('json'); setShowExport(false); }}
               disabled={exporting}
-              className="w-full py-4 bg-blue-50 text-blue-600 rounded-xl font-semibold active:bg-blue-100 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full py-4 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl font-semibold active:bg-blue-100 dark:active:bg-blue-900/50 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
               <Download className="w-5 h-5" />
               {exporting ? 'Загрузка...' : 'Скачать JSON'}
@@ -466,7 +466,7 @@ export default function ProfilePage() {
             <button
               onClick={() => { handleExport('csv'); setShowExport(false); }}
               disabled={exporting}
-              className="w-full py-4 bg-green-50 text-green-600 rounded-xl font-semibold active:bg-green-100 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full py-4 bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-xl font-semibold active:bg-green-100 dark:active:bg-green-900/50 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
               <Download className="w-5 h-5" />
               {exporting ? 'Загрузка...' : 'Скачать CSV'}
@@ -490,15 +490,15 @@ function MenuItem({
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`w-full flex items-center gap-4 p-4 text-left active:bg-gray-50 transition-colors
-                  ${!last ? 'border-b border-gray-100' : ''} ${disabled ? 'opacity-50' : ''}`}
+      className={`w-full flex items-center gap-4 p-4 text-left active:bg-gray-50 dark:active:bg-gray-700 transition-colors
+                  ${!last ? 'border-b border-gray-100 dark:border-gray-700' : ''} ${disabled ? 'opacity-50' : ''}`}
     >
       {icon}
       <div className="flex-1">
-        <div className="font-semibold text-sm text-gray-700">{title}</div>
+        <div className="font-semibold text-sm text-gray-700 dark:text-gray-200">{title}</div>
         <div className="text-xs text-gray-400">{subtitle}</div>
       </div>
-      <ChevronRight className="w-5 h-5 text-gray-300" />
+      <ChevronRight className="w-5 h-5 text-gray-300 dark:text-gray-600" />
     </button>
   );
 }
