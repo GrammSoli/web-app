@@ -1,6 +1,6 @@
 import { useState, useEffect, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Gem, Bell, Download, MessageCircle, RefreshCw, BarChart3, ChevronRight, Star, Crown, Gift, User, Clock, Settings, Globe, Shield, Check } from 'lucide-react';
+import { Gem, Bell, Download, MessageCircle, RefreshCw, BarChart3, ChevronRight, Star, Crown, Gift, User, Clock, Settings, Globe, Shield } from 'lucide-react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useTelegram } from '@/hooks/useTelegram';
