@@ -109,6 +109,16 @@ html, body, #root {
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* Fade in for overlays */
+.animate-fade-in {
+  animation: fadeInSimple 0.2s ease-out;
+}
+
+@keyframes fadeInSimple {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 /* Slide up animation for bottom sheets */
 .animate-slide-up {
   animation: slideUp 0.3s ease-out;

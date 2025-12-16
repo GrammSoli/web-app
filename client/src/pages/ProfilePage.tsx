@@ -36,35 +36,37 @@ function BottomSheet({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50">
+    <div className="fixed inset-0 z-[100]">
       {/* Backdrop */}
       <div 
-        className="absolute inset-0 bg-black/50 transition-opacity"
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity animate-fade-in"
         onClick={onClose}
       />
       {/* Sheet */}
       <div 
-        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-xl transform transition-transform duration-300 ease-out animate-slide-up"
-        style={{ maxHeight: '85vh', marginBottom: '70px' }}
+        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-2xl transform transition-transform duration-300 ease-out animate-slide-up safe-area-bottom"
+        style={{ maxHeight: '80vh' }}
       >
         {/* Handle */}
-        <div className="flex justify-center pt-3">
-          <div className="w-10 h-1 bg-gray-300 rounded-full" />
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-12 h-1.5 bg-gray-300 rounded-full" />
         </div>
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <h3 className="font-bold text-gray-800 flex items-center gap-2">
+        <div className="flex items-center justify-between px-5 py-3">
+          <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
             {icon} {title}
           </h3>
           <button 
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-500"
+            className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 active:bg-gray-200 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
+        {/* Divider */}
+        <div className="h-px bg-gray-100 mx-5" />
         {/* Content */}
-        <div className="p-5 pb-8 overflow-y-auto" style={{ maxHeight: 'calc(85vh - 80px)' }}>
+        <div className="p-5 pb-10 overflow-y-auto" style={{ maxHeight: 'calc(80vh - 100px)' }}>
           {children}
         </div>
       </div>
