@@ -63,12 +63,19 @@ export function createApp() {
       const signature = req.headers['crypto-pay-api-signature'] as string;
       const bodyString = req.body.toString();
       
+      apiLogger.info({ 
+        hasSignature: !!signature,
+        bodyLength: bodyString.length,
+      }, 'CryptoPay webhook received');
+      
       // Verify signature
       const isValid = cryptoPayService.verifyWebhookSignature(bodyString, signature);
       if (!isValid) {
-        apiLogger.warn('Invalid CryptoPay webhook signature');
+        apiLogger.warn({ signature }, 'Invalid CryptoPay webhook signature');
         return res.status(401).json({ error: 'Invalid signature' });
       }
+      
+      apiLogger.info('CryptoPay webhook signature verified');
       
       const update = cryptoPayService.parseWebhookPayload(bodyString);
       
