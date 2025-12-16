@@ -40,7 +40,7 @@ export default function StatsPage() {
   if (!stats) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100 text-center">
+        <div className="bg-white dark:bg-gray-800 rounded-3xl p-8 shadow-sm border border-gray-100 dark:border-gray-700 text-center">
           <div className="mb-4 flex justify-center">
             <BarChart3 className="w-12 h-12 text-gray-400" />
           </div>
@@ -90,7 +90,7 @@ export default function StatsPage() {
         
         {/* Header */}
         <div className="px-1">
-          <h1 className="text-2xl font-extrabold text-gray-800">Статистика</h1>
+          <h1 className="text-2xl font-extrabold text-gray-800 dark:text-white">Статистика</h1>
           <p className="text-gray-400 text-sm mt-1">Отслеживай своё настроение</p>
         </div>
 
@@ -125,20 +125,20 @@ export default function StatsPage() {
         </div>
 
         {/* Mood Chart - Wide Card */}
-        <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
+        <div className="bg-white dark:bg-gray-800 rounded-3xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base font-bold text-gray-700 flex items-center gap-2">
+            <h2 className="text-base font-bold text-gray-700 dark:text-gray-200 flex items-center gap-2">
               <TrendingUp className="w-5 h-5 text-indigo-500" />
               Настроение
             </h2>
             {/* Period Switcher */}
-            <div className="flex bg-gray-100 rounded-xl p-1">
+            <div className="flex bg-gray-100 dark:bg-gray-700 rounded-xl p-1">
               <button
                 onClick={() => handlePeriodChange('week')}
                 className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
                   chartPeriod === 'week' 
-                    ? 'bg-white text-indigo-600 shadow-sm' 
-                    : 'text-gray-500'
+                    ? 'bg-white dark:bg-gray-600 text-indigo-600 dark:text-indigo-400 shadow-sm' 
+                    : 'text-gray-500 dark:text-gray-400'
                 }`}
               >
                 Неделя
@@ -147,8 +147,8 @@ export default function StatsPage() {
                 onClick={() => handlePeriodChange('month')}
                 className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
                   chartPeriod === 'month' 
-                    ? 'bg-white text-indigo-600 shadow-sm' 
-                    : 'text-gray-500'
+                    ? 'bg-white dark:bg-gray-600 text-indigo-600 dark:text-indigo-400 shadow-sm' 
+                    : 'text-gray-500 dark:text-gray-400'
                 }`}
               >
                 Месяц
@@ -256,8 +256,8 @@ export default function StatsPage() {
         </div>
 
         {/* Daily Limits */}
-        <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
-          <h2 className="text-base font-bold text-gray-700 mb-4 flex items-center gap-2">
+        <div className="bg-white dark:bg-gray-800 rounded-3xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
+          <h2 className="text-base font-bold text-gray-700 dark:text-gray-200 mb-4 flex items-center gap-2">
             <Calendar className="w-5 h-5 text-gray-500" />
             Лимиты на сегодня
           </h2>
@@ -285,12 +285,12 @@ export default function StatsPage() {
           className="absolute inset-0 flex items-center justify-center z-10"
           onClick={() => { haptic.light(); navigate('/premium'); }}
         >
-          <div className="bg-white/95 backdrop-blur-sm rounded-3xl p-6 shadow-2xl border border-purple-100 text-center max-w-xs mx-4">
+          <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm rounded-3xl p-6 shadow-2xl border border-purple-100 dark:border-purple-900/50 text-center max-w-xs mx-4">
             <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-purple-500/30">
               <BarChart3 className="w-8 h-8 text-white" />
             </div>
-            <h3 className="text-lg font-bold text-gray-800 mb-2">Статистика Premium</h3>
-            <p className="text-gray-500 text-sm mb-4">
+            <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-2">Статистика Premium</h3>
+            <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">
               Графики настроения, тренды, серии и топ теги доступны с подпиской
             </p>
             <button className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold py-3 px-6 rounded-xl shadow-lg shadow-purple-500/30 flex items-center justify-center gap-2">
@@ -319,12 +319,12 @@ function BentoCard({
   iconBg?: string;
 }) {
   return (
-    <div className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100 flex items-center gap-3">
-      <span className={`bg-gradient-to-br ${iconBg} w-12 h-12 flex items-center justify-center rounded-2xl flex-shrink-0`}>
+    <div className="bg-white dark:bg-gray-800 p-4 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-3">
+      <span className={`bg-gradient-to-br ${iconBg} dark:opacity-80 w-12 h-12 flex items-center justify-center rounded-2xl flex-shrink-0`}>
         {icon}
       </span>
       <div>
-        <p className="text-2xl font-bold text-gray-800">{value}{suffix}</p>
+        <p className="text-2xl font-bold text-gray-800 dark:text-white">{value}{suffix}</p>
         <p className="text-gray-400 text-xs">{label}</p>
       </div>
     </div>
@@ -354,7 +354,7 @@ function LimitBar({
       <div className="flex justify-between items-center mb-2">
         <div className="flex items-center gap-2">
           <span>{icon}</span>
-          <span className="text-sm font-semibold text-gray-700">{label}</span>
+          <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">{label}</span>
         </div>
         {isUnlimited ? (
           <span className="text-sm font-medium text-purple-500 flex items-center gap-1">
@@ -368,7 +368,7 @@ function LimitBar({
         )}
       </div>
       {!isUnlimited && (
-        <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
+        <div className="h-3 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
           <div 
             className={`h-full rounded-full transition-all ${
               isNearLimit 

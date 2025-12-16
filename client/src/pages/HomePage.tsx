@@ -58,10 +58,10 @@ export default function HomePage() {
         {/* Header with date and avatar */}
         <div className="flex justify-between items-end px-1">
           <div>
-            <p className="text-gray-400 text-xs uppercase font-bold tracking-wider">
+            <p className="text-gray-400 dark:text-gray-500 text-xs uppercase font-bold tracking-wider">
               {capitalizedDate}
             </p>
-            <h1 className="text-3xl font-extrabold text-gray-800">
+            <h1 className="text-3xl font-extrabold text-gray-800 dark:text-white">
               Привет, {user?.first_name || 'друг'}!
             </h1>
           </div>
@@ -72,7 +72,7 @@ export default function HomePage() {
               className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors
                 ${privacyBlur 
                   ? 'bg-indigo-500 text-white' 
-                  : 'bg-gray-100 text-gray-500'}`}
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'}`}
             >
               {privacyBlur ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
             </button>
@@ -118,34 +118,34 @@ export default function HomePage() {
         {/* Bento Grid - Stats */}
         <div className="grid grid-cols-2 gap-3">
           {/* Streak Card */}
-          <div className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100 flex items-center gap-3">
-            <span className="bg-gradient-to-br from-orange-100 to-red-100 w-12 h-12 flex items-center justify-center rounded-2xl flex-shrink-0">
+          <div className="bg-white dark:bg-gray-800 p-4 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-3">
+            <span className="bg-gradient-to-br from-orange-100 to-red-100 dark:from-orange-900/30 dark:to-red-900/30 w-12 h-12 flex items-center justify-center rounded-2xl flex-shrink-0">
               <Flame className="w-6 h-6 text-orange-500" />
             </span>
             <div>
-              <p className="text-2xl font-bold text-gray-800">{stats?.currentStreak || 0}</p>
+              <p className="text-2xl font-bold text-gray-800 dark:text-white">{stats?.currentStreak || 0}</p>
               <p className="text-gray-400 text-xs">Дней подряд</p>
             </div>
           </div>
           
           {/* Entries Count Card */}
-          <div className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100 flex items-center gap-3">
-            <span className="bg-gradient-to-br from-blue-100 to-indigo-100 w-12 h-12 flex items-center justify-center rounded-2xl flex-shrink-0">
+          <div className="bg-white dark:bg-gray-800 p-4 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-3">
+            <span className="bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 w-12 h-12 flex items-center justify-center rounded-2xl flex-shrink-0">
               <FileText className="w-6 h-6 text-blue-500" />
             </span>
             <div>
-              <p className="text-2xl font-bold text-gray-800">{stats?.totalEntries || 0}</p>
+              <p className="text-2xl font-bold text-gray-800 dark:text-white">{stats?.totalEntries || 0}</p>
               <p className="text-gray-400 text-xs">Всего записей</p>
             </div>
           </div>
           
           {/* Average Mood Card */}
-          <div className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100 flex items-center gap-3">
-            <span className="bg-gradient-to-br from-green-100 to-emerald-100 w-12 h-12 flex items-center justify-center rounded-2xl flex-shrink-0">
+          <div className="bg-white dark:bg-gray-800 p-4 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-3">
+            <span className="bg-gradient-to-br from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30 w-12 h-12 flex items-center justify-center rounded-2xl flex-shrink-0">
               <Smile className="w-6 h-6 text-green-500" />
             </span>
             <div>
-              <p className="text-2xl font-bold text-gray-800">
+              <p className="text-2xl font-bold text-gray-800 dark:text-white">
                 {stats?.averageMood ? stats.averageMood.toFixed(1) : '—'}
               </p>
               <p className="text-gray-400 text-xs">Ср. настроение</p>
@@ -153,12 +153,12 @@ export default function HomePage() {
           </div>
           
           {/* Today Card */}
-          <div className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100 flex items-center gap-3">
-            <span className="bg-gradient-to-br from-purple-100 to-pink-100 w-12 h-12 flex items-center justify-center rounded-2xl flex-shrink-0">
+          <div className="bg-white dark:bg-gray-800 p-4 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-3">
+            <span className="bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 w-12 h-12 flex items-center justify-center rounded-2xl flex-shrink-0">
               <CalendarDays className="w-6 h-6 text-purple-500" />
             </span>
             <div>
-              <p className="text-2xl font-bold text-gray-800">{stats?.todayEntries || 0}</p>
+              <p className="text-2xl font-bold text-gray-800 dark:text-white">{stats?.todayEntries || 0}</p>
               <p className="text-gray-400 text-xs">Сегодня</p>
             </div>
           </div>
@@ -167,7 +167,7 @@ export default function HomePage() {
         {/* Recent Entries Section */}
         <div className="pt-2">
           <div className="flex justify-between items-center mb-3 px-1">
-            <h2 className="text-lg font-bold text-gray-700">Последние записи</h2>
+            <h2 className="text-lg font-bold text-gray-700 dark:text-gray-200">Последние записи</h2>
             {entries && entries.length > 0 && (
               <button 
                 onClick={() => navigate('/entries')}
@@ -180,11 +180,11 @@ export default function HomePage() {
           
           <div className="space-y-3">
             {(userError || entriesError) ? (
-              <div className="bg-white rounded-3xl p-8 shadow-sm border border-red-100 text-center">
+              <div className="bg-white dark:bg-gray-800 rounded-3xl p-8 shadow-sm border border-red-100 dark:border-red-900/50 text-center">
                 <div className="mb-4 flex justify-center">
                   <AlertCircle className="w-16 h-16 text-red-400" />
                 </div>
-                <h3 className="text-lg font-bold text-gray-800 mb-2">
+                <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-2">
                   Что-то пошло не так
                 </h3>
                 <p className="text-gray-400 text-sm leading-relaxed mb-4">
@@ -203,11 +203,11 @@ export default function HomePage() {
                 </button>
               </div>
             ) : entries && entries.length === 0 && !entriesLoading ? (
-              <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100 text-center">
+              <div className="bg-white dark:bg-gray-800 rounded-3xl p-8 shadow-sm border border-gray-100 dark:border-gray-700 text-center">
                 <div className="mb-4 flex justify-center">
                   <BookOpen className="w-16 h-16 text-indigo-400" />
                 </div>
-                <h3 className="text-lg font-bold text-gray-800 mb-2">
+                <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-2">
                   Пока тишина...
                 </h3>
                 <p className="text-gray-400 text-sm leading-relaxed">
@@ -219,7 +219,7 @@ export default function HomePage() {
               (entries || []).slice(0, 5).map((entry) => (
                 <div 
                   key={entry.id}
-                  className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
+                  className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden"
                 >
                   <EntryCard 
                     entry={entry}
@@ -238,7 +238,7 @@ export default function HomePage() {
                   <button
                     onClick={loadMore}
                     className="text-blue-500 font-medium px-6 py-2.5 rounded-full 
-                               bg-blue-50 active:bg-blue-100 transition-colors"
+                               bg-blue-50 dark:bg-blue-900/30 active:bg-blue-100 dark:active:bg-blue-900/50 transition-colors"
                   >
                     Загрузить ещё
                   </button>

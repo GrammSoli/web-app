@@ -141,7 +141,7 @@ export default function PremiumPage() {
           <div className="mb-3 flex justify-center">
             <Gem className="w-16 h-16 text-purple-500" />
           </div>
-          <h1 className="text-3xl font-extrabold text-gray-800">Premium</h1>
+          <h1 className="text-3xl font-extrabold text-gray-800 dark:text-white">Premium</h1>
           <p className="text-gray-400 text-sm mt-2">
             Открой все возможности дневника
           </p>
@@ -175,24 +175,24 @@ export default function PremiumPage() {
                 <Star className="w-3 h-3 fill-current" /> Популярный
               </div>
             )}
-            <div className="bg-white rounded-3xl p-5 shadow-lg border-2 border-purple-200 pt-6">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl p-5 shadow-lg border-2 border-purple-200 dark:border-purple-800 pt-6">
               <div className="flex items-center gap-3 mb-4">
                 <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${PLAN_STYLES.premium.gradient} flex items-center justify-center shadow-lg`}>
                   <Crown className="w-8 h-8 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-gray-800">{plans?.premium.name || 'Premium'}</h3>
+                  <h3 className="text-xl font-bold text-gray-800 dark:text-white">{plans?.premium.name || 'Premium'}</h3>
                   <p className="text-gray-400 text-sm">в месяц</p>
                 </div>
                 <div className="ml-auto text-right flex items-center gap-1">
-                  <span className="text-3xl font-bold text-gray-800">{plans?.premium.stars || 150}</span>
+                  <span className="text-3xl font-bold text-gray-800 dark:text-white">{plans?.premium.stars || 150}</span>
                   <Star className="w-6 h-6 text-yellow-500 fill-yellow-500" />
                 </div>
               </div>
               
               <ul className="space-y-2 mb-5">
                 {(plans?.premium.features || DEFAULT_FEATURES.premium).map((f) => (
-                  <li key={f} className="flex items-center gap-2 text-sm text-gray-600">
+                  <li key={f} className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
                     <Check className="w-4 h-4 text-green-500" />
                     {f}
                   </li>
@@ -245,24 +245,24 @@ export default function PremiumPage() {
           </div>
 
           {/* Basic Plan */}
-          <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
             <div className="flex items-center gap-3 mb-4">
               <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${PLAN_STYLES.basic.gradient} flex items-center justify-center shadow-md`}>
                 <Star className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-gray-800">{plans?.basic.name || 'Basic'}</h3>
+                <h3 className="text-lg font-bold text-gray-800 dark:text-white">{plans?.basic.name || 'Basic'}</h3>
                 <p className="text-gray-400 text-xs">в месяц</p>
               </div>
               <div className="ml-auto text-right flex items-center gap-1">
-                <span className="text-2xl font-bold text-gray-800">{plans?.basic.stars || 50}</span>
+                <span className="text-2xl font-bold text-gray-800 dark:text-white">{plans?.basic.stars || 50}</span>
                 <Star className="w-5 h-5 text-yellow-500 fill-yellow-500" />
               </div>
             </div>
             
             <ul className="space-y-1.5 mb-4">
               {(plans?.basic.features || DEFAULT_FEATURES.basic).map((f) => (
-                <li key={f} className="flex items-center gap-2 text-sm text-gray-500">
+                <li key={f} className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
                   <Check className="w-4 h-4 text-green-500" />
                   {f}
                 </li>

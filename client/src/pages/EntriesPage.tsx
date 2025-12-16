@@ -210,12 +210,12 @@ export default function EntriesPage() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => navigate('/')}
-              className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center"
+              className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center"
             >
-              <ArrowLeft className="w-5 h-5 text-gray-600" />
+              <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
             </button>
             <div>
-              <h1 className="text-2xl font-extrabold text-gray-800">Все записи</h1>
+              <h1 className="text-2xl font-extrabold text-gray-800 dark:text-white">Все записи</h1>
               <p className="text-gray-400 text-sm">
                 {filteredEntries.length} из {entries?.length || 0}
               </p>
@@ -229,7 +229,7 @@ export default function EntriesPage() {
               className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors
                 ${privacyBlur 
                   ? 'bg-indigo-500 text-white' 
-                  : 'bg-gray-100 text-gray-600'}`}
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'}`}
             >
               {privacyBlur ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
             </button>
@@ -240,7 +240,7 @@ export default function EntriesPage() {
               className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors
                 ${hasActiveFilters 
                   ? 'bg-indigo-500 text-white' 
-                  : 'bg-gray-100 text-gray-600'}`}
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'}`}
             >
               <Filter className="w-5 h-5" />
             </button>
@@ -256,9 +256,9 @@ export default function EntriesPage() {
               placeholder={searchMode === 'ai' ? "Умный поиск по смыслу..." : "Поиск по записям..."}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-12 pr-24 py-3 bg-white rounded-2xl border border-gray-200 
+              className="w-full pl-12 pr-24 py-3 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 
                          focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
-                         text-gray-800 placeholder-gray-400"
+                         text-gray-800 dark:text-white placeholder-gray-400"
             />
             <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
               {searchQuery && (
@@ -301,7 +301,7 @@ export default function EntriesPage() {
           <div className="space-y-3">
             
             {/* Sort Order - Premium */}
-            <div className="bg-white rounded-2xl p-3 border border-gray-100">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-3 border border-gray-100 dark:border-gray-700">
               <div className="flex items-center gap-2 text-xs font-medium text-gray-500 mb-2 px-1">
                 <ArrowUpDown className="w-3.5 h-3.5" />
                 Сортировка
@@ -315,7 +315,7 @@ export default function EntriesPage() {
                     className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all
                       ${sortOrder === order 
                         ? 'bg-indigo-500 text-white shadow-sm' 
-                        : 'bg-gray-50 text-gray-600 active:bg-gray-100'}`}
+                        : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 active:bg-gray-100 dark:active:bg-gray-600'}`}
                   >
                     {sortLabels[order]}
                   </button>
@@ -324,7 +324,7 @@ export default function EntriesPage() {
             </div>
             
             {/* Date Filter */}
-            <div className="bg-white rounded-2xl p-3 border border-gray-100">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-3 border border-gray-100 dark:border-gray-700">
               <div className="flex items-center gap-2 text-xs font-medium text-gray-500 mb-2 px-1">
                 <Calendar className="w-3.5 h-3.5" />
                 Период
@@ -337,7 +337,7 @@ export default function EntriesPage() {
                     className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all flex-shrink-0
                       ${dateFilter === filter 
                         ? 'bg-indigo-500 text-white shadow-sm' 
-                        : 'bg-gray-50 text-gray-600 active:bg-gray-100'}`}
+                        : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 active:bg-gray-100 dark:active:bg-gray-600'}`}
                   >
                     {dateFilterLabels[filter]}
                   </button>
@@ -348,7 +348,7 @@ export default function EntriesPage() {
                   className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all flex items-center gap-1 flex-shrink-0
                     ${dateFilter === 'custom' 
                       ? 'bg-indigo-500 text-white shadow-sm' 
-                      : 'bg-gray-50 text-gray-600 active:bg-gray-100'}`}
+                      : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 active:bg-gray-100 dark:active:bg-gray-600'}`}
                 >
                   <CalendarRange className="w-3 h-3" />
                   {dateFilterLabels.custom}
@@ -377,7 +377,7 @@ export default function EntriesPage() {
 
             {/* Tags Filter - Premium */}
             {allTags.length > 0 && (
-              <div className="bg-white rounded-2xl p-3 border border-gray-100 relative">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-3 border border-gray-100 dark:border-gray-700 relative">
                 <div className="flex items-center justify-between mb-2 px-1">
                   <div className="flex items-center gap-2 text-xs font-medium text-gray-500">
                     <Tag className="w-3.5 h-3.5" />
@@ -402,7 +402,7 @@ export default function EntriesPage() {
                       className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all
                         ${selectedTags.includes(tag) 
                           ? 'bg-indigo-500 text-white shadow-sm' 
-                          : 'bg-gray-50 text-gray-600 active:bg-gray-100'}`}
+                          : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 active:bg-gray-100 dark:active:bg-gray-600'}`}
                     >
                       #{tag}
                     </button>
@@ -410,7 +410,7 @@ export default function EntriesPage() {
                   {allTags.length > MAX_VISIBLE_TAGS && !isFree && (
                     <button
                       onClick={() => setShowAllTags(!showAllTags)}
-                      className="px-2.5 py-1 rounded-full text-xs font-medium text-indigo-500 bg-indigo-50"
+                      className="px-2.5 py-1 rounded-full text-xs font-medium text-indigo-500 bg-indigo-50 dark:bg-indigo-900/30"
                     >
                       {showAllTags ? 'Меньше' : `+${allTags.length - MAX_VISIBLE_TAGS}`}
                     </button>
@@ -471,11 +471,11 @@ export default function EntriesPage() {
               <Preloader />
             </div>
           ) : filteredEntries.length === 0 ? (
-            <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100 text-center">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl p-8 shadow-sm border border-gray-100 dark:border-gray-700 text-center">
               <div className="mb-4 flex justify-center">
-                <FileText className="w-16 h-16 text-gray-300" />
+                <FileText className="w-16 h-16 text-gray-300 dark:text-gray-600" />
               </div>
-              <h3 className="text-lg font-bold text-gray-800 mb-2">
+              <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-2">
                 {hasActiveFilters || searchQuery ? 'Ничего не найдено' : 'Пока нет записей'}
               </h3>
               <p className="text-gray-400 text-sm">
@@ -498,7 +498,7 @@ export default function EntriesPage() {
               {filteredEntries.map((entry) => (
                 <div 
                   key={entry.id}
-                  className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
+                  className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden"
                 >
                   <EntryCard 
                     entry={entry}

@@ -42,6 +42,13 @@ html, body, #root {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Dark mode base */
+html.dark body,
+html.dark #root {
+  background-color: #1C1C1E;
+  color: #FFFFFF;
+}
+
 /* Better text rendering */
 * {
   -webkit-font-smoothing: antialiased;
