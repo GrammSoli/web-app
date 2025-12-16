@@ -3,6 +3,7 @@ import { initBot, getBot } from './bot/index.js';
 import { createApp } from './api/index.js';
 import { prisma } from './services/database.js';
 import { configService } from './services/config.js';
+import { startScheduler, stopScheduler } from './services/scheduler.js';
 import { logger } from './utils/logger.js';
 
 // ============================================
@@ -82,6 +83,9 @@ async function main() {
           },
         });
       }
+      
+      // Запускаем scheduler для напоминаний
+      startScheduler();
     } catch (error) {
       logger.error({ error }, '❌ Failed to start bot');
     }
@@ -92,6 +96,9 @@ async function main() {
   // Graceful shutdown
   const shutdown = async (signal: string) => {
     logger.info({ signal }, '🛑 Shutting down...');
+    
+    // Останавливаем scheduler
+    stopScheduler();
     
     const currentBot = getBot();
     if (currentBot) {
