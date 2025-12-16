@@ -200,13 +200,21 @@ class CryptoPayService {
   /**
    * Verify webhook signature
    */
-  verifyWebhookSignature(body: string, signature: string): boolean {
+  async verifyWebhookSignature(body: string, signature: string): Promise<boolean> {
+    // Ensure token is loaded
     if (!this.token) {
+      await this.init();
+    }
+    
+    if (!this.token) {
+      console.error('[CryptoPay] Cannot verify signature: token not configured');
       return false;
     }
 
     const secret = createHash('sha256').update(this.token).digest();
     const hmac = createHmac('sha256', secret).update(body).digest('hex');
+    
+    console.log('[CryptoPay] Signature check:', { expected: hmac, received: signature, match: hmac === signature });
     
     return hmac === signature;
   }

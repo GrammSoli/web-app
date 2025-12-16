@@ -66,10 +66,11 @@ export function createApp() {
       apiLogger.info({ 
         hasSignature: !!signature,
         bodyLength: bodyString.length,
+        bodyPreview: bodyString.substring(0, 200),
       }, 'CryptoPay webhook received');
       
       // Verify signature
-      const isValid = cryptoPayService.verifyWebhookSignature(bodyString, signature);
+      const isValid = await cryptoPayService.verifyWebhookSignature(bodyString, signature);
       if (!isValid) {
         apiLogger.warn({ signature }, 'Invalid CryptoPay webhook signature');
         return res.status(401).json({ error: 'Invalid signature' });
