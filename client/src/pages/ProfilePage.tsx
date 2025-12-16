@@ -236,26 +236,39 @@ export default function ProfilePage() {
           )}
         </div>
 
-        {/* Subscription Expiry Card - for paid users */}
-        {isPaid && appUser?.subscriptionExpiresAt && (
-          <div className="bg-white rounded-3xl p-4 shadow-sm border border-gray-100 flex items-center gap-4">
-            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center bg-gradient-to-br ${tierInfo.gradient}`}>
-              <Clock className="w-6 h-6 text-white" />
+        {/* Subscription Expiry Card - for paid users only */}
+        {isPaid && appUser?.subscriptionExpiresAt && (() => {
+          const expiresAt = new Date(appUser.subscriptionExpiresAt);
+          const isExpired = expiresAt < new Date();
+          
+          return (
+            <div className="bg-white rounded-3xl p-4 shadow-sm border border-gray-100 relative overflow-hidden">
+              {isExpired && (
+                <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-10 flex items-center justify-center">
+                  <button 
+                    onClick={() => navigate('/premium')}
+                    className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold rounded-2xl shadow-lg"
+                  >
+                    Возобновить подписку
+                  </button>
+                </div>
+              )}
+              <div className={`flex items-center gap-4 ${isExpired ? 'blur-sm' : ''}`}>
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center bg-gradient-to-br ${isExpired ? 'from-gray-400 to-gray-500' : tierInfo.gradient}`}>
+                  <Clock className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-lg font-bold text-gray-900">
+                    {format(expiresAt, 'd MMMM yyyy', { locale: ru })}
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    {isExpired ? 'Подписка истекла' : 'Подписка активна до'}
+                  </p>
+                </div>
+              </div>
             </div>
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-gray-700">Подписка активна до</p>
-              <p className="text-lg font-bold text-gray-900">
-                {format(new Date(appUser.subscriptionExpiresAt), 'd MMMM yyyy', { locale: ru })}
-              </p>
-            </div>
-            <button 
-              onClick={() => navigate('/premium')}
-              className="px-3 py-1.5 bg-gray-100 text-gray-600 text-sm font-medium rounded-xl"
-            >
-              Продлить
-            </button>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Usage Card */}
         {appUser && (
