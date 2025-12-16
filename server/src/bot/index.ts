@@ -55,6 +55,16 @@ export function createBot(token: string): Bot<MyContext> {
     
     botLogger.info({ telegramId: user.id, oderId: dbUser.id }, 'User started bot');
     
+    // Check for deep link parameter (e.g., payment_success)
+    const startParam = ctx.match;
+    if (startParam === 'payment_success') {
+      await ctx.reply(
+        '🎉 *Спасибо за оплату!*\n\nВаша подписка активирована. Наслаждайтесь всеми возможностями AI Mindful Journal!',
+        { parse_mode: 'Markdown' }
+      );
+      return;
+    }
+    
     const webAppUrl = process.env.WEBAPP_URL;
     
     // Формируем клавиатуру: WebApp кнопка только если URL настроен
