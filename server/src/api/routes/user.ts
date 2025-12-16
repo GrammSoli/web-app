@@ -5,6 +5,7 @@ import { getUserEntries, countTodayEntries, getEffectiveTier, updateUserTimezone
 import { getTierLimits, getSubscriptionPricing } from '../../utils/pricing.js';
 import { analyzeMood } from '../../services/openai.js';
 import { apiLogger } from '../../utils/logger.js';
+import { getBot } from '../../bot/index.js';
 
 const router = Router();
 
@@ -616,6 +617,69 @@ router.get('/subscription', async (req: Request, res: Response) => {
       premium: premiumPricing,
     },
   });
+});
+
+/**
+ * GET /api/user/subscription/plans
+ * Получение информации о планах подписки
+ */
+router.get('/subscription/plans', async (req: Request, res: Response) => {
+  try {
+    const [basicPricing, premiumPricing] = await Promise.all([
+      getSubscriptionPricing('basic'),
+      getSubscriptionPricing('premium'),
+    ]);
+    
+    res.json({
+      basic: {
+        stars: basicPricing.stars,
+        durationDays: basicPricing.durationDays,
+      },
+      premium: {
+        stars: premiumPricing.stars,
+        durationDays: premiumPricing.durationDays,
+      },
+    });
+  } catch (error) {
+    apiLogger.error({ error }, 'Failed to get subscription plans');
+    res.status(500).json({ error: 'Failed to get subscription plans' });
+  }
+});
+
+/**
+ * POST /api/user/subscription/invoice
+ * Создание инвойса для оплаты подписки через Telegram Stars
+ */
+router.post('/subscription/invoice', async (req: Request, res: Response) => {
+  try {
+    const { tier } = req.body as { tier: 'basic' | 'premium' };
+    
+    if (!tier || !['basic', 'premium'].includes(tier)) {
+      return res.status(400).json({ error: 'Invalid tier. Must be "basic" or "premium"' });
+    }
+    
+    const bot = getBot();
+    if (!bot) {
+      apiLogger.error('Bot not initialized');
+      return res.status(500).json({ error: 'Bot not available' });
+    }
+    
+    const pricing = await getSubscriptionPricing(tier);
+    
+    // Создаём invoice link через бота
+    const invoiceUrl = await bot.api.createInvoiceLink(
+      `Подписка ${tier === 'basic' ? 'Basic' : 'Premium'}`,
+      `Ежемесячная подписка на AI Mindful Journal (${pricing.durationDays} дней)`,
+      `sub_${tier}_${req.user!.telegramId}_${Date.now()}`,
+      'XTR', // Telegram Stars currency
+      [{ label: 'Подписка', amount: pricing.stars }]
+    );
+    
+    res.json({ invoiceUrl });
+  } catch (error) {
+    apiLogger.error({ error }, 'Failed to create subscription invoice');
+    res.status(500).json({ error: 'Failed to create subscription invoice' });
+  }
 });
 
 export default router;
