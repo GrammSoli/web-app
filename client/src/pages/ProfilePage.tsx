@@ -227,8 +227,9 @@ export default function ProfilePage() {
                 <div className="text-xs text-white/70">Подряд</div>
               </div>
               <div className="bg-white/10 rounded-2xl p-3 text-center backdrop-blur-sm">
-                <div className="flex justify-center">
-                  <TierIcon className="w-6 h-6" />
+                <div className="text-2xl font-bold flex items-center justify-center gap-1">
+                  <TierIcon className="w-5 h-5" />
+                  <span className="text-sm font-medium">{tierInfo.name}</span>
                 </div>
                 <div className="text-xs text-white/70">Тариф</div>
               </div>
@@ -242,7 +243,7 @@ export default function ProfilePage() {
           const isExpired = expiresAt < new Date();
           
           return (
-            <div className="bg-white rounded-3xl p-4 shadow-sm border border-gray-100 relative overflow-hidden">
+            <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 relative overflow-hidden">
               {isExpired && (
                 <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-10 flex items-center justify-center">
                   <button 
@@ -253,18 +254,16 @@ export default function ProfilePage() {
                   </button>
                 </div>
               )}
-              <div className={`flex items-center gap-4 ${isExpired ? 'blur-sm' : ''}`}>
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center bg-gradient-to-br ${isExpired ? 'from-gray-400 to-gray-500' : tierInfo.gradient}`}>
-                  <Clock className="w-6 h-6 text-white" />
+              <div className={`text-center ${isExpired ? 'blur-sm' : ''}`}>
+                <div className={`w-14 h-14 mx-auto mb-3 rounded-2xl flex items-center justify-center bg-gradient-to-br ${isExpired ? 'from-gray-400 to-gray-500' : tierInfo.gradient}`}>
+                  <Clock className="w-7 h-7 text-white" />
                 </div>
-                <div className="flex-1">
-                  <p className="text-lg font-bold text-gray-900">
-                    {format(expiresAt, 'd MMMM yyyy', { locale: ru })}
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    {isExpired ? 'Подписка истекла' : 'Подписка активна до'}
-                  </p>
-                </div>
+                <p className="text-2xl font-bold text-gray-900">
+                  {format(expiresAt, 'd MMMM yyyy', { locale: ru })}
+                </p>
+                <p className="text-sm text-gray-500 mt-1">
+                  {isExpired ? 'Подписка истекла' : 'Подписка активна до'}
+                </p>
               </div>
             </div>
           );
