@@ -1,4 +1,4 @@
-import { useEffect, useState, ReactNode } from 'react';
+import { useEffect, useState, useMemo, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Preloader } from 'konsta/react';
 import { 
@@ -50,34 +50,38 @@ export default function StatsPage() {
     );
   }
 
-  // Prepare chart data based on selected period
-  const rawData = chartPeriod === 'week' ? stats.weeklyMoods : (stats.monthlyMoods || stats.weeklyMoods);
-  
-  const dayShort: Record<number, string> = {
-    0: 'ВС', 1: 'ПН', 2: 'ВТ', 3: 'СР', 4: 'ЧТ', 5: 'ПТ', 6: 'СБ'
-  };
-  
-  const chartData = (rawData || []).map((item) => {
-    const d = new Date(item.date);
-    return {
-      date: chartPeriod === 'week' ? dayShort[d.getDay()] : format(d, 'd', { locale: ru }),
-      score: item.score,
-      fullDate: format(d, 'd MMM', { locale: ru }),
+  // Prepare chart data based on selected period (memoized)
+  const chartData = useMemo(() => {
+    const rawData = chartPeriod === 'week' ? stats.weeklyMoods : (stats.monthlyMoods || stats.weeklyMoods);
+    
+    const dayShort: Record<number, string> = {
+      0: 'ВС', 1: 'ПН', 2: 'ВТ', 3: 'СР', 4: 'ЧТ', 5: 'ПТ', 6: 'СБ'
     };
-  });
-
-  // Fill missing days if needed
-  const today = new Date();
-  const targetLength = chartPeriod === 'week' ? 7 : 30;
-  while (chartData.length < targetLength) {
-    const dayIndex = targetLength - chartData.length;
-    const d = subDays(today, dayIndex);
-    chartData.unshift({
-      date: chartPeriod === 'week' ? dayShort[d.getDay()] : format(d, 'd', { locale: ru }),
-      score: 0,
-      fullDate: format(d, 'd MMM', { locale: ru }),
+    
+    const data = (rawData || []).map((item) => {
+      const d = new Date(item.date);
+      return {
+        date: chartPeriod === 'week' ? dayShort[d.getDay()] : format(d, 'd', { locale: ru }),
+        score: item.score,
+        fullDate: format(d, 'd MMM', { locale: ru }),
+      };
     });
-  }
+
+    // Fill missing days if needed
+    const today = new Date();
+    const targetLength = chartPeriod === 'week' ? 7 : 30;
+    while (data.length < targetLength) {
+      const dayIndex = targetLength - data.length;
+      const d = subDays(today, dayIndex);
+      data.unshift({
+        date: chartPeriod === 'week' ? dayShort[d.getDay()] : format(d, 'd', { locale: ru }),
+        score: 0,
+        fullDate: format(d, 'd MMM', { locale: ru }),
+      });
+    }
+    
+    return data;
+  }, [stats.weeklyMoods, stats.monthlyMoods, chartPeriod]);
 
   const handlePeriodChange = (period: ChartPeriod) => {
     haptic.light();

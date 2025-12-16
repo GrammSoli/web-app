@@ -20,6 +20,7 @@ export default function EntryDetailPage() {
   
   const [entry, setEntry] = useState<JournalEntry | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   
   // Editing state
@@ -48,8 +49,7 @@ export default function EntryDetailPage() {
         setEditTags(data.tags || []);
         setEditMood(data.moodScore || 5);
       } catch (error) {
-        showAlert('Не удалось загрузить запись');
-        navigate('/');
+        setLoadError(error instanceof Error ? error.message : 'Не удалось загрузить запись');
       } finally {
         setLoading(false);
       }
@@ -200,7 +200,16 @@ export default function EntryDetailPage() {
           <div className="mb-4 flex justify-center">
             <FileText className="w-12 h-12 text-gray-400" />
           </div>
-          <p className="text-gray-400">Запись не найдена</p>
+          <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-2">
+            {loadError ? 'Ошибка загрузки' : 'Запись не найдена'}
+          </h3>
+          <p className="text-gray-400 text-sm mb-4">{loadError || 'Возможно, она была удалена'}</p>
+          <button
+            onClick={() => navigate('/')}
+            className="px-6 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-medium"
+          >
+            На главную
+          </button>
         </div>
       </div>
     );

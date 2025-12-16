@@ -46,7 +46,10 @@ export default function NewEntryPage() {
     haptic.medium();
 
     try {
-      const entry = await api.entries.create({ textContent: trimmedText });
+      const entry = await api.entries.create({ 
+        textContent: trimmedText,
+        ...(selectedMood && { moodScore: selectedMood })
+      });
       
       haptic.success();
       addEntry(entry);

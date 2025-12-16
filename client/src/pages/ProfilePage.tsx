@@ -382,6 +382,9 @@ export default function ProfilePage() {
                 </label>
                 <button
                   onClick={() => handleUpdateSetting('privacyBlurDefault', !settings.privacyBlurDefault)}
+                  role="switch"
+                  aria-checked={settings.privacyBlurDefault}
+                  aria-label="Приватность по умолчанию"
                   className={`w-12 h-7 rounded-full transition-colors flex items-center px-1 ${
                     settings.privacyBlurDefault ? 'bg-indigo-500 justify-end' : 'bg-gray-300 dark:bg-gray-600 justify-start'
                   }`}
@@ -415,6 +418,9 @@ export default function ProfilePage() {
               </div>
               <button
                 onClick={() => handleUpdateSetting('reminderEnabled', !settings.reminderEnabled)}
+                role="switch"
+                aria-checked={settings.reminderEnabled}
+                aria-label="Ежедневное напоминание"
                 className={`w-14 h-8 rounded-full transition-colors flex items-center px-1 ${
                   settings.reminderEnabled ? 'bg-indigo-500 justify-end' : 'bg-gray-300 dark:bg-gray-600 justify-start'
                 }`}

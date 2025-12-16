@@ -2,6 +2,9 @@ import { useEffect } from 'react';
 import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { Home, BarChart3, PenLine, Crown, User } from 'lucide-react';
 
+// Components
+import { ErrorBoundary } from './components/ErrorBoundary';
+
 // Pages
 import HomePage from './pages/HomePage';
 import NewEntryPage from './pages/NewEntryPage';
@@ -91,15 +94,17 @@ export default function App() {
         
         {/* Main content с отступом под floating dock */}
         <div className="min-h-screen pb-28">
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/new" element={<NewEntryPage />} />
-            <Route path="/stats" element={<StatsPage />} />
-            <Route path="/entries" element={<EntriesPage />} />
-            <Route path="/premium" element={<PremiumPage />} />
-            <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/entry/:id" element={<EntryDetailPage />} />
-          </Routes>
+          <ErrorBoundary>
+            <Routes>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/new" element={<NewEntryPage />} />
+              <Route path="/stats" element={<StatsPage />} />
+              <Route path="/entries" element={<EntriesPage />} />
+              <Route path="/premium" element={<PremiumPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/entry/:id" element={<EntryDetailPage />} />
+            </Routes>
+          </ErrorBoundary>
         </div>
 
         {/* Floating Dock Navigation */}

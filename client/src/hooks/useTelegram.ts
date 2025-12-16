@@ -8,6 +8,8 @@ export function useTelegram() {
     return window.Telegram?.WebApp;
   }, []);
 
+  // User data for UI display only (not trusted for auth)
+  // Auth is handled via initData which is validated on server
   const user = useMemo(() => {
     return webApp?.initDataUnsafe?.user;
   }, [webApp]);

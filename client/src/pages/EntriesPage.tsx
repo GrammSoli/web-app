@@ -1,3 +1,6 @@
+// TODO: Refactor - extract FilterPanel, EntriesList, and custom hooks (useEntriesFilter)
+// This file is 500+ lines and could benefit from decomposition
+
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Preloader } from 'konsta/react';

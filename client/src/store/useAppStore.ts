@@ -100,8 +100,15 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       const response = await api.entries.getAll({ page, limit: 20 });
       
+      // Deduplicate entries by id to prevent duplicates from race conditions
+      const newEntries = reset 
+        ? response.items 
+        : [...entries, ...response.items].filter(
+            (entry, index, self) => self.findIndex(e => e.id === entry.id) === index
+          );
+      
       set({
-        entries: reset ? response.items : [...entries, ...response.items],
+        entries: newEntries,
         entriesPage: page + 1,
         hasMoreEntries: response.hasMore,
         entriesLoading: false,

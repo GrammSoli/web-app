@@ -47,6 +47,20 @@ async function apiFetch<T>(
     });
 
     if (!response.ok) {
+      // Handle 401 Unauthorized - session expired or invalid
+      if (response.status === 401) {
+        const message = 'Сессия истекла. Пожалуйста, перезапустите приложение.';
+        if (window.Telegram?.WebApp?.showAlert) {
+          window.Telegram.WebApp.showAlert(message, () => {
+            window.Telegram?.WebApp?.close();
+          });
+        } else {
+          alert(message);
+          window.location.reload();
+        }
+        throw new Error(message);
+      }
+      
       const error = await response.json().catch(() => ({ error: 'Unknown error' }));
       throw new Error(error.error || `HTTP ${response.status}`);
     }
@@ -103,6 +117,7 @@ export async function getEntry(id: string): Promise<JournalEntry> {
 
 export async function createEntry(data: {
   textContent: string;
+  moodScore?: number;
 }): Promise<JournalEntry> {
   return apiFetch<JournalEntry>('/user/entries', {
     method: 'POST',

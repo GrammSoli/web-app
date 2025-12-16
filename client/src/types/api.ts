@@ -11,7 +11,6 @@ export interface User {
   lastName?: string;
   subscriptionTier: 'free' | 'basic' | 'premium';
   subscriptionExpiresAt?: string;
-  subscriptionEndDate?: string; // Alias for subscriptionExpiresAt
   balanceStars: number;
   totalEntriesCount: number;
   totalVoiceCount: number;
@@ -38,10 +37,8 @@ export interface User {
     voiceMinutesDaily: number;
   };
   
-  // Additional fields for ProfilePage (legacy)
-  totalEntries?: number;
+  // Additional fields for ProfilePage
   streakDays?: number;
-  entriesThisMonth?: number;
 }
 
 // User Settings
