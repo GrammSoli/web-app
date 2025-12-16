@@ -30,7 +30,8 @@ const moodGradients: Record<number, string> = {
 
 export default function EntryCard({ entry, onClick }: EntryCardProps) {
   const { haptic } = useTelegram();
-  const { privacyBlur } = useAppStore();
+  const { privacyBlur, user } = useAppStore();
+  const isFree = !user || user.subscriptionTier === 'free';
   
   const handleClick = () => {
     haptic.light();
@@ -103,17 +104,22 @@ export default function EntryCard({ entry, onClick }: EntryCardProps) {
 
       {/* Tags */}
       {entry.tags && entry.tags.length > 0 && !privacyBlur && (
-        <div className="flex flex-wrap gap-1.5 mt-3">
+        <div className="flex flex-wrap gap-1.5 mt-3 relative">
           {entry.tags.slice(0, 4).map((tag, i) => (
             <span
               key={i}
-              className="text-xs px-3 py-1 rounded-full bg-gradient-to-r from-blue-50 to-indigo-50 
+              className={`text-xs px-3 py-1 rounded-full bg-gradient-to-r from-blue-50 to-indigo-50 
                          text-blue-600 font-medium border border-blue-100 shadow-sm
-                         hover:from-blue-100 hover:to-indigo-100 transition-all duration-200"
+                         ${isFree ? 'blur-[3px] select-none' : 'hover:from-blue-100 hover:to-indigo-100'} transition-all duration-200`}
             >
               #{tag}
             </span>
           ))}
+          {isFree && entry.tags.length > 0 && (
+            <span className="absolute inset-0 flex items-center justify-center">
+              <span className="text-xs text-gray-400 bg-white/80 px-2 py-0.5 rounded-full">Premium</span>
+            </span>
+          )}
         </div>
       )}
 

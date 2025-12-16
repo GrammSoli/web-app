@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Preloader } from 'konsta/react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { ArrowLeft, CalendarDays, Mic, FileText, Tag, Lightbulb, Sprout, Trash2, Pencil, Play, Pause, X, Check, Plus } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Mic, FileText, Tag, Lightbulb, Sprout, Trash2, Pencil, Play, Pause, X, Check, Plus, Lock } from 'lucide-react';
 import { useTelegram } from '@/hooks/useTelegram';
 import { useAppStore } from '@/store/useAppStore';
 import { api } from '@/lib/api';
@@ -31,7 +31,8 @@ export default function EntryDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { haptic, showConfirm, showAlert } = useTelegram();
-  const { removeEntry } = useAppStore();
+  const { removeEntry, user } = useAppStore();
+  const isFree = !user || user.subscriptionTier === 'free';
   
   const [entry, setEntry] = useState<JournalEntry | null>(null);
   const [loading, setLoading] = useState(true);
@@ -498,20 +499,32 @@ export default function EntryDetailPage() {
           <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
             <h3 className="font-bold text-sm text-gray-400 mb-3 flex items-center gap-2">
               <Tag className="w-4 h-4" /> Теги
+              {isFree && <span className="text-xs text-purple-500 ml-auto">Premium</span>}
             </h3>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 relative">
               {entry.tags.map((tag, i) => (
                 <button
                   key={i}
-                  onClick={() => navigate(`/entries?tag=${encodeURIComponent(tag)}`)}
-                  className="px-4 py-1.5 rounded-full bg-gradient-to-r from-blue-50 to-indigo-50
+                  onClick={() => !isFree && navigate(`/entries?tag=${encodeURIComponent(tag)}`)}
+                  disabled={isFree}
+                  className={`px-4 py-1.5 rounded-full bg-gradient-to-r from-blue-50 to-indigo-50
                              text-blue-600 text-sm font-medium border border-blue-100 shadow-sm
-                             hover:from-blue-100 hover:to-indigo-100 hover:shadow 
-                             active:scale-95 transition-all duration-200"
+                             ${isFree ? 'blur-[4px] select-none cursor-default' : 'hover:from-blue-100 hover:to-indigo-100 hover:shadow active:scale-95'}
+                             transition-all duration-200`}
                 >
                   #{tag}
                 </button>
               ))}
+              {isFree && (
+                <div 
+                  className="absolute inset-0 flex items-center justify-center cursor-pointer"
+                  onClick={() => navigate('/premium')}
+                >
+                  <span className="flex items-center gap-1.5 text-sm text-purple-600 bg-white/90 px-3 py-1.5 rounded-full shadow-sm border border-purple-100">
+                    <Lock className="w-3.5 h-3.5" /> Открыть с подпиской
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         )}
