@@ -69,13 +69,16 @@ export const useAppStore = create<AppState>((set, get) => ({
   fetchUser: async () => {
     set({ userLoading: true, userError: null });
     try {
-      // Sync timezone first
-      const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      await api.user.syncTimezone(browserTimezone).catch(() => {
-        // Ignore timezone sync errors
-      });
-      
       const user = await api.user.getCurrent();
+      
+      // Sync timezone only if different from server
+      const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (user.settings?.timezone !== browserTimezone) {
+        await api.user.syncTimezone(browserTimezone).catch(() => {
+          // Ignore timezone sync errors
+        });
+      }
+      
       set({ user, userLoading: false });
     } catch (error) {
       set({ 
