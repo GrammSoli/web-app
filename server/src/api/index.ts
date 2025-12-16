@@ -8,6 +8,10 @@ import { apiLogger } from '../utils/logger.js';
 export function createApp() {
   const app = express();
   
+  // Trust proxy (Nginx) - указываем количество прокси между клиентом и сервером
+  // Для Cloudflare + Nginx = 2 прокси
+  app.set('trust proxy', 2);
+  
   // Security middleware
   app.use(helmet());
   

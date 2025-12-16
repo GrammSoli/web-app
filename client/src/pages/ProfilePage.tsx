@@ -112,17 +112,33 @@ export default function ProfilePage() {
               <span className="font-bold text-gray-700 flex items-center gap-2">
                 <BarChart3 className="w-5 h-5 text-gray-500" /> Использование
               </span>
-              <span className="text-sm text-gray-400">
-                {appUser.entriesThisMonth || 0} / {limit.label}
-              </span>
+              {currentTier === 'premium' ? (
+                <span className="text-sm text-purple-500 font-medium flex items-center gap-1">
+                  <Crown className="w-4 h-4" />
+                  Безлимит
+                </span>
+              ) : (
+                <span className="text-sm text-gray-400">
+                  {appUser.entriesThisMonth || 0} / {limit.entries}
+                </span>
+              )}
             </div>
-            <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full bg-gradient-to-r ${tierInfo.gradient} transition-all`}
-                style={{ width: `${usagePercent}%` }}
-              />
-            </div>
-            <p className="text-xs text-gray-400 mt-2">Записей в этом месяце</p>
+            {currentTier !== 'premium' && (
+              <>
+                <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full bg-gradient-to-r ${tierInfo.gradient} transition-all`}
+                    style={{ width: `${usagePercent}%` }}
+                  />
+                </div>
+                <p className="text-xs text-gray-400 mt-2">Записей в этом месяце</p>
+              </>
+            )}
+            {currentTier === 'premium' && (
+              <p className="text-xs text-gray-400">
+                У вас нет ограничений на количество записей
+              </p>
+            )}
           </div>
         )}
 

@@ -19,6 +19,9 @@ interface AppState {
   stats: UserStats | null;
   statsLoading: boolean;
   
+  // Privacy
+  privacyBlur: boolean;
+  
   // Computed
   isLoading: boolean;
   
@@ -29,8 +32,18 @@ interface AppState {
   fetchStats: () => Promise<void>;
   addEntry: (entry: JournalEntry) => void;
   removeEntry: (id: string) => void;
+  togglePrivacyBlur: () => void;
   reset: () => void;
 }
+
+// Load privacy setting from localStorage
+const getInitialPrivacyBlur = () => {
+  try {
+    return localStorage.getItem('privacyBlur') === 'true';
+  } catch {
+    return false;
+  }
+};
 
 export const useAppStore = create<AppState>((set, get) => ({
   // Initial state
@@ -46,6 +59,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   
   stats: null,
   statsLoading: false,
+  
+  privacyBlur: getInitialPrivacyBlur(),
   
   // isLoading is a computed alias
   isLoading: false,
@@ -122,6 +137,17 @@ export const useAppStore = create<AppState>((set, get) => ({
     set(state => ({
       entries: state.entries.filter(e => e.id !== id),
     }));
+  },
+
+  // Toggle privacy blur mode
+  togglePrivacyBlur: () => {
+    set(state => {
+      const newValue = !state.privacyBlur;
+      try {
+        localStorage.setItem('privacyBlur', String(newValue));
+      } catch {}
+      return { privacyBlur: newValue };
+    });
   },
 
   // Reset store

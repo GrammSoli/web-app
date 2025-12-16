@@ -71,7 +71,7 @@ export async function updateUserTimezone(userId: string, timezone: string): Prom
   dbLogger.info({ userId, timezone }, 'Updating user timezone');
   
   // Use raw SQL to bypass Prisma cache issue
-  await prisma.$executeRaw`UPDATE app.users SET timezone = ${timezone} WHERE id = ${userId}`;
+  await prisma.$executeRaw`UPDATE app.users SET timezone = ${timezone} WHERE id = ${userId}::uuid`;
   
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) throw new Error('User not found');

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Preloader } from 'konsta/react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { Flame, FileText, Smile, CalendarDays, BookOpen, User, AlertCircle, RefreshCw } from 'lucide-react';
+import { Flame, FileText, Smile, CalendarDays, BookOpen, User, AlertCircle, RefreshCw, Eye, EyeOff } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import { useTelegram } from '@/hooks/useTelegram';
 import EntryCard from '@/components/EntryCard';
@@ -13,7 +13,7 @@ const MOOD_SCORES = [2, 5, 7, 9];
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const { user } = useTelegram();
+  const { user, haptic } = useTelegram();
   const { 
     entries, 
     entriesLoading, 
@@ -21,9 +21,11 @@ export default function HomePage() {
     userError,
     hasMoreEntries,
     stats,
+    privacyBlur,
     fetchEntries, 
     fetchStats,
-    fetchUser 
+    fetchUser,
+    togglePrivacyBlur
   } = useAppStore();
 
   useEffect(() => {
@@ -44,6 +46,11 @@ export default function HomePage() {
     navigate('/new', { state: { mood: { emoji, score, label: '' } } });
   };
 
+  const handleToggleBlur = () => {
+    haptic.light();
+    togglePrivacyBlur();
+  };
+
   const today = format(new Date(), "EEEE, d MMM", { locale: ru });
   const capitalizedDate = today.charAt(0).toUpperCase() + today.slice(1);
 
@@ -62,13 +69,27 @@ export default function HomePage() {
               Привет, {user?.first_name || 'друг'}!
             </h1>
           </div>
-          <button 
-            onClick={() => navigate('/profile')}
-            className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 
-                       overflow-hidden border-2 border-white shadow-lg flex items-center justify-center text-white text-lg font-bold"
-          >
-            {user?.first_name?.[0] || <User className="w-6 h-6" />}
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Privacy toggle */}
+            <button
+              onClick={handleToggleBlur}
+              className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors
+                ${privacyBlur 
+                  ? 'bg-indigo-500 text-white' 
+                  : 'bg-gray-100 text-gray-500'}`}
+            >
+              {privacyBlur ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+            </button>
+            
+            {/* Profile avatar */}
+            <button 
+              onClick={() => navigate('/profile')}
+              className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 
+                         overflow-hidden border-2 border-white shadow-lg flex items-center justify-center text-white text-lg font-bold"
+            >
+              {user?.first_name?.[0] || <User className="w-6 h-6" />}
+            </button>
+          </div>
         </div>
 
         {/* Main Mood Card - Gradient with blur effect */}
@@ -151,9 +172,9 @@ export default function HomePage() {
         <div className="pt-2">
           <div className="flex justify-between items-center mb-3 px-1">
             <h2 className="text-lg font-bold text-gray-700">Последние записи</h2>
-            {entries.length > 0 && (
+            {entries && entries.length > 0 && (
               <button 
-                onClick={() => navigate('/stats')}
+                onClick={() => navigate('/entries')}
                 className="text-blue-500 text-sm font-medium"
               >
                 Все записи →
@@ -185,7 +206,7 @@ export default function HomePage() {
                   Попробовать снова
                 </button>
               </div>
-            ) : entries.length === 0 && !entriesLoading ? (
+            ) : entries && entries.length === 0 && !entriesLoading ? (
               <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100 text-center">
                 <div className="mb-4 flex justify-center">
                   <BookOpen className="w-16 h-16 text-indigo-400" />
@@ -199,7 +220,7 @@ export default function HomePage() {
                 </p>
               </div>
             ) : (
-              entries.slice(0, 5).map((entry) => (
+              (entries || []).slice(0, 5).map((entry) => (
                 <div 
                   key={entry.id}
                   className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
@@ -213,7 +234,7 @@ export default function HomePage() {
             )}
 
             {/* Load more */}
-            {hasMoreEntries && entries.length > 5 && (
+            {hasMoreEntries && entries && entries.length > 5 && (
               <div className="py-2 flex justify-center">
                 {entriesLoading ? (
                   <Preloader />
@@ -232,7 +253,7 @@ export default function HomePage() {
         </div>
 
         {/* Initial loading */}
-        {entriesLoading && entries.length === 0 && (
+        {entriesLoading && (!entries || entries.length === 0) && (
           <div className="flex justify-center py-12">
             <Preloader />
           </div>

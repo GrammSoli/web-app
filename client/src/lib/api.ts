@@ -116,6 +116,17 @@ export async function deleteEntry(id: string): Promise<void> {
   });
 }
 
+export async function updateEntry(id: string, data: { textContent?: string; tags?: string[]; moodScore?: number; moodLabel?: string }): Promise<JournalEntry> {
+  return apiFetch<JournalEntry>(`/user/entries/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getEntryAudio(id: string): Promise<{ audioUrl: string; duration: number | null }> {
+  return apiFetch<{ audioUrl: string; duration: number | null }>(`/user/entries/${id}/audio`);
+}
+
 // ============================================
 // SUBSCRIPTION API
 // ============================================
@@ -149,6 +160,8 @@ export const api = {
     get: getEntry,
     create: createEntry,
     delete: deleteEntry,
+    update: updateEntry,
+    getAudio: getEntryAudio,
   },
   subscription: {
     getPlans: getSubscriptionPlans,

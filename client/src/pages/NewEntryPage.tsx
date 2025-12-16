@@ -27,7 +27,7 @@ const PLACEHOLDER_TEXTS = [
 export default function NewEntryPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { haptic, mainButton, showAlert } = useTelegram();
+  const { haptic, showAlert } = useTelegram();
   const { addEntry } = useAppStore();
   
   const [text, setText] = useState('');
@@ -46,22 +46,6 @@ export default function NewEntryPage() {
     setTimeout(() => textareaRef.current?.focus(), 100);
   }, []);
 
-  // Handle main button
-  useEffect(() => {
-    const canSubmit = text.trim().length >= APP_CONFIG.MIN_ENTRY_CHARS;
-    
-    if (canSubmit) {
-      mainButton.show('Отправить', handleSubmit);
-      mainButton.enable();
-    } else {
-      mainButton.hide();
-    }
-
-    return () => {
-      mainButton.hide();
-    };
-  }, [text]);
-
   const handleSubmit = async () => {
     if (text.trim().length < APP_CONFIG.MIN_ENTRY_CHARS) {
       showAlert('Напиши хотя бы пару предложений о своих чувствах');
@@ -70,7 +54,6 @@ export default function NewEntryPage() {
 
     setIsSubmitting(true);
     haptic.medium();
-    mainButton.showProgress();
 
     try {
       const entry = await api.entries.create({ textContent: text.trim() });
@@ -81,7 +64,6 @@ export default function NewEntryPage() {
       
     } catch (error) {
       haptic.error();
-      mainButton.hideProgress();
       showAlert(error instanceof Error ? error.message : 'Не удалось сохранить запись');
       setIsSubmitting(false);
     }

@@ -31,6 +31,7 @@ export interface JournalEntry {
   textContent: string;
   isVoice: boolean;
   voiceDurationSeconds?: number;
+  voiceFileId?: string;
   moodScore?: number;
   moodLabel?: string;
   tags: string[];
