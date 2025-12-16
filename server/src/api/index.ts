@@ -4,6 +4,9 @@ import helmet from 'helmet';
 import { apiLimiter } from './middleware/index.js';
 import { userRoutes, adminRoutes, internalRoutes } from './routes/index.js';
 import { apiLogger } from '../utils/logger.js';
+import { cryptoPayService } from '../services/cryptopay.js';
+import { activateSubscription } from '../services/user.js';
+import prisma from '../services/database.js';
 
 export function createApp() {
   const app = express();
@@ -52,6 +55,65 @@ export function createApp() {
   // Health check (публичный)
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  });
+  
+  // CryptoPay webhook (публичный, без rate limiting)
+  app.post('/api/webhook/cryptopay', express.raw({ type: 'application/json' }), async (req, res) => {
+    try {
+      const signature = req.headers['crypto-pay-api-signature'] as string;
+      const bodyString = req.body.toString();
+      
+      // Verify signature
+      const isValid = cryptoPayService.verifyWebhookSignature(bodyString, signature);
+      if (!isValid) {
+        apiLogger.warn('Invalid CryptoPay webhook signature');
+        return res.status(401).json({ error: 'Invalid signature' });
+      }
+      
+      const update = cryptoPayService.parseWebhookPayload(bodyString);
+      
+      if (update.update_type === 'invoice_paid') {
+        const invoice = update.payload;
+        
+        apiLogger.info({
+          invoiceId: invoice.invoice_id,
+          amount: invoice.amount,
+          paidAsset: invoice.paid_asset,
+          payload: invoice.payload,
+        }, 'CryptoPay invoice paid');
+        
+        // Parse payload to get user info
+        if (invoice.payload) {
+          try {
+            const payloadData = JSON.parse(invoice.payload);
+            
+            if (payloadData.type === 'subscription' && payloadData.userId && payloadData.tier) {
+              // Find user and activate subscription
+              const user = await prisma.user.findUnique({
+                where: { id: payloadData.userId },
+              });
+              
+              if (user) {
+                await activateSubscription(user.id, payloadData.tier);
+                
+                apiLogger.info({
+                  userId: user.id,
+                  tier: payloadData.tier,
+                  invoiceId: invoice.invoice_id,
+                }, 'Crypto subscription activated');
+              }
+            }
+          } catch (parseError) {
+            apiLogger.error({ error: parseError }, 'Failed to parse invoice payload');
+          }
+        }
+      }
+      
+      res.json({ ok: true });
+    } catch (error) {
+      apiLogger.error({ error }, 'CryptoPay webhook error');
+      res.status(500).json({ error: 'Webhook processing failed' });
+    }
   });
   
   // 404 handler

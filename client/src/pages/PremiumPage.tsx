@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Preloader } from 'konsta/react';
-import { Gem, Star, Crown, Check } from 'lucide-react';
+import { Gem, Star, Crown, Check, Zap } from 'lucide-react';
 import { useTelegram } from '@/hooks/useTelegram';
 import { useAppStore } from '@/store/useAppStore';
 import { api } from '@/lib/api';
@@ -8,6 +8,12 @@ import { api } from '@/lib/api';
 interface Plans {
   basic: { stars: number; durationDays: number };
   premium: { stars: number; durationDays: number };
+}
+
+interface CryptoPrices {
+  enabled: boolean;
+  basic: { usdt: number; durationDays: number };
+  premium: { usdt: number; durationDays: number };
 }
 
 const PLANS = {
@@ -38,10 +44,11 @@ const PLANS = {
 };
 
 export default function PremiumPage() {
-  const { haptic, openInvoice, showAlert } = useTelegram();
+  const { haptic, openInvoice, showAlert, openLink } = useTelegram();
   const { user, fetchUser } = useAppStore();
   
   const [plans, setPlans] = useState<Plans | null>(null);
+  const [cryptoPrices, setCryptoPrices] = useState<CryptoPrices | null>(null);
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState<string | null>(null);
 
@@ -52,8 +59,12 @@ export default function PremiumPage() {
 
   const loadPlans = async () => {
     try {
-      const data = await api.subscription.getPlans();
-      setPlans(data);
+      const [plansData, cryptoData] = await Promise.all([
+        api.subscription.getPlans(),
+        api.subscription.getCryptoPrices().catch(() => null),
+      ]);
+      setPlans(plansData);
+      if (cryptoData) setCryptoPrices(cryptoData);
     } catch {
       // Plans will use default values from PLANS constant
     } finally {
@@ -63,7 +74,7 @@ export default function PremiumPage() {
 
   const handlePurchase = async (tier: 'basic' | 'premium') => {
     haptic.medium();
-    setPurchasing(tier);
+    setPurchasing(`${tier}-stars`);
 
     try {
       const { invoiceUrl } = await api.subscription.createInvoice(tier);
@@ -79,6 +90,23 @@ export default function PremiumPage() {
     } catch (error) {
       haptic.error();
       showAlert(error instanceof Error ? error.message : 'Ошибка при оплате');
+    } finally {
+      setPurchasing(null);
+    }
+  };
+
+  const handleCryptoPurchase = async (tier: 'basic' | 'premium') => {
+    haptic.medium();
+    setPurchasing(`${tier}-crypto`);
+
+    try {
+      const { invoiceUrl } = await api.subscription.createCryptoInvoice(tier);
+      // Открываем ссылку на CryptoBot
+      openLink(invoiceUrl);
+      showAlert('Откройте @CryptoBot для завершения оплаты');
+    } catch (error) {
+      haptic.error();
+      showAlert(error instanceof Error ? error.message : 'Ошибка при создании счёта');
     } finally {
       setPurchasing(null);
     }
@@ -163,14 +191,14 @@ export default function PremiumPage() {
               
               <button
                 onClick={() => handlePurchase('premium')}
-                disabled={currentTier === 'premium' || purchasing === 'premium'}
+                disabled={currentTier === 'premium' || purchasing === 'premium-stars'}
                 className={`w-full py-4 rounded-2xl font-bold text-lg transition-all active:scale-[0.98]
                   ${currentTier === 'premium'
                     ? 'bg-green-100 text-green-600'
                     : 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-xl shadow-purple-500/30'
                   } disabled:opacity-60`}
               >
-                {purchasing === 'premium' ? (
+                {purchasing === 'premium-stars' ? (
                   <span className="flex items-center justify-center gap-2">
                     <Preloader className="!w-5 !h-5" />
                     Оплата...
@@ -179,10 +207,30 @@ export default function PremiumPage() {
                   <span className="flex items-center justify-center gap-1"><Check className="w-5 h-5" /> Активен</span>
                 ) : (
                   <span className="flex items-center justify-center gap-1">
-                    Оформить за {plans?.premium.stars || 150} <Star className="w-5 h-5 text-yellow-300 fill-yellow-300" />
+                    {plans?.premium.stars || 150} <Star className="w-5 h-5 text-yellow-300 fill-yellow-300" /> Быстро
                   </span>
                 )}
               </button>
+              
+              {/* Crypto payment button for Premium */}
+              {cryptoPrices?.enabled && currentTier !== 'premium' && (
+                <button
+                  onClick={() => handleCryptoPurchase('premium')}
+                  disabled={purchasing === 'premium-crypto'}
+                  className="w-full mt-2 py-3 rounded-xl font-semibold text-sm transition-all active:scale-[0.98] bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/20 disabled:opacity-60"
+                >
+                  {purchasing === 'premium-crypto' ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <Preloader className="!w-4 !h-4" />
+                    </span>
+                  ) : (
+                    <span className="flex items-center justify-center gap-1">
+                      <Zap className="w-4 h-4" /> ${cryptoPrices.premium.usdt} Crypto 
+                      <span className="text-xs opacity-80 ml-1">(-30%)</span>
+                    </span>
+                  )}
+                </button>
+              )}
             </div>
           </div>
 
@@ -213,7 +261,7 @@ export default function PremiumPage() {
             
             <button
               onClick={() => handlePurchase('basic')}
-              disabled={currentTier !== 'free' || purchasing === 'basic'}
+              disabled={currentTier !== 'free' || purchasing === 'basic-stars'}
               className={`w-full py-3 rounded-xl font-semibold transition-all active:scale-[0.98]
                 ${currentTier === 'basic'
                   ? 'bg-green-100 text-green-600'
@@ -222,7 +270,7 @@ export default function PremiumPage() {
                     : 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg shadow-blue-500/30'
                 } disabled:opacity-60`}
             >
-              {purchasing === 'basic' ? (
+              {purchasing === 'basic-stars' ? (
                 <span className="flex items-center justify-center gap-2">
                   <Preloader className="!w-5 !h-5" />
                 </span>
@@ -232,10 +280,29 @@ export default function PremiumPage() {
                 'У вас Premium'
               ) : (
                 <span className="flex items-center justify-center gap-1">
-                  Оформить за {plans?.basic.stars || 50} <Star className="w-5 h-5 text-yellow-300 fill-yellow-300" />
+                  {plans?.basic.stars || 50} <Star className="w-5 h-5 text-yellow-300 fill-yellow-300" /> Быстро
                 </span>
               )}
             </button>
+            
+            {/* Crypto payment button for Basic */}
+            {cryptoPrices?.enabled && currentTier === 'free' && (
+              <button
+                onClick={() => handleCryptoPurchase('basic')}
+                disabled={purchasing === 'basic-crypto'}
+                className="w-full mt-2 py-2.5 rounded-xl font-semibold text-sm transition-all active:scale-[0.98] bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md shadow-emerald-500/20 disabled:opacity-60"
+              >
+                {purchasing === 'basic-crypto' ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <Preloader className="!w-4 !h-4" />
+                  </span>
+                ) : (
+                  <span className="flex items-center justify-center gap-1">
+                    <Zap className="w-4 h-4" /> ${cryptoPrices.basic.usdt} Crypto
+                  </span>
+                )}
+              </button>
+            )}
           </div>
         </div>
 
@@ -245,7 +312,7 @@ export default function PremiumPage() {
           <div className="space-y-3">
             <FaqItem 
               q="Как работает оплата?" 
-              a="Через Telegram Stars — внутреннюю валюту Telegram." 
+              a="Stars — быстро через Telegram. Crypto — выгоднее через @CryptoBot." 
             />
             <FaqItem 
               q="Могу отменить?" 
@@ -255,6 +322,12 @@ export default function PremiumPage() {
               q="Что с записями?" 
               a="Все записи сохраняются навсегда, меняются только лимиты." 
             />
+            {cryptoPrices?.enabled && (
+              <FaqItem 
+                q="Почему Crypto дешевле?" 
+                a="Telegram берёт комиссию за Stars. С криптой мы передаём экономию вам." 
+              />
+            )}
           </div>
         </div>
       </div>

@@ -70,6 +70,24 @@ export function useTelegram() {
     });
   }, [webApp]);
 
+  // Open external link
+  const openLink = useCallback((url: string, options?: { try_instant_view?: boolean }) => {
+    if (webApp?.openLink) {
+      webApp.openLink(url, options);
+    } else {
+      window.open(url, '_blank');
+    }
+  }, [webApp]);
+
+  // Open Telegram link (t.me links)
+  const openTelegramLink = useCallback((url: string) => {
+    if (webApp?.openTelegramLink) {
+      webApp.openTelegramLink(url);
+    } else {
+      window.open(url, '_blank');
+    }
+  }, [webApp]);
+
   // Main button helpers
   const mainButton = useMemo(() => ({
     show: (text: string, onClick: () => void) => {
@@ -105,6 +123,8 @@ export function useTelegram() {
     showAlert,
     showConfirm,
     openInvoice,
+    openLink,
+    openTelegramLink,
     mainButton,
     isReady: !!webApp,
   };

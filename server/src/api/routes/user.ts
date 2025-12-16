@@ -684,4 +684,75 @@ router.post('/subscription/invoice', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * POST /api/user/subscription/crypto-invoice
+ * Создание инвойса для оплаты подписки через CryptoPay
+ */
+router.post('/subscription/crypto-invoice', async (req: Request, res: Response) => {
+  try {
+    const { tier } = req.body as { tier: 'basic' | 'premium' };
+    
+    if (!tier || !['basic', 'premium'].includes(tier)) {
+      return res.status(400).json({ error: 'Invalid tier. Must be "basic" or "premium"' });
+    }
+    
+    const { createSubscriptionInvoice, cryptoPayService } = await import('../../services/cryptopay.js');
+    
+    const enabled = await cryptoPayService.isEnabled();
+    if (!enabled) {
+      return res.status(400).json({ error: 'Crypto payments are not enabled' });
+    }
+    
+    const result = await createSubscriptionInvoice(
+      tier,
+      req.user!.id,
+      req.user!.telegramId
+    );
+    
+    if (!result) {
+      return res.status(500).json({ error: 'Failed to create crypto invoice' });
+    }
+    
+    apiLogger.info({
+      userId: req.user!.id,
+      tier,
+      invoiceId: result.invoiceId,
+    }, 'Crypto invoice created');
+    
+    res.json({
+      invoiceUrl: result.invoiceUrl,
+      invoiceId: result.invoiceId,
+    });
+  } catch (error) {
+    apiLogger.error({ error }, 'Failed to create crypto invoice');
+    res.status(500).json({ error: 'Failed to create crypto invoice' });
+  }
+});
+
+/**
+ * GET /api/user/subscription/crypto-prices
+ * Получение крипто-цен для подписок
+ */
+router.get('/subscription/crypto-prices', async (_req: Request, res: Response) => {
+  try {
+    const { getCryptoPricing, cryptoPayService } = await import('../../services/cryptopay.js');
+    
+    const enabled = await cryptoPayService.isEnabled();
+    
+    const [basicPricing, premiumPricing] = await Promise.all([
+      getCryptoPricing('basic'),
+      getCryptoPricing('premium'),
+    ]);
+    
+    res.json({
+      enabled,
+      basic: basicPricing,
+      premium: premiumPricing,
+    });
+  } catch (error) {
+    apiLogger.error({ error }, 'Failed to get crypto prices');
+    res.status(500).json({ error: 'Failed to get crypto prices' });
+  }
+});
+
 export default router;

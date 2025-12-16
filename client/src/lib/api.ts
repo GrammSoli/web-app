@@ -145,6 +145,21 @@ export async function createInvoice(tier: 'basic' | 'premium'): Promise<{ invoic
   });
 }
 
+export async function getCryptoPrices(): Promise<{
+  enabled: boolean;
+  basic: { usdt: number; durationDays: number };
+  premium: { usdt: number; durationDays: number };
+}> {
+  return apiFetch('/user/subscription/crypto-prices');
+}
+
+export async function createCryptoInvoice(tier: 'basic' | 'premium'): Promise<{ invoiceUrl: string; invoiceId: number }> {
+  return apiFetch('/user/subscription/crypto-invoice', {
+    method: 'POST',
+    body: JSON.stringify({ tier }),
+  });
+}
+
 // ============================================
 // EXPORTS
 // ============================================
@@ -166,6 +181,8 @@ export const api = {
   subscription: {
     getPlans: getSubscriptionPlans,
     createInvoice,
+    getCryptoPrices,
+    createCryptoInvoice,
   },
 };
 
