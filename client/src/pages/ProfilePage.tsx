@@ -451,8 +451,7 @@ export default function ProfilePage() {
                   type="time"
                   value={settings.reminderTime || '20:00'}
                   onChange={(e) => handleUpdateSetting('reminderTime', e.target.value)}
-                  className="px-4 py-3 border border-gray-200 rounded-xl text-gray-800 bg-gray-50 text-lg text-center focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  style={{ width: 'calc(100% - 8px)' }}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl text-gray-800 bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 />
                 <p className="text-xs text-gray-400">
                   Напоминание придёт в указанное время по вашему часовому поясу
