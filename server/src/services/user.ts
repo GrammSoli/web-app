@@ -528,4 +528,22 @@ export default {
   logUsage,
   activateSubscription,
   getDashboardStats,
+  getAverageMood,
 };
+
+/**
+ * Получить среднюю оценку настроения пользователя
+ */
+export async function getAverageMood(userId: string): Promise<number | null> {
+  const result = await prisma.journalEntry.aggregate({
+    where: {
+      userId,
+      moodScore: { not: null },
+    },
+    _avg: {
+      moodScore: true,
+    },
+  });
+  
+  return result._avg.moodScore;
+}

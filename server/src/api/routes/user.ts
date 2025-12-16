@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { telegramAuth } from '../middleware/auth.js';
 import { timezoneMiddleware, isValidTimezone } from '../middleware/timezone.js';
-import { getUserEntries, countTodayEntries, getEffectiveTier, updateUserTimezone, createEntry, processEntry, logUsage, getTodayVoiceUsageSeconds } from '../../services/user.js';
+import { getUserEntries, countTodayEntries, getEffectiveTier, updateUserTimezone, createEntry, processEntry, logUsage, getTodayVoiceUsageSeconds, getAverageMood } from '../../services/user.js';
 import { getTierLimits, getSubscriptionPricing } from '../../utils/pricing.js';
 import { analyzeMood } from '../../services/openai.js';
 import { apiLogger } from '../../utils/logger.js';
@@ -61,7 +61,10 @@ router.get('/me', async (req: Request, res: Response) => {
   try {
     const user = req.user!;
     const tier = await getEffectiveTier(user.id);
-    const todayCounts = await countTodayEntries(user.id, req.userTimezone);
+    const [todayCounts, averageMood] = await Promise.all([
+      countTodayEntries(user.id, req.userTimezone),
+      getAverageMood(user.id),
+    ]);
     const limits = await getTierLimits(tier);
     
     res.json({
@@ -85,6 +88,7 @@ router.get('/me', async (req: Request, res: Response) => {
         totalVoice: user.totalVoiceCount,
         todayEntries: todayCounts.total,
         todayVoice: todayCounts.voice,
+        averageMood: averageMood,
       },
       limits: {
         dailyEntries: limits.dailyEntries,

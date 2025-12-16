@@ -28,6 +28,7 @@ export interface User {
     totalVoice: number;
     todayEntries: number;
     todayVoice: number;
+    averageMood?: number;
   };
   
   // Limits from API /me
