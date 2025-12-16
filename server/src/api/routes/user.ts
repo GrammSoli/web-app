@@ -76,9 +76,9 @@ router.get('/me', async (req: Request, res: Response) => {
       isAdmin: user.isAdmin,
       settings: {
         timezone: user.timezone,
-        reminderEnabled: user.reminderEnabled || false,
-        reminderTime: user.reminderTime || null,
-        privacyBlurDefault: user.privacyBlurDefault || false,
+        reminderEnabled: (user as Record<string, unknown>).reminderEnabled as boolean || false,
+        reminderTime: (user as Record<string, unknown>).reminderTime as string || null,
+        privacyBlurDefault: (user as Record<string, unknown>).privacyBlurDefault as boolean || false,
       },
       stats: {
         totalEntries: user.totalEntriesCount,
@@ -891,7 +891,7 @@ router.get('/export', async (req: Request, res: Response) => {
       return res.status(403).json({ error: 'Export is available for Premium users only' });
     }
     
-    const entries = await getUserEntries(user.id, 1000, 0); // Max 1000 entries
+    const entries = await getUserEntries(user.id, { limit: 1000 }); // Max 1000 entries
     
     if (format === 'csv') {
       // CSV format
@@ -922,7 +922,6 @@ router.get('/export', async (req: Request, res: Response) => {
           date: e.dateCreated,
           moodScore: e.moodScore,
           moodLabel: e.moodLabel,
-          moodEmoji: e.moodEmoji,
           text: e.textContent,
           tags: e.aiTags,
           isVoice: !!e.voiceFileId,
@@ -951,9 +950,9 @@ router.get('/settings', async (req: Request, res: Response) => {
     
     res.json({
       timezone: user.timezone,
-      reminderEnabled: user.reminderEnabled || false,
-      reminderTime: user.reminderTime || null,
-      privacyBlurDefault: user.privacyBlurDefault || false,
+      reminderEnabled: (user as Record<string, unknown>).reminderEnabled as boolean || false,
+      reminderTime: (user as Record<string, unknown>).reminderTime as string || null,
+      privacyBlurDefault: (user as Record<string, unknown>).privacyBlurDefault as boolean || false,
     });
   } catch (error) {
     apiLogger.error({ error }, 'Failed to get settings');
@@ -1005,9 +1004,9 @@ router.put('/settings', async (req: Request, res: Response) => {
     
     res.json({
       timezone: updatedUser.timezone,
-      reminderEnabled: updatedUser.reminderEnabled,
-      reminderTime: updatedUser.reminderTime,
-      privacyBlurDefault: updatedUser.privacyBlurDefault,
+      reminderEnabled: (updatedUser as Record<string, unknown>).reminderEnabled as boolean || false,
+      reminderTime: (updatedUser as Record<string, unknown>).reminderTime as string || null,
+      privacyBlurDefault: (updatedUser as Record<string, unknown>).privacyBlurDefault as boolean || false,
     });
   } catch (error) {
     apiLogger.error({ error }, 'Failed to update settings');
