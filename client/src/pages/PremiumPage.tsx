@@ -6,8 +6,8 @@ import { useAppStore } from '@/store/useAppStore';
 import { api } from '@/lib/api';
 
 interface Plans {
-  basic: { stars: number; durationDays: number };
-  premium: { stars: number; durationDays: number };
+  basic: { stars: number; durationDays: number; name?: string; features?: string[] };
+  premium: { stars: number; durationDays: number; name?: string; features?: string[] };
 }
 
 interface CryptoPrices {
@@ -16,29 +16,31 @@ interface CryptoPrices {
   premium: { usdt: number; durationDays: number };
 }
 
-const PLANS = {
+// Default features (fallback if not loaded from server)
+const DEFAULT_FEATURES = {
+  basic: [
+    '20 записей в день',
+    '5 голосовых в день',
+    'Расширенный анализ',
+    'Теги и рекомендации',
+  ],
+  premium: [
+    'Безлимитные записи',
+    'Безлимитные голосовые',
+    'Глубокий анализ с ИИ',
+    'Персональные инсайты',
+    'Приоритетная поддержка',
+  ],
+};
+
+const PLAN_STYLES = {
   basic: {
-    name: 'Basic',
     icon: Star,
     gradient: 'from-blue-500 to-cyan-500',
-    features: [
-      '20 записей в день',
-      '5 голосовых в день',
-      'Расширенный анализ',
-      'Теги и рекомендации',
-    ],
   },
   premium: {
-    name: 'Premium',
     icon: Crown,
     gradient: 'from-purple-500 to-pink-500',
-    features: [
-      'Безлимитные записи',
-      'Безлимитные голосовые',
-      'Глубокий анализ с ИИ',
-      'Персональные инсайты',
-      'Приоритетная поддержка',
-    ],
     popular: true,
   },
 };
@@ -160,18 +162,18 @@ export default function PremiumPage() {
         <div className="space-y-4">
           {/* Premium Plan - Featured */}
           <div className="relative">
-            {PLANS.premium.popular && (
+            {PLAN_STYLES.premium.popular && (
               <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs font-bold px-4 py-1 rounded-full shadow-lg z-10 flex items-center gap-1">
                 <Star className="w-3 h-3 fill-current" /> Популярный
               </div>
             )}
             <div className="bg-white rounded-3xl p-5 shadow-lg border-2 border-purple-200 pt-6">
               <div className="flex items-center gap-3 mb-4">
-                <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${PLANS.premium.gradient} flex items-center justify-center shadow-lg`}>
+                <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${PLAN_STYLES.premium.gradient} flex items-center justify-center shadow-lg`}>
                   <Crown className="w-8 h-8 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-gray-800">{PLANS.premium.name}</h3>
+                  <h3 className="text-xl font-bold text-gray-800">{plans?.premium.name || 'Premium'}</h3>
                   <p className="text-gray-400 text-sm">в месяц</p>
                 </div>
                 <div className="ml-auto text-right flex items-center gap-1">
@@ -181,7 +183,7 @@ export default function PremiumPage() {
               </div>
               
               <ul className="space-y-2 mb-5">
-                {PLANS.premium.features.map((f, i) => (
+                {(plans?.premium.features || DEFAULT_FEATURES.premium).map((f, i) => (
                   <li key={i} className="flex items-center gap-2 text-sm text-gray-600">
                     <Check className="w-4 h-4 text-green-500" />
                     {f}
@@ -237,11 +239,11 @@ export default function PremiumPage() {
           {/* Basic Plan */}
           <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
             <div className="flex items-center gap-3 mb-4">
-              <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${PLANS.basic.gradient} flex items-center justify-center shadow-md`}>
+              <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${PLAN_STYLES.basic.gradient} flex items-center justify-center shadow-md`}>
                 <Star className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-gray-800">{PLANS.basic.name}</h3>
+                <h3 className="text-lg font-bold text-gray-800">{plans?.basic.name || 'Basic'}</h3>
                 <p className="text-gray-400 text-xs">в месяц</p>
               </div>
               <div className="ml-auto text-right flex items-center gap-1">
@@ -251,7 +253,7 @@ export default function PremiumPage() {
             </div>
             
             <ul className="space-y-1.5 mb-4">
-              {PLANS.basic.features.map((f, i) => (
+              {(plans?.basic.features || DEFAULT_FEATURES.basic).map((f, i) => (
                 <li key={i} className="flex items-center gap-2 text-sm text-gray-500">
                   <Check className="w-4 h-4 text-green-500" />
                   {f}

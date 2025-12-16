@@ -625,19 +625,42 @@ router.get('/subscription', async (req: Request, res: Response) => {
  */
 router.get('/subscription/plans', async (_req: Request, res: Response) => {
   try {
+    const { configService } = await import('../../services/config.js');
+    
     const [basicPricing, premiumPricing] = await Promise.all([
       getSubscriptionPricing('basic'),
       getSubscriptionPricing('premium'),
     ]);
     
+    // Get customizable features from config
+    const basicFeaturesJson = await configService.getString('subscription.basic.features', '[]');
+    const premiumFeaturesJson = await configService.getString('subscription.premium.features', '[]');
+    const basicName = await configService.getString('subscription.basic.name', 'Basic');
+    const premiumName = await configService.getString('subscription.premium.name', 'Premium');
+    
+    let basicFeatures: string[] = [];
+    let premiumFeatures: string[] = [];
+    
+    try {
+      basicFeatures = JSON.parse(basicFeaturesJson);
+    } catch { basicFeatures = []; }
+    
+    try {
+      premiumFeatures = JSON.parse(premiumFeaturesJson);
+    } catch { premiumFeatures = []; }
+    
     res.json({
       basic: {
+        name: basicName,
         stars: basicPricing.stars,
         durationDays: basicPricing.durationDays,
+        features: basicFeatures,
       },
       premium: {
+        name: premiumName,
         stars: premiumPricing.stars,
         durationDays: premiumPricing.durationDays,
+        features: premiumFeatures,
       },
     });
   } catch (error) {
