@@ -1,12 +1,76 @@
 import { useState, useEffect, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Gem, Bell, Download, MessageCircle, RefreshCw, BarChart3, ChevronRight, Star, Crown, Gift, User, Clock, Settings, Globe, Shield } from 'lucide-react';
+import { Gem, Bell, Download, MessageCircle, RefreshCw, BarChart3, ChevronRight, Star, Crown, Gift, User, Clock, Settings, Globe, Shield, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useTelegram } from '@/hooks/useTelegram';
 import { useAppStore } from '@/store/useAppStore';
 import { exportData, getUserSettings, updateUserSettings } from '@/lib/api';
 import type { UserSettings } from '@/types/api';
+
+// Bottom Sheet Component
+function BottomSheet({ 
+  isOpen, 
+  onClose, 
+  title, 
+  icon,
+  children 
+}: { 
+  isOpen: boolean; 
+  onClose: () => void; 
+  title: string;
+  icon: ReactNode;
+  children: ReactNode;
+}) {
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50">
+      {/* Backdrop */}
+      <div 
+        className="absolute inset-0 bg-black/50 transition-opacity"
+        onClick={onClose}
+      />
+      {/* Sheet */}
+      <div 
+        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-xl transform transition-transform duration-300 ease-out animate-slide-up"
+        style={{ maxHeight: '85vh' }}
+      >
+        {/* Handle */}
+        <div className="flex justify-center pt-3">
+          <div className="w-10 h-1 bg-gray-300 rounded-full" />
+        </div>
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <h3 className="font-bold text-gray-800 flex items-center gap-2">
+            {icon} {title}
+          </h3>
+          <button 
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-500"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        {/* Content */}
+        <div className="p-5 overflow-y-auto" style={{ maxHeight: 'calc(85vh - 80px)' }}>
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const tierIcons = {
   free: Gift,
@@ -27,6 +91,8 @@ export default function ProfilePage() {
   const [refreshing, setRefreshing] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showReminders, setShowReminders] = useState(false);
+  const [showExport, setShowExport] = useState(false);
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [settingsLoading, setSettingsLoading] = useState(false);
 
@@ -35,16 +101,16 @@ export default function ProfilePage() {
   const TierIcon = tierIcons[currentTier];
   const isPaid = currentTier !== 'free';
 
-  // Load settings
+  // Load settings when any sheet opens
   useEffect(() => {
-    if (showSettings && !settings) {
+    if ((showSettings || showReminders) && !settings) {
       setSettingsLoading(true);
       getUserSettings()
         .then(setSettings)
         .catch(console.error)
         .finally(() => setSettingsLoading(false));
     }
-  }, [showSettings, settings]);
+  }, [showSettings, showReminders, settings]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -233,20 +299,27 @@ export default function ProfilePage() {
             icon={<Settings className="w-6 h-6 text-gray-500" />} 
             title="Настройки" 
             subtitle="Часовой пояс, приватность" 
-            onClick={() => setShowSettings(!showSettings)} 
+            onClick={() => { haptic.light(); setShowSettings(true); }} 
           />
           <MenuItem 
             icon={<Bell className="w-6 h-6 text-amber-500" />} 
             title="Напоминания" 
             subtitle={settings?.reminderEnabled ? `Ежедневно в ${settings.reminderTime}` : 'Выключены'} 
-            onClick={() => setShowSettings(true)} 
+            onClick={() => { haptic.light(); setShowReminders(true); }} 
           />
           <MenuItem 
             icon={<Download className="w-6 h-6 text-blue-500" />} 
             title="Экспорт данных" 
-            subtitle={exporting ? 'Загрузка...' : (currentTier === 'free' ? 'Только Premium' : 'JSON или CSV')} 
-            onClick={() => !exporting && handleExport('json')} 
-            disabled={currentTier === 'free' || exporting} 
+            subtitle={currentTier === 'free' ? 'Только Premium' : 'JSON или CSV'} 
+            onClick={() => {
+              if (currentTier === 'free') {
+                haptic.warning();
+                navigate('/premium');
+              } else {
+                haptic.light();
+                setShowExport(true);
+              }
+            }} 
           />
           <MenuItem 
             icon={<MessageCircle className="w-6 h-6 text-green-500" />} 
@@ -256,118 +329,6 @@ export default function ProfilePage() {
             last 
           />
         </div>
-
-        {/* Settings Panel */}
-        {showSettings && (
-          <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 space-y-5">
-            <h3 className="font-bold text-gray-800 flex items-center gap-2">
-              <Settings className="w-5 h-5 text-gray-500" /> Настройки
-            </h3>
-            
-            {settingsLoading ? (
-              <div className="text-center text-gray-400 py-4">Загрузка...</div>
-            ) : settings && (
-              <>
-                {/* Timezone */}
-                <div className="space-y-2">
-                  <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                    <Globe className="w-4 h-4" /> Часовой пояс
-                  </label>
-                  <select
-                    value={settings.timezone}
-                    onChange={(e) => handleUpdateSetting('timezone', e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl text-gray-800 bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  >
-                    <option value="Europe/Moscow">Москва (UTC+3)</option>
-                    <option value="Europe/Kaliningrad">Калининград (UTC+2)</option>
-                    <option value="Europe/Samara">Самара (UTC+4)</option>
-                    <option value="Asia/Yekaterinburg">Екатеринбург (UTC+5)</option>
-                    <option value="Asia/Omsk">Омск (UTC+6)</option>
-                    <option value="Asia/Krasnoyarsk">Красноярск (UTC+7)</option>
-                    <option value="Asia/Irkutsk">Иркутск (UTC+8)</option>
-                    <option value="Asia/Yakutsk">Якутск (UTC+9)</option>
-                    <option value="Asia/Vladivostok">Владивосток (UTC+10)</option>
-                    <option value="Asia/Magadan">Магадан (UTC+11)</option>
-                    <option value="Asia/Kamchatka">Камчатка (UTC+12)</option>
-                    <option value="Europe/Kiev">Киев (UTC+2)</option>
-                    <option value="Europe/Minsk">Минск (UTC+3)</option>
-                    <option value="Asia/Almaty">Алматы (UTC+6)</option>
-                    <option value="Asia/Tashkent">Ташкент (UTC+5)</option>
-                    <option value="UTC">UTC</option>
-                  </select>
-                </div>
-
-                {/* Reminder */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                      <Bell className="w-4 h-4" /> Ежедневное напоминание
-                    </label>
-                    <button
-                      onClick={() => handleUpdateSetting('reminderEnabled', !settings.reminderEnabled)}
-                      className={`w-12 h-7 rounded-full transition-colors flex items-center px-1 ${
-                        settings.reminderEnabled ? 'bg-indigo-500 justify-end' : 'bg-gray-300 justify-start'
-                      }`}
-                    >
-                      <span className="w-5 h-5 bg-white rounded-full shadow-sm" />
-                    </button>
-                  </div>
-                  {settings.reminderEnabled && (
-                    <input
-                      type="time"
-                      value={settings.reminderTime || '20:00'}
-                      onChange={(e) => handleUpdateSetting('reminderTime', e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl text-gray-800 bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    />
-                  )}
-                </div>
-
-                {/* Privacy default */}
-                <div className="flex items-center justify-between">
-                  <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                    <Shield className="w-4 h-4" /> Приватность по умолчанию
-                  </label>
-                  <button
-                    onClick={() => handleUpdateSetting('privacyBlurDefault', !settings.privacyBlurDefault)}
-                    className={`w-12 h-7 rounded-full transition-colors flex items-center px-1 ${
-                      settings.privacyBlurDefault ? 'bg-indigo-500 justify-end' : 'bg-gray-300 justify-start'
-                    }`}
-                  >
-                    <span className="w-5 h-5 bg-white rounded-full shadow-sm" />
-                  </button>
-                </div>
-                <p className="text-xs text-gray-400 -mt-2">
-                  Записи будут скрыты при открытии приложения
-                </p>
-              </>
-            )}
-          </div>
-        )}
-
-        {/* Export options for Premium */}
-        {isPaid && (
-          <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5">
-            <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
-              <Download className="w-5 h-5 text-blue-500" /> Экспорт записей
-            </h3>
-            <div className="flex gap-3">
-              <button
-                onClick={() => handleExport('json')}
-                disabled={exporting}
-                className="flex-1 py-3 bg-blue-50 text-blue-600 rounded-xl font-semibold active:bg-blue-100 transition-colors disabled:opacity-50"
-              >
-                {exporting ? '...' : 'JSON'}
-              </button>
-              <button
-                onClick={() => handleExport('csv')}
-                disabled={exporting}
-                className="flex-1 py-3 bg-green-50 text-green-600 rounded-xl font-semibold active:bg-green-100 transition-colors disabled:opacity-50"
-              >
-                {exporting ? '...' : 'CSV'}
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* Actions */}
         <div className="space-y-3">
@@ -389,6 +350,150 @@ export default function ProfilePage() {
           <p className="mt-1">© 2024 Mindful Journal</p>
         </div>
       </div>
+
+      {/* Settings Bottom Sheet */}
+      <BottomSheet
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+        title="Настройки"
+        icon={<Settings className="w-5 h-5 text-gray-500" />}
+      >
+        {settingsLoading ? (
+          <div className="text-center text-gray-400 py-8">Загрузка...</div>
+        ) : settings && (
+          <div className="space-y-6">
+            {/* Timezone */}
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                <Globe className="w-4 h-4" /> Часовой пояс
+              </label>
+              <select
+                value={settings.timezone}
+                onChange={(e) => handleUpdateSetting('timezone', e.target.value)}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-gray-800 bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              >
+                <option value="Europe/Moscow">Москва (UTC+3)</option>
+                <option value="Europe/Kaliningrad">Калининград (UTC+2)</option>
+                <option value="Europe/Samara">Самара (UTC+4)</option>
+                <option value="Asia/Yekaterinburg">Екатеринбург (UTC+5)</option>
+                <option value="Asia/Omsk">Омск (UTC+6)</option>
+                <option value="Asia/Krasnoyarsk">Красноярск (UTC+7)</option>
+                <option value="Asia/Irkutsk">Иркутск (UTC+8)</option>
+                <option value="Asia/Yakutsk">Якутск (UTC+9)</option>
+                <option value="Asia/Vladivostok">Владивосток (UTC+10)</option>
+                <option value="Asia/Magadan">Магадан (UTC+11)</option>
+                <option value="Asia/Kamchatka">Камчатка (UTC+12)</option>
+                <option value="Europe/Kiev">Киев (UTC+2)</option>
+                <option value="Europe/Minsk">Минск (UTC+3)</option>
+                <option value="Asia/Almaty">Алматы (UTC+6)</option>
+                <option value="Asia/Tashkent">Ташкент (UTC+5)</option>
+                <option value="UTC">UTC</option>
+              </select>
+            </div>
+
+            {/* Privacy default */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                  <Shield className="w-4 h-4" /> Приватность по умолчанию
+                </label>
+                <button
+                  onClick={() => handleUpdateSetting('privacyBlurDefault', !settings.privacyBlurDefault)}
+                  className={`w-12 h-7 rounded-full transition-colors flex items-center px-1 ${
+                    settings.privacyBlurDefault ? 'bg-indigo-500 justify-end' : 'bg-gray-300 justify-start'
+                  }`}
+                >
+                  <span className="w-5 h-5 bg-white rounded-full shadow-sm" />
+                </button>
+              </div>
+              <p className="text-xs text-gray-400">
+                Записи будут скрыты при открытии приложения
+              </p>
+            </div>
+          </div>
+        )}
+      </BottomSheet>
+
+      {/* Reminders Bottom Sheet */}
+      <BottomSheet
+        isOpen={showReminders}
+        onClose={() => setShowReminders(false)}
+        title="Напоминания"
+        icon={<Bell className="w-5 h-5 text-amber-500" />}
+      >
+        {settingsLoading ? (
+          <div className="text-center text-gray-400 py-8">Загрузка...</div>
+        ) : settings && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium text-gray-800">Ежедневное напоминание</p>
+                <p className="text-sm text-gray-500">Получать уведомление каждый день</p>
+              </div>
+              <button
+                onClick={() => handleUpdateSetting('reminderEnabled', !settings.reminderEnabled)}
+                className={`w-14 h-8 rounded-full transition-colors flex items-center px-1 ${
+                  settings.reminderEnabled ? 'bg-indigo-500 justify-end' : 'bg-gray-300 justify-start'
+                }`}
+              >
+                <span className="w-6 h-6 bg-white rounded-full shadow-sm" />
+              </button>
+            </div>
+            
+            {settings.reminderEnabled && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <Clock className="w-4 h-4" /> Время напоминания
+                </label>
+                <input
+                  type="time"
+                  value={settings.reminderTime || '20:00'}
+                  onChange={(e) => handleUpdateSetting('reminderTime', e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl text-gray-800 bg-white text-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                />
+                <p className="text-xs text-gray-400">
+                  Напоминание придёт в указанное время по вашему часовому поясу
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+      </BottomSheet>
+
+      {/* Export Bottom Sheet */}
+      <BottomSheet
+        isOpen={showExport}
+        onClose={() => setShowExport(false)}
+        title="Экспорт данных"
+        icon={<Download className="w-5 h-5 text-blue-500" />}
+      >
+        <div className="space-y-4">
+          <p className="text-gray-600 text-sm">
+            Выберите формат для экспорта всех ваших записей:
+          </p>
+          <div className="space-y-3">
+            <button
+              onClick={() => { handleExport('json'); setShowExport(false); }}
+              disabled={exporting}
+              className="w-full py-4 bg-blue-50 text-blue-600 rounded-xl font-semibold active:bg-blue-100 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              <Download className="w-5 h-5" />
+              {exporting ? 'Загрузка...' : 'Скачать JSON'}
+            </button>
+            <button
+              onClick={() => { handleExport('csv'); setShowExport(false); }}
+              disabled={exporting}
+              className="w-full py-4 bg-green-50 text-green-600 rounded-xl font-semibold active:bg-green-100 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              <Download className="w-5 h-5" />
+              {exporting ? 'Загрузка...' : 'Скачать CSV'}
+            </button>
+          </div>
+          <p className="text-xs text-gray-400 text-center">
+            Файл будет автоматически скачан на ваше устройство
+          </p>
+        </div>
+      </BottomSheet>
     </div>
   );
 }
