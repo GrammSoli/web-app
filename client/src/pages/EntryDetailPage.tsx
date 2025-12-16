@@ -391,19 +391,19 @@ export default function EntryDetailPage() {
               <div>
                 <h4 className="font-bold text-sm text-gray-400 mb-2 flex items-center gap-2">
                   <Tag className="w-4 h-4" /> Теги
+                  {isFree && <span className="text-xs text-purple-500 ml-auto">Premium</span>}
                 </h4>
-                <div className="flex flex-wrap gap-2 mb-3">
+                <div className={`flex flex-wrap gap-1.5 mb-3 relative ${isFree ? 'blur-[4px] pointer-events-none select-none' : ''}`}>
                   {editTags.map((tag, i) => (
                     <span
                       key={i}
-                      className="px-3 py-1.5 rounded-full bg-gradient-to-r from-blue-50 to-indigo-50
-                                 text-blue-600 text-sm font-medium border border-blue-100 shadow-sm
+                      className="px-2.5 py-1 rounded-full bg-gray-50 text-gray-600 text-xs font-medium
                                  flex items-center gap-1 group"
                     >
                       #{tag}
                       <button
                         onClick={() => removeTag(tag)}
-                        className="ml-1 p-0.5 rounded-full bg-blue-100 hover:bg-red-100 hover:text-red-500 
+                        className="ml-1 p-0.5 rounded-full bg-gray-200 hover:bg-red-100 hover:text-red-500 
                                    transition-colors opacity-70 group-hover:opacity-100"
                       >
                         <X className="w-3 h-3" />
@@ -414,7 +414,15 @@ export default function EntryDetailPage() {
                     <span className="text-gray-400 text-sm italic">Нет тегов</span>
                   )}
                 </div>
-                {editTags.length < 10 && (
+                {isFree && (
+                  <button 
+                    onClick={() => navigate('/premium')}
+                    className="w-full py-2 mb-3 text-sm text-purple-600 bg-purple-50 rounded-xl flex items-center justify-center gap-1.5"
+                  >
+                    <Lock className="w-3.5 h-3.5" /> Открыть с подпиской
+                  </button>
+                )}
+                {editTags.length < 10 && !isFree && (
                   <div className="flex gap-2">
                     <input
                       type="text"
