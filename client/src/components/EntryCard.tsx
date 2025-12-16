@@ -108,9 +108,8 @@ export default function EntryCard({ entry, onClick }: EntryCardProps) {
           {entry.tags.slice(0, 4).map((tag, i) => (
             <span
               key={i}
-              className={`text-xs px-3 py-1 rounded-full bg-gradient-to-r from-blue-50 to-indigo-50 
-                         text-blue-600 font-medium border border-blue-100 shadow-sm
-                         ${isFree ? 'blur-[3px] select-none' : 'hover:from-blue-100 hover:to-indigo-100'} transition-all duration-200`}
+              className={`text-xs px-2.5 py-1 rounded-full bg-gray-50 text-gray-600 font-medium
+                         ${isFree ? 'blur-[3px] select-none' : ''} transition-all duration-200`}
             >
               #{tag}
             </span>
