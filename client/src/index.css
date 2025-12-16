@@ -43,9 +43,10 @@ html, body, #root {
 }
 
 /* Dark mode base */
+html.dark,
 html.dark body,
 html.dark #root {
-  background-color: #1C1C1E;
+  background-color: #1C1C1E !important;
   color: #FFFFFF;
 }
 

@@ -465,4 +465,4 @@ In order to be iterable, non-array objects must have a [Symbol.iterator]() metho
                    hover:shadow-xl hover:shadow-blue-500/50`,children:e}):v.jsxs("button",{onClick:a,className:`flex flex-col items-center justify-center gap-0.5 
                   transition-all duration-200 min-w-[48px]
                   ${r?"text-blue-600 scale-105":"text-gray-400 hover:text-gray-600"}`,children:[v.jsx("span",{className:`transition-transform ${r?"scale-110":""}`,children:e}),t&&v.jsx("span",{className:`text-[10px] font-medium ${r?"text-blue-600":"text-gray-400"}`,children:t})]})}const hY=()=>{var t,r;const e=(r=(t=window.Telegram)==null?void 0:t.WebApp)==null?void 0:r.platform;return e==="ios"||e==="macos"?"ios":"material"};zM.createRoot(document.getElementById("root")).render(v.jsx(q.StrictMode,{children:v.jsx(B5,{children:v.jsx(Jj,{theme:hY(),safeAreas:!0,children:v.jsx(dY,{})})})}));
-//# sourceMappingURL=index-CCD7FPU8.js.map
+//# sourceMappingURL=index-D1c2MrMC.js.map
