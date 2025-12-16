@@ -204,7 +204,7 @@ export default function PremiumPage() {
                 disabled={currentTier === 'premium' || purchasing === 'premium-stars'}
                 className={`w-full py-4 rounded-2xl font-bold text-lg transition-all active:scale-[0.98]
                   ${currentTier === 'premium'
-                    ? 'bg-green-100 text-green-600'
+                    ? 'bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400'
                     : 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-xl shadow-purple-500/30'
                   } disabled:opacity-60`}
               >
@@ -274,9 +274,9 @@ export default function PremiumPage() {
               disabled={currentTier !== 'free' || purchasing === 'basic-stars'}
               className={`w-full py-3 rounded-xl font-semibold transition-all active:scale-[0.98]
                 ${currentTier === 'basic'
-                  ? 'bg-green-100 text-green-600'
+                  ? 'bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400'
                   : currentTier === 'premium'
-                    ? 'bg-gray-100 text-gray-400'
+                    ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500'
                     : 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg shadow-blue-500/30'
                 } disabled:opacity-60`}
             >

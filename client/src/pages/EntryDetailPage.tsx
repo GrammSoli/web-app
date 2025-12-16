@@ -38,23 +38,25 @@ export default function EntryDetailPage() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    if (id) loadEntry(id);
-  }, [id]);
-
-  const loadEntry = async (entryId: string) => {
-    try {
-      const data = await api.entries.get(entryId);
-      setEntry(data);
-      setEditText(data.textContent);
-      setEditTags(data.tags || []);
-      setEditMood(data.moodScore || 5);
-    } catch (error) {
-      showAlert('Не удалось загрузить запись');
-      navigate('/');
-    } finally {
-      setLoading(false);
-    }
-  };
+    if (!id) return;
+    
+    const loadEntry = async () => {
+      try {
+        const data = await api.entries.get(id);
+        setEntry(data);
+        setEditText(data.textContent);
+        setEditTags(data.tags || []);
+        setEditMood(data.moodScore || 5);
+      } catch (error) {
+        showAlert('Не удалось загрузить запись');
+        navigate('/');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadEntry();
+  }, [id, navigate, showAlert]);
   
   const loadAudio = async () => {
     if (!entry || audioUrl) return;

@@ -118,10 +118,10 @@ export default function NewEntryPage() {
             {/* Character count */}
             <div className={`absolute bottom-4 right-4 text-xs font-semibold px-3 py-1.5 rounded-full ${
               isOverLimit
-                ? 'bg-red-100 text-red-600'
+                ? 'bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400'
                 : isValid 
-                  ? 'bg-green-100 text-green-600' 
-                  : 'bg-orange-100 text-orange-600'
+                  ? 'bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400' 
+                  : 'bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-400'
             }`}>
               {charCount} / {minChars}+
             </div>
