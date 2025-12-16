@@ -74,6 +74,12 @@ router.get('/me', async (req: Request, res: Response) => {
       subscriptionExpiresAt: user.subscriptionExpiresAt,
       balanceStars: user.balanceStars,
       isAdmin: user.isAdmin,
+      settings: {
+        timezone: user.timezone,
+        reminderEnabled: user.reminderEnabled || false,
+        reminderTime: user.reminderTime || null,
+        privacyBlurDefault: user.privacyBlurDefault || false,
+      },
       stats: {
         totalEntries: user.totalEntriesCount,
         totalVoice: user.totalVoiceCount,
@@ -867,6 +873,145 @@ router.get('/subscription/crypto-prices', async (_req: Request, res: Response) =
   } catch (error) {
     apiLogger.error({ error }, 'Failed to get crypto prices');
     res.status(500).json({ error: 'Failed to get crypto prices' });
+  }
+});
+
+/**
+ * GET /api/user/export
+ * Экспорт всех записей пользователя (JSON/CSV)
+ */
+router.get('/export', async (req: Request, res: Response) => {
+  try {
+    const user = req.user!;
+    const format = (req.query.format as string) || 'json';
+    const tier = await getEffectiveTier(user.id);
+    
+    // Только для платных подписок
+    if (tier === 'free') {
+      return res.status(403).json({ error: 'Export is available for Premium users only' });
+    }
+    
+    const entries = await getUserEntries(user.id, 1000, 0); // Max 1000 entries
+    
+    if (format === 'csv') {
+      // CSV format
+      const csvHeader = 'id,date,mood_score,mood_label,text,tags\n';
+      const csvRows = entries.map(e => {
+        const text = (e.textContent || '').replace(/"/g, '""').replace(/\n/g, ' ');
+        const tags = ((e.aiTags as string[]) || []).join('; ');
+        const date = e.dateCreated ? new Date(e.dateCreated).toISOString() : '';
+        return `"${e.id}","${date}","${e.moodScore || ''}","${e.moodLabel || ''}","${text}","${tags}"`;
+      }).join('\n');
+      
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="mindful-journal-export-${Date.now()}.csv"`);
+      res.send(csvHeader + csvRows);
+    } else {
+      // JSON format
+      const exportData = {
+        exportedAt: new Date().toISOString(),
+        user: {
+          id: user.id,
+          username: user.username,
+          firstName: user.firstName,
+          timezone: user.timezone,
+        },
+        entriesCount: entries.length,
+        entries: entries.map(e => ({
+          id: e.id,
+          date: e.dateCreated,
+          moodScore: e.moodScore,
+          moodLabel: e.moodLabel,
+          moodEmoji: e.moodEmoji,
+          text: e.textContent,
+          tags: e.aiTags,
+          isVoice: !!e.voiceFileId,
+        })),
+      };
+      
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="mindful-journal-export-${Date.now()}.json"`);
+      res.json(exportData);
+    }
+    
+    apiLogger.info({ userId: user.id, format, count: entries.length }, 'User exported data');
+  } catch (error) {
+    apiLogger.error({ error }, 'Failed to export data');
+    res.status(500).json({ error: 'Failed to export data' });
+  }
+});
+
+/**
+ * GET /api/user/settings
+ * Получить настройки пользователя
+ */
+router.get('/settings', async (req: Request, res: Response) => {
+  try {
+    const user = req.user!;
+    
+    res.json({
+      timezone: user.timezone,
+      reminderEnabled: user.reminderEnabled || false,
+      reminderTime: user.reminderTime || null,
+      privacyBlurDefault: user.privacyBlurDefault || false,
+    });
+  } catch (error) {
+    apiLogger.error({ error }, 'Failed to get settings');
+    res.status(500).json({ error: 'Failed to get settings' });
+  }
+});
+
+/**
+ * PUT /api/user/settings
+ * Обновить настройки пользователя
+ */
+router.put('/settings', async (req: Request, res: Response) => {
+  try {
+    const user = req.user!;
+    const { timezone, reminderEnabled, reminderTime, privacyBlurDefault } = req.body;
+    
+    const updateData: Record<string, unknown> = {};
+    
+    if (timezone !== undefined) {
+      if (!isValidTimezone(timezone)) {
+        return res.status(400).json({ error: 'Invalid timezone' });
+      }
+      updateData.timezone = timezone;
+    }
+    
+    if (reminderEnabled !== undefined) {
+      updateData.reminderEnabled = Boolean(reminderEnabled);
+    }
+    
+    if (reminderTime !== undefined) {
+      // Validate time format HH:MM
+      if (reminderTime && !/^([01]\d|2[0-3]):([0-5]\d)$/.test(reminderTime)) {
+        return res.status(400).json({ error: 'Invalid time format. Use HH:MM' });
+      }
+      updateData.reminderTime = reminderTime || null;
+    }
+    
+    if (privacyBlurDefault !== undefined) {
+      updateData.privacyBlurDefault = Boolean(privacyBlurDefault);
+    }
+    
+    const { prisma } = await import('../../services/database.js');
+    const updatedUser = await prisma.user.update({
+      where: { id: user.id },
+      data: updateData,
+    });
+    
+    apiLogger.info({ userId: user.id, settings: updateData }, 'User settings updated');
+    
+    res.json({
+      timezone: updatedUser.timezone,
+      reminderEnabled: updatedUser.reminderEnabled,
+      reminderTime: updatedUser.reminderTime,
+      privacyBlurDefault: updatedUser.privacyBlurDefault,
+    });
+  } catch (error) {
+    apiLogger.error({ error }, 'Failed to update settings');
+    res.status(500).json({ error: 'Failed to update settings' });
   }
 });
 

@@ -1,4 +1,4 @@
-import type { User, JournalEntry, UserStats, PaginatedResponse } from '@/types/api';
+import type { User, JournalEntry, UserStats, PaginatedResponse, UserSettings } from '@/types/api';
 import { APP_CONFIG } from '@/config/app';
 
 const API_BASE = '/api';
@@ -161,6 +161,43 @@ export async function createCryptoInvoice(tier: 'basic' | 'premium'): Promise<{ 
 }
 
 // ============================================
+// SETTINGS API
+// ============================================
+
+export async function getUserSettings(): Promise<UserSettings> {
+  return apiFetch<UserSettings>('/user/settings');
+}
+
+export async function updateUserSettings(data: Partial<UserSettings>): Promise<UserSettings> {
+  return apiFetch<UserSettings>('/user/settings', {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+// ============================================
+// EXPORT API
+// ============================================
+
+export async function exportData(format: 'json' | 'csv' = 'json'): Promise<Blob> {
+  const initData = getInitData();
+  const timezone = getBrowserTimezone();
+  
+  const response = await fetch(`${API_BASE}/user/export?format=${format}`, {
+    headers: {
+      'X-Telegram-Init-Data': initData,
+      'X-Timezone': timezone,
+    },
+  });
+  
+  if (!response.ok) {
+    throw new Error('Export failed');
+  }
+  
+  return response.blob();
+}
+
+// ============================================
 // EXPORTS
 // ============================================
 
@@ -169,6 +206,8 @@ export const api = {
     getCurrent: getCurrentUser,
     getStats: getUserStats,
     syncTimezone,
+    getSettings: getUserSettings,
+    updateSettings: updateUserSettings,
   },
   entries: {
     getAll: getEntries,
@@ -183,6 +222,9 @@ export const api = {
     createInvoice,
     getCryptoPrices,
     createCryptoInvoice,
+  },
+  export: {
+    download: exportData,
   },
 };
 

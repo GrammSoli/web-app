@@ -69,6 +69,11 @@ model User {
   subscriptionExpiresAt DateTime?       @map("subscription_expires_at") @db.Timestamptz
   balanceStars        Int               @default(0) @map("balance_stars")
 
+  // Settings
+  reminderEnabled     Boolean           @default(false) @map("reminder_enabled")
+  reminderTime        String?           @map("reminder_time") @db.VarChar(5) // HH:MM format
+  privacyBlurDefault  Boolean           @default(false) @map("privacy_blur_default")
+
   // Aggregated stats
   totalEntriesCount   Int               @default(0) @map("total_entries_count")
   totalVoiceCount     Int               @default(0) @map("total_voice_count")

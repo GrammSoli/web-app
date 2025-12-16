@@ -17,6 +17,10 @@ export interface User {
   totalVoiceCount: number;
   isAdmin: boolean;
   dateCreated: string;
+  timezone?: string;
+  
+  // Settings
+  settings?: UserSettings;
   
   // Stats from API /me
   stats?: {
@@ -37,6 +41,14 @@ export interface User {
   totalEntries?: number;
   streakDays?: number;
   entriesThisMonth?: number;
+}
+
+// User Settings
+export interface UserSettings {
+  timezone: string;
+  reminderEnabled: boolean;
+  reminderTime: string | null;
+  privacyBlurDefault: boolean;
 }
 
 // Journal Entry

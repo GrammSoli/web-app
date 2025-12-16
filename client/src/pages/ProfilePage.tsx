@@ -1,8 +1,12 @@
-import { useState, ReactNode } from 'react';
+import { useState, useEffect, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Gem, Bell, Download, MessageCircle, RefreshCw, LogOut, BarChart3, ChevronRight, Star, Crown, Gift, User } from 'lucide-react';
+import { Gem, Bell, Download, MessageCircle, RefreshCw, BarChart3, ChevronRight, Star, Crown, Gift, User, Clock, Settings, Globe, Shield, Check } from 'lucide-react';
+import { format } from 'date-fns';
+import { ru } from 'date-fns/locale';
 import { useTelegram } from '@/hooks/useTelegram';
 import { useAppStore } from '@/store/useAppStore';
+import { exportData, getUserSettings, updateUserSettings } from '@/lib/api';
+import type { UserSettings } from '@/types/api';
 
 const tierIcons = {
   free: Gift,
@@ -21,10 +25,26 @@ export default function ProfilePage() {
   const { user, haptic } = useTelegram();
   const { user: appUser, loadUser, userLoading } = useAppStore();
   const [refreshing, setRefreshing] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [settings, setSettings] = useState<UserSettings | null>(null);
+  const [settingsLoading, setSettingsLoading] = useState(false);
 
   const currentTier = (appUser?.subscriptionTier || 'free') as keyof typeof tierConfig;
   const tierInfo = tierConfig[currentTier];
   const TierIcon = tierIcons[currentTier];
+  const isPaid = currentTier !== 'free';
+
+  // Load settings
+  useEffect(() => {
+    if (showSettings && !settings) {
+      setSettingsLoading(true);
+      getUserSettings()
+        .then(setSettings)
+        .catch(console.error)
+        .finally(() => setSettingsLoading(false));
+    }
+  }, [showSettings, settings]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -34,10 +54,50 @@ export default function ProfilePage() {
     setRefreshing(false);
   };
 
-  const handleLogout = () => {
-    haptic.warning();
-    localStorage.clear();
-    window.location.reload();
+  const handleExport = async (format: 'json' | 'csv') => {
+    if (currentTier === 'free') {
+      haptic.warning();
+      navigate('/premium');
+      return;
+    }
+    
+    setExporting(true);
+    haptic.impact();
+    try {
+      const blob = await exportData(format);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `mindful-journal-export.${format}`;
+      a.click();
+      URL.revokeObjectURL(url);
+      haptic.success();
+    } catch (error) {
+      console.error('Export failed:', error);
+      haptic.warning();
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleUpdateSetting = async (key: keyof UserSettings, value: unknown) => {
+    if (!settings) return;
+    
+    haptic.light();
+    try {
+      const updated = await updateUserSettings({ [key]: value });
+      setSettings(updated);
+      haptic.success();
+    } catch (error) {
+      console.error('Failed to update setting:', error);
+      haptic.warning();
+    }
+  };
+
+  const handleContactSupport = () => {
+    haptic.light();
+    window.Telegram?.WebApp?.openTelegramLink?.('https://t.me/mindful_support') ||
+    window.open('https://t.me/mindful_support', '_blank');
   };
 
   // Usage limits from server (fallback to defaults)
@@ -91,7 +151,7 @@ export default function ProfilePage() {
           {appUser && (
             <div className="grid grid-cols-3 gap-3 mt-6 relative z-10">
               <div className="bg-white/10 rounded-2xl p-3 text-center backdrop-blur-sm">
-                <div className="text-2xl font-bold">{appUser.totalEntries || 0}</div>
+                <div className="text-2xl font-bold">{appUser.stats?.totalEntries || 0}</div>
                 <div className="text-xs text-white/70">Записей</div>
               </div>
               <div className="bg-white/10 rounded-2xl p-3 text-center backdrop-blur-sm">
@@ -107,6 +167,27 @@ export default function ProfilePage() {
             </div>
           )}
         </div>
+
+        {/* Subscription Expiry Card - for paid users */}
+        {isPaid && appUser?.subscriptionExpiresAt && (
+          <div className="bg-white rounded-3xl p-4 shadow-sm border border-gray-100 flex items-center gap-4">
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center bg-gradient-to-br ${tierInfo.gradient}`}>
+              <Clock className="w-6 h-6 text-white" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-gray-700">Подписка активна до</p>
+              <p className="text-lg font-bold text-gray-900">
+                {format(new Date(appUser.subscriptionExpiresAt), 'd MMMM yyyy', { locale: ru })}
+              </p>
+            </div>
+            <button 
+              onClick={() => navigate('/premium')}
+              className="px-3 py-1.5 bg-gray-100 text-gray-600 text-sm font-medium rounded-xl"
+            >
+              Продлить
+            </button>
+          </div>
+        )}
 
         {/* Usage Card */}
         {appUser && (
@@ -148,10 +229,145 @@ export default function ProfilePage() {
         {/* Menu */}
         <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
           <MenuItem icon={<Gem className="w-6 h-6 text-purple-500" />} title="Premium" subtitle="Открой все возможности" onClick={() => navigate('/premium')} />
-          <MenuItem icon={<Bell className="w-6 h-6 text-amber-500" />} title="Уведомления" subtitle="Настроить напоминания" onClick={() => haptic.impact()} />
-          <MenuItem icon={<Download className="w-6 h-6 text-blue-500" />} title="Экспорт данных" subtitle="Скачать записи" onClick={() => haptic.impact()} disabled={currentTier === 'free'} />
-          <MenuItem icon={<MessageCircle className="w-6 h-6 text-green-500" />} title="Поддержка" subtitle="Написать нам" onClick={() => window.open('https://t.me/mindful_support', '_blank')} last />
+          <MenuItem 
+            icon={<Settings className="w-6 h-6 text-gray-500" />} 
+            title="Настройки" 
+            subtitle="Часовой пояс, приватность" 
+            onClick={() => setShowSettings(!showSettings)} 
+          />
+          <MenuItem 
+            icon={<Bell className="w-6 h-6 text-amber-500" />} 
+            title="Напоминания" 
+            subtitle={settings?.reminderEnabled ? `Ежедневно в ${settings.reminderTime}` : 'Выключены'} 
+            onClick={() => setShowSettings(true)} 
+          />
+          <MenuItem 
+            icon={<Download className="w-6 h-6 text-blue-500" />} 
+            title="Экспорт данных" 
+            subtitle={exporting ? 'Загрузка...' : (currentTier === 'free' ? 'Только Premium' : 'JSON или CSV')} 
+            onClick={() => !exporting && handleExport('json')} 
+            disabled={currentTier === 'free' || exporting} 
+          />
+          <MenuItem 
+            icon={<MessageCircle className="w-6 h-6 text-green-500" />} 
+            title="Поддержка" 
+            subtitle="Написать нам" 
+            onClick={handleContactSupport} 
+            last 
+          />
         </div>
+
+        {/* Settings Panel */}
+        {showSettings && (
+          <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 space-y-5">
+            <h3 className="font-bold text-gray-800 flex items-center gap-2">
+              <Settings className="w-5 h-5 text-gray-500" /> Настройки
+            </h3>
+            
+            {settingsLoading ? (
+              <div className="text-center text-gray-400 py-4">Загрузка...</div>
+            ) : settings && (
+              <>
+                {/* Timezone */}
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                    <Globe className="w-4 h-4" /> Часовой пояс
+                  </label>
+                  <select
+                    value={settings.timezone}
+                    onChange={(e) => handleUpdateSetting('timezone', e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl text-gray-800 bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  >
+                    <option value="Europe/Moscow">Москва (UTC+3)</option>
+                    <option value="Europe/Kaliningrad">Калининград (UTC+2)</option>
+                    <option value="Europe/Samara">Самара (UTC+4)</option>
+                    <option value="Asia/Yekaterinburg">Екатеринбург (UTC+5)</option>
+                    <option value="Asia/Omsk">Омск (UTC+6)</option>
+                    <option value="Asia/Krasnoyarsk">Красноярск (UTC+7)</option>
+                    <option value="Asia/Irkutsk">Иркутск (UTC+8)</option>
+                    <option value="Asia/Yakutsk">Якутск (UTC+9)</option>
+                    <option value="Asia/Vladivostok">Владивосток (UTC+10)</option>
+                    <option value="Asia/Magadan">Магадан (UTC+11)</option>
+                    <option value="Asia/Kamchatka">Камчатка (UTC+12)</option>
+                    <option value="Europe/Kiev">Киев (UTC+2)</option>
+                    <option value="Europe/Minsk">Минск (UTC+3)</option>
+                    <option value="Asia/Almaty">Алматы (UTC+6)</option>
+                    <option value="Asia/Tashkent">Ташкент (UTC+5)</option>
+                    <option value="UTC">UTC</option>
+                  </select>
+                </div>
+
+                {/* Reminder */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                      <Bell className="w-4 h-4" /> Ежедневное напоминание
+                    </label>
+                    <button
+                      onClick={() => handleUpdateSetting('reminderEnabled', !settings.reminderEnabled)}
+                      className={`w-12 h-7 rounded-full transition-colors flex items-center px-1 ${
+                        settings.reminderEnabled ? 'bg-indigo-500 justify-end' : 'bg-gray-300 justify-start'
+                      }`}
+                    >
+                      <span className="w-5 h-5 bg-white rounded-full shadow-sm" />
+                    </button>
+                  </div>
+                  {settings.reminderEnabled && (
+                    <input
+                      type="time"
+                      value={settings.reminderTime || '20:00'}
+                      onChange={(e) => handleUpdateSetting('reminderTime', e.target.value)}
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl text-gray-800 bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    />
+                  )}
+                </div>
+
+                {/* Privacy default */}
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                    <Shield className="w-4 h-4" /> Приватность по умолчанию
+                  </label>
+                  <button
+                    onClick={() => handleUpdateSetting('privacyBlurDefault', !settings.privacyBlurDefault)}
+                    className={`w-12 h-7 rounded-full transition-colors flex items-center px-1 ${
+                      settings.privacyBlurDefault ? 'bg-indigo-500 justify-end' : 'bg-gray-300 justify-start'
+                    }`}
+                  >
+                    <span className="w-5 h-5 bg-white rounded-full shadow-sm" />
+                  </button>
+                </div>
+                <p className="text-xs text-gray-400 -mt-2">
+                  Записи будут скрыты при открытии приложения
+                </p>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Export options for Premium */}
+        {isPaid && (
+          <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5">
+            <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
+              <Download className="w-5 h-5 text-blue-500" /> Экспорт записей
+            </h3>
+            <div className="flex gap-3">
+              <button
+                onClick={() => handleExport('json')}
+                disabled={exporting}
+                className="flex-1 py-3 bg-blue-50 text-blue-600 rounded-xl font-semibold active:bg-blue-100 transition-colors disabled:opacity-50"
+              >
+                {exporting ? '...' : 'JSON'}
+              </button>
+              <button
+                onClick={() => handleExport('csv')}
+                disabled={exporting}
+                className="flex-1 py-3 bg-green-50 text-green-600 rounded-xl font-semibold active:bg-green-100 transition-colors disabled:opacity-50"
+              >
+                {exporting ? '...' : 'CSV'}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Actions */}
         <div className="space-y-3">
@@ -164,15 +380,6 @@ export default function ProfilePage() {
           >
             <RefreshCw className={`w-5 h-5 ${refreshing || userLoading ? 'animate-spin' : ''}`} />
             {refreshing || userLoading ? 'Обновление...' : 'Обновить статус'}
-          </button>
-
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center justify-center gap-2 py-4 
-                       bg-red-50 text-red-500 rounded-2xl border border-red-100
-                       active:bg-red-100 transition-colors font-semibold"
-          >
-            <LogOut className="w-5 h-5" /> Выйти
           </button>
         </div>
 
