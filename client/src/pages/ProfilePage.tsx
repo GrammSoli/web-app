@@ -45,7 +45,7 @@ function BottomSheet({
       {/* Sheet */}
       <div 
         className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-xl transform transition-transform duration-300 ease-out animate-slide-up"
-        style={{ maxHeight: '85vh' }}
+        style={{ maxHeight: '85vh', marginBottom: '70px' }}
       >
         {/* Handle */}
         <div className="flex justify-center pt-3">
@@ -64,7 +64,7 @@ function BottomSheet({
           </button>
         </div>
         {/* Content */}
-        <div className="p-5 overflow-y-auto" style={{ maxHeight: 'calc(85vh - 80px)' }}>
+        <div className="p-5 pb-8 overflow-y-auto" style={{ maxHeight: 'calc(85vh - 80px)' }}>
           {children}
         </div>
       </div>
