@@ -501,15 +501,14 @@ export default function EntryDetailPage() {
               <Tag className="w-4 h-4" /> Теги
               {isFree && <span className="text-xs text-purple-500 ml-auto">Premium</span>}
             </h3>
-            <div className="flex flex-wrap gap-2 relative">
+            <div className="flex flex-wrap gap-1.5 relative">
               {entry.tags.map((tag, i) => (
                 <button
                   key={i}
                   onClick={() => !isFree && navigate(`/entries?tag=${encodeURIComponent(tag)}`)}
                   disabled={isFree}
-                  className={`px-4 py-1.5 rounded-full bg-gradient-to-r from-blue-50 to-indigo-50
-                             text-blue-600 text-sm font-medium border border-blue-100 shadow-sm
-                             ${isFree ? 'blur-[4px] select-none cursor-default' : 'hover:from-blue-100 hover:to-indigo-100 hover:shadow active:scale-95'}
+                  className={`px-2.5 py-1 rounded-full bg-gray-50 text-gray-600 text-xs font-medium
+                             ${isFree ? 'blur-[4px] select-none cursor-default' : 'active:bg-gray-100'}
                              transition-all duration-200`}
                 >
                   #{tag}
