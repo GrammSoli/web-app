@@ -52,21 +52,30 @@ export default function StatsPage() {
 
   // Prepare chart data based on selected period
   const rawData = chartPeriod === 'week' ? stats.weeklyMoods : (stats.monthlyMoods || stats.weeklyMoods);
-  const chartData = (rawData || []).map((item) => ({
-    date: format(new Date(item.date), chartPeriod === 'week' ? 'EEE' : 'd', { locale: ru }),
-    score: item.score,
-    fullDate: format(new Date(item.date), 'd MMM', { locale: ru }),
-  }));
+  
+  const dayShort: Record<number, string> = {
+    0: 'ВС', 1: 'ПН', 2: 'ВТ', 3: 'СР', 4: 'ЧТ', 5: 'ПТ', 6: 'СБ'
+  };
+  
+  const chartData = (rawData || []).map((item) => {
+    const d = new Date(item.date);
+    return {
+      date: chartPeriod === 'week' ? dayShort[d.getDay()] : format(d, 'd', { locale: ru }),
+      score: item.score,
+      fullDate: format(d, 'd MMM', { locale: ru }),
+    };
+  });
 
   // Fill missing days if needed
   const today = new Date();
   const targetLength = chartPeriod === 'week' ? 7 : 30;
   while (chartData.length < targetLength) {
     const dayIndex = targetLength - chartData.length;
+    const d = subDays(today, dayIndex);
     chartData.unshift({
-      date: format(subDays(today, dayIndex), chartPeriod === 'week' ? 'EEE' : 'd', { locale: ru }),
+      date: chartPeriod === 'week' ? dayShort[d.getDay()] : format(d, 'd', { locale: ru }),
       score: 0,
-      fullDate: format(subDays(today, dayIndex), 'd MMM', { locale: ru }),
+      fullDate: format(d, 'd MMM', { locale: ru }),
     });
   }
 
