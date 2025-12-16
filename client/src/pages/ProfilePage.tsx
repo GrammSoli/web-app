@@ -207,10 +207,16 @@ export default function ProfilePage() {
               {user?.username && (
                 <p className="text-white/70 text-sm">@{user.username}</p>
               )}
-              {/* Tier badge */}
+              {/* Tier badge with expiry */}
               <div className="inline-flex items-center gap-1.5 mt-2 px-3 py-1 rounded-full bg-white/20 text-sm font-medium backdrop-blur-sm">
                 <TierIcon className="w-4 h-4" />
                 <span>{tierInfo.name}</span>
+                {isPaid && appUser?.subscriptionExpiresAt && (
+                  <>
+                    <span className="text-white/50">•</span>
+                    <span className="text-white/70">до {format(new Date(appUser.subscriptionExpiresAt), 'd MMM', { locale: ru })}</span>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -234,49 +240,7 @@ export default function ProfilePage() {
           )}
         </div>
 
-        {/* Subscription Expiry Card - for paid users only */}
-        {isPaid && appUser?.subscriptionExpiresAt && (() => {
-          const expiresAt = new Date(appUser.subscriptionExpiresAt);
-          const isExpired = expiresAt < new Date();
-          
-          return (
-            <div className="bg-white rounded-3xl p-4 shadow-sm border border-gray-100 relative overflow-hidden">
-              {isExpired && (
-                <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-10 flex items-center justify-center">
-                  <button 
-                    onClick={() => navigate('/premium')}
-                    className="px-5 py-2.5 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold rounded-xl shadow-lg text-sm"
-                  >
-                    Возобновить подписку
-                  </button>
-                </div>
-              )}
-              <div className={`flex items-center gap-3 ${isExpired ? 'blur-sm' : ''}`}>
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center bg-gradient-to-br ${tierInfo.gradient}`}>
-                  <TierIcon className="w-5 h-5 text-white" />
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-gray-900">{tierInfo.name}</span>
-                    <span className="text-xs text-gray-400">•</span>
-                    <span className="text-sm text-gray-500">
-                      до {format(expiresAt, 'd MMM yyyy', { locale: ru })}
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-400">
-                    {isExpired ? 'Подписка истекла' : 'Активна'}
-                  </p>
-                </div>
-                <button 
-                  onClick={() => navigate('/premium')}
-                  className="text-indigo-500 text-sm font-medium"
-                >
-                  Продлить
-                </button>
-              </div>
-            </div>
-          );
-        })()}
+
 
         {/* Usage Card */}
         {appUser && (
