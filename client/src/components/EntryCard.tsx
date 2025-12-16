@@ -2,7 +2,8 @@ import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import type { JournalEntry } from '@/types/api';
 import { useTelegram } from '@/hooks/useTelegram';
-import { Mic, Lightbulb } from 'lucide-react';
+import { useAppStore } from '@/store/useAppStore';
+import { Mic, Lightbulb, ChevronRight } from 'lucide-react';
 
 interface EntryCardProps {
   entry: JournalEntry;
@@ -29,6 +30,7 @@ const moodGradients: Record<number, string> = {
 
 export default function EntryCard({ entry, onClick }: EntryCardProps) {
   const { haptic } = useTelegram();
+  const { privacyBlur } = useAppStore();
   
   const handleClick = () => {
     haptic.light();
@@ -39,11 +41,16 @@ export default function EntryCard({ entry, onClick }: EntryCardProps) {
   const emoji = moodEmojis[moodScore] || '🙂';
   const gradientClass = moodGradients[moodScore] || 'from-gray-400 to-gray-500';
 
-  const formattedDate = format(new Date(entry.dateCreated), 'd MMM, HH:mm', { locale: ru });
+  // Safe date parsing
+  const dateValue = entry.dateCreated || (entry as { createdAt?: string }).createdAt;
+  const formattedDate = dateValue 
+    ? format(new Date(dateValue), 'd MMM, HH:mm', { locale: ru })
+    : 'Сегодня';
   
   // Truncate text
   const maxLength = 100;
-  const displayText = entry.textContent.length > maxLength 
+  const isTruncated = entry.textContent.length > maxLength;
+  const displayText = isTruncated 
     ? entry.textContent.slice(0, maxLength) + '...'
     : entry.textContent;
 
@@ -71,27 +78,38 @@ export default function EntryCard({ entry, onClick }: EntryCardProps) {
           </div>
         </div>
 
-        {/* Voice indicator */}
-        {entry.isVoice && (
-          <div className="flex items-center gap-1 text-[#8E8E93] text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-full">
-            <Mic className="w-3 h-3" />
-            <span>Голос</span>
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          {/* Voice indicator */}
+          {entry.isVoice && (
+            <div className="flex items-center gap-1 text-[#8E8E93] text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-full">
+              <Mic className="w-3 h-3" />
+              <span>Голос</span>
+            </div>
+          )}
+          
+          {/* Arrow indicator */}
+          <ChevronRight className="w-5 h-5 text-gray-300" />
+        </div>
       </div>
 
       {/* Content preview */}
-      <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+      <p className={`text-sm text-gray-700 dark:text-gray-300 leading-relaxed transition-all
+        ${privacyBlur ? 'blur-sm select-none' : ''}`}>
         {displayText}
+        {isTruncated && !privacyBlur && (
+          <span className="text-blue-500 font-medium ml-1">Читать далее</span>
+        )}
       </p>
 
       {/* Tags */}
-      {entry.tags && entry.tags.length > 0 && (
+      {entry.tags && entry.tags.length > 0 && !privacyBlur && (
         <div className="flex flex-wrap gap-1.5 mt-3">
           {entry.tags.slice(0, 4).map((tag, i) => (
             <span
               key={i}
-              className="text-xs px-2.5 py-1 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium"
+              className="text-xs px-3 py-1 rounded-full bg-gradient-to-r from-blue-50 to-indigo-50 
+                         text-blue-600 font-medium border border-blue-100 shadow-sm
+                         hover:from-blue-100 hover:to-indigo-100 transition-all duration-200"
             >
               #{tag}
             </span>
@@ -100,7 +118,7 @@ export default function EntryCard({ entry, onClick }: EntryCardProps) {
       )}
 
       {/* AI Summary (if completed) */}
-      {entry.status === 'completed' && entry.aiSummary && (
+      {entry.status === 'completed' && entry.aiSummary && !privacyBlur && (
         <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
           <p className="text-xs text-[#8E8E93] italic leading-relaxed flex items-start gap-1.5">
             <Lightbulb className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-amber-500" />

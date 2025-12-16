@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Preloader } from 'konsta/react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { ArrowLeft, CalendarDays, Mic, FileText, Tag, Lightbulb, Sprout, Trash2 } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Mic, FileText, Tag, Lightbulb, Sprout, Trash2, Pencil, Play, Pause, X, Check, Plus } from 'lucide-react';
 import { useTelegram } from '@/hooks/useTelegram';
 import { useAppStore } from '@/store/useAppStore';
 import { api } from '@/lib/api';
@@ -36,6 +36,21 @@ export default function EntryDetailPage() {
   const [entry, setEntry] = useState<JournalEntry | null>(null);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
+  
+  // Editing state
+  const [isEditing, setIsEditing] = useState(false);
+  const [editText, setEditText] = useState('');
+  const [editTags, setEditTags] = useState<string[]>([]);
+  const [editMood, setEditMood] = useState(5);
+  const [newTag, setNewTag] = useState('');
+  const [saving, setSaving] = useState(false);
+  
+  // Audio player state
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [audioLoading, setAudioLoading] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [audioProgress, setAudioProgress] = useState(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     if (id) loadEntry(id);
@@ -45,11 +60,122 @@ export default function EntryDetailPage() {
     try {
       const data = await api.entries.get(entryId);
       setEntry(data);
+      setEditText(data.textContent);
+      setEditTags(data.tags || []);
+      setEditMood(data.moodScore || 5);
     } catch (error) {
       showAlert('Не удалось загрузить запись');
       navigate('/');
     } finally {
       setLoading(false);
+    }
+  };
+  
+  const loadAudio = async () => {
+    if (!entry || audioUrl) return;
+    setAudioLoading(true);
+    try {
+      const { audioUrl: url } = await api.entries.getAudio(entry.id);
+      setAudioUrl(url);
+    } catch (error) {
+      showAlert('Не удалось загрузить аудио');
+    } finally {
+      setAudioLoading(false);
+    }
+  };
+  
+  const togglePlay = () => {
+    if (!audioRef.current) return;
+    
+    if (isPlaying) {
+      audioRef.current.pause();
+    } else {
+      audioRef.current.play();
+    }
+    setIsPlaying(!isPlaying);
+  };
+  
+  const handleAudioTimeUpdate = () => {
+    if (!audioRef.current) return;
+    const progress = (audioRef.current.currentTime / audioRef.current.duration) * 100;
+    setAudioProgress(progress);
+  };
+  
+  const handleAudioEnded = () => {
+    setIsPlaying(false);
+    setAudioProgress(0);
+  };
+  
+  const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!audioRef.current) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const percent = (e.clientX - rect.left) / rect.width;
+    audioRef.current.currentTime = percent * audioRef.current.duration;
+  };
+  
+  const startEditing = () => {
+    setEditText(entry?.textContent || '');
+    setEditTags(entry?.tags || []);
+    setEditMood(entry?.moodScore || 5);
+    setNewTag('');
+    setIsEditing(true);
+    haptic.light();
+  };
+  
+  const cancelEditing = () => {
+    setEditText(entry?.textContent || '');
+    setEditTags(entry?.tags || []);
+    setEditMood(entry?.moodScore || 5);
+    setNewTag('');
+    setIsEditing(false);
+  };
+  
+  const addTag = () => {
+    const tag = newTag.trim().toLowerCase();
+    if (tag && !editTags.includes(tag) && editTags.length < 10) {
+      setEditTags([...editTags, tag]);
+      setNewTag('');
+      haptic.light();
+    }
+  };
+  
+  const removeTag = (tagToRemove: string) => {
+    setEditTags(editTags.filter(t => t !== tagToRemove));
+    haptic.light();
+  };
+  
+  const saveEdit = async () => {
+    if (!entry) {
+      setIsEditing(false);
+      return;
+    }
+    
+    // Check if anything changed
+    const textChanged = editText.trim() !== entry.textContent;
+    const tagsChanged = JSON.stringify(editTags.sort()) !== JSON.stringify((entry.tags || []).sort());
+    const moodChanged = editMood !== entry.moodScore;
+    
+    if (!textChanged && !tagsChanged && !moodChanged) {
+      setIsEditing(false);
+      return;
+    }
+    
+    setSaving(true);
+    try {
+      const updateData: { textContent?: string; tags?: string[]; moodScore?: number } = {};
+      if (textChanged) updateData.textContent = editText.trim();
+      if (tagsChanged) updateData.tags = editTags;
+      if (moodChanged) updateData.moodScore = editMood;
+      
+      const updated = await api.entries.update(entry.id, updateData);
+      setEntry(updated);
+      setIsEditing(false);
+      haptic.success();
+    } catch (error) {
+      haptic.error();
+      showAlert('Не удалось сохранить изменения');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -93,15 +219,20 @@ export default function EntryDetailPage() {
     );
   }
 
-  const moodScore = entry.moodScore || 5;
+  const moodScore = isEditing ? editMood : (entry.moodScore || 5);
   const emoji = moodEmojis[moodScore];
   const gradient = moodGradients[moodScore];
-  const formattedDate = format(new Date(entry.dateCreated), "d MMMM yyyy, HH:mm", { locale: ru });
+  
+  // Safe date parsing
+  const dateValue = entry.dateCreated || (entry as { createdAt?: string }).createdAt;
+  const formattedDate = dateValue 
+    ? format(new Date(dateValue), "d MMMM yyyy, HH:mm", { locale: ru })
+    : 'Сегодня';
 
   return (
     <div className="fade-in min-h-screen">
       {/* Mood Header */}
-      <div className={`bg-gradient-to-br ${gradient} text-white pt-4 pb-8 px-4 relative overflow-hidden`}>
+      <div className={`bg-gradient-to-br ${gradient} text-white pt-4 pb-8 px-4 relative overflow-hidden transition-all duration-300`}>
         <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10 blur-2xl" />
         
         {/* Back Button */}
@@ -118,8 +249,34 @@ export default function EntryDetailPage() {
           <div className="text-7xl mb-3 drop-shadow-lg">{emoji}</div>
           <div className="text-4xl font-bold mb-1">{moodScore}/10</div>
           <div className="text-white/80 capitalize">
-            {entry.moodLabel || 'Настроение'}
+            {isEditing ? 'Выберите настроение' : (entry.moodLabel || 'Настроение')}
           </div>
+          
+          {/* Mood slider when editing */}
+          {isEditing && (
+            <div className="mt-4 px-4">
+              <input
+                type="range"
+                min="1"
+                max="10"
+                value={editMood}
+                onChange={(e) => {
+                  setEditMood(Number(e.target.value));
+                  haptic.light();
+                }}
+                className="w-full h-2 bg-white/30 rounded-full appearance-none cursor-pointer
+                           [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 
+                           [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:rounded-full 
+                           [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-lg
+                           [&::-webkit-slider-thumb]:cursor-pointer"
+              />
+              <div className="flex justify-between text-xs text-white/60 mt-1">
+                <span>😢</span>
+                <span>🥳</span>
+              </div>
+            </div>
+          )}
+          
           <div className="flex items-center justify-center gap-2 mt-4 text-white/60 text-sm">
             <CalendarDays className="w-4 h-4" />
             <span>{formattedDate}</span>
@@ -135,34 +292,182 @@ export default function EntryDetailPage() {
       </div>
 
       <div className="p-4 space-y-4 -mt-4">
+        {/* Audio Player for voice entries */}
+        {entry.isVoice && entry.voiceFileId && (
+          <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
+            <h3 className="font-bold text-sm text-gray-400 mb-3 flex items-center gap-2">
+              <Mic className="w-4 h-4" /> Оригинальное аудио
+            </h3>
+            
+            {!audioUrl ? (
+              <button
+                onClick={loadAudio}
+                disabled={audioLoading}
+                className="w-full py-3 bg-gray-100 rounded-xl flex items-center justify-center gap-2 
+                           text-gray-700 active:bg-gray-200 transition-colors disabled:opacity-50"
+              >
+                {audioLoading ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                    <span>Загрузка...</span>
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-5 h-5" />
+                    <span>Загрузить аудио</span>
+                  </>
+                )}
+              </button>
+            ) : (
+              <div className="space-y-3">
+                <audio
+                  ref={audioRef}
+                  src={audioUrl}
+                  onTimeUpdate={handleAudioTimeUpdate}
+                  onEnded={handleAudioEnded}
+                  onPlay={() => setIsPlaying(true)}
+                  onPause={() => setIsPlaying(false)}
+                />
+                
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={togglePlay}
+                    className="w-12 h-12 rounded-full bg-blue-500 text-white flex items-center justify-center
+                               shadow-lg active:scale-95 transition-transform"
+                  >
+                    {isPlaying ? (
+                      <Pause className="w-5 h-5" />
+                    ) : (
+                      <Play className="w-5 h-5 ml-0.5" />
+                    )}
+                  </button>
+                  
+                  <div 
+                    className="flex-1 h-2 bg-gray-200 rounded-full cursor-pointer"
+                    onClick={handleProgressClick}
+                  >
+                    <div 
+                      className="h-full bg-blue-500 rounded-full transition-all duration-100"
+                      style={{ width: `${audioProgress}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Content Card */}
-        <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
+        <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 relative">
+          {/* Edit button */}
+          {!isEditing && (
+            <button
+              onClick={startEditing}
+              className="absolute top-4 right-4 p-2 rounded-full bg-gray-100 text-gray-500
+                         hover:bg-gray-200 active:bg-gray-300 transition-colors"
+              title="Редактировать"
+            >
+              <Pencil className="w-4 h-4" />
+            </button>
+          )}
+          
           <h3 className="font-bold text-sm text-gray-400 mb-3 flex items-center gap-2">
             <FileText className="w-4 h-4" /> Запись
           </h3>
-          <p className="text-gray-800 leading-relaxed whitespace-pre-wrap">
-            {entry.textContent}
-          </p>
-        </div>
-
-        {/* Tags */}
-        {entry.tags && entry.tags.length > 0 && (
-          <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
-            <h3 className="font-bold text-sm text-gray-400 mb-3 flex items-center gap-2">
-              <Tag className="w-4 h-4" /> Теги
-            </h3>
-            <div className="flex flex-wrap gap-2">
-              {entry.tags.map((tag, i) => (
-                <span
-                  key={i}
-                  className="px-3 py-1.5 rounded-full bg-blue-50 text-blue-600 text-sm font-medium"
+          
+          {isEditing ? (
+            <div className="space-y-4">
+              {/* Text editing */}
+              <textarea
+                value={editText}
+                onChange={(e) => setEditText(e.target.value)}
+                className="w-full min-h-[150px] p-3 border border-gray-200 rounded-xl resize-none
+                           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                autoFocus
+              />
+              
+              {/* Tags editing */}
+              <div>
+                <h4 className="font-bold text-sm text-gray-400 mb-2 flex items-center gap-2">
+                  <Tag className="w-4 h-4" /> Теги
+                </h4>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {editTags.map((tag, i) => (
+                    <span
+                      key={i}
+                      className="px-3 py-1.5 rounded-full bg-gradient-to-r from-blue-50 to-indigo-50
+                                 text-blue-600 text-sm font-medium border border-blue-100 shadow-sm
+                                 flex items-center gap-1 group"
+                    >
+                      #{tag}
+                      <button
+                        onClick={() => removeTag(tag)}
+                        className="ml-1 p-0.5 rounded-full bg-blue-100 hover:bg-red-100 hover:text-red-500 
+                                   transition-colors opacity-70 group-hover:opacity-100"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                  {editTags.length === 0 && (
+                    <span className="text-gray-400 text-sm italic">Нет тегов</span>
+                  )}
+                </div>
+                {editTags.length < 10 && (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newTag}
+                      onChange={(e) => setNewTag(e.target.value.slice(0, 30))}
+                      onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addTag())}
+                      placeholder="Новый тег..."
+                      className="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm
+                                 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                    <button
+                      onClick={addTag}
+                      disabled={!newTag.trim()}
+                      className="px-3 py-2 bg-blue-500 text-white rounded-xl disabled:opacity-50
+                                 active:bg-blue-600 transition-colors"
+                    >
+                      <Plus className="w-5 h-5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+              
+              {/* Save/Cancel buttons */}
+              <div className="flex gap-2">
+                <button
+                  onClick={saveEdit}
+                  disabled={saving}
+                  className="flex-1 py-3 bg-blue-500 text-white rounded-xl font-semibold
+                             active:bg-blue-600 transition-colors disabled:opacity-50
+                             flex items-center justify-center gap-2"
                 >
-                  #{tag}
-                </span>
-              ))}
+                  {saving ? (
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Check className="w-5 h-5" />
+                  )}
+                  <span>Сохранить</span>
+                </button>
+                <button
+                  onClick={cancelEditing}
+                  disabled={saving}
+                  className="px-4 py-3 bg-gray-100 text-gray-600 rounded-xl font-semibold
+                             active:bg-gray-200 transition-colors disabled:opacity-50"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          ) : (
+            <p className="text-gray-800 leading-relaxed whitespace-pre-wrap pr-10">
+              {entry.textContent}
+            </p>
+          )}
+        </div>
 
         {/* AI Summary */}
         {entry.aiSummary && (
@@ -185,6 +490,29 @@ export default function EntryDetailPage() {
             <p className="text-green-800 text-sm leading-relaxed">
               {entry.aiSuggestions}
             </p>
+          </div>
+        )}
+
+        {/* Tags */}
+        {entry.tags && entry.tags.length > 0 && (
+          <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
+            <h3 className="font-bold text-sm text-gray-400 mb-3 flex items-center gap-2">
+              <Tag className="w-4 h-4" /> Теги
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              {entry.tags.map((tag, i) => (
+                <button
+                  key={i}
+                  onClick={() => navigate(`/entries?tag=${encodeURIComponent(tag)}`)}
+                  className="px-4 py-1.5 rounded-full bg-gradient-to-r from-blue-50 to-indigo-50
+                             text-blue-600 text-sm font-medium border border-blue-100 shadow-sm
+                             hover:from-blue-100 hover:to-indigo-100 hover:shadow 
+                             active:scale-95 transition-all duration-200"
+                >
+                  #{tag}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 

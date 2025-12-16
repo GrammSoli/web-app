@@ -10,7 +10,7 @@ import {
 } from 'recharts';
 import { format, subDays } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { FileText, Smile, Flame, Trophy, TrendingUp, TrendingDown, ArrowRight, BarChart3, Mic } from 'lucide-react';
+import { FileText, Smile, Flame, Trophy, TrendingUp, TrendingDown, ArrowRight, BarChart3, Mic, Crown } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 
 export default function StatsPage() {
@@ -42,7 +42,7 @@ export default function StatsPage() {
   }
 
   // Prepare chart data
-  const chartData = stats.weeklyMoods.map((item) => ({
+  const chartData = (stats.weeklyMoods || []).map((item) => ({
     date: format(new Date(item.date), 'EEE', { locale: ru }),
     score: item.score,
     fullDate: format(new Date(item.date), 'd MMM', { locale: ru }),
@@ -239,7 +239,7 @@ function LimitBar({
   icon: ReactNode;
 }) {
   const isUnlimited = max === null || max === -1;
-  const percentage = isUnlimited ? 100 : Math.min((current / max) * 100, 100);
+  const percentage = isUnlimited ? 0 : Math.min((current / max) * 100, 100);
   const isNearLimit = !isUnlimited && percentage >= 80;
 
   return (
@@ -249,20 +249,29 @@ function LimitBar({
           <span>{icon}</span>
           <span className="text-sm font-semibold text-gray-700">{label}</span>
         </div>
-        <span className={`text-sm font-bold ${isNearLimit ? 'text-orange-500' : 'text-gray-500'}`}>
-          {current} / {isUnlimited ? '∞' : max}
-        </span>
+        {isUnlimited ? (
+          <span className="text-sm font-medium text-purple-500 flex items-center gap-1">
+            <Crown className="w-3.5 h-3.5" />
+            Безлимит
+          </span>
+        ) : (
+          <span className={`text-sm font-bold ${isNearLimit ? 'text-orange-500' : 'text-gray-500'}`}>
+            {current} / {max}
+          </span>
+        )}
       </div>
-      <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
-        <div 
-          className={`h-full rounded-full transition-all ${
-            isNearLimit 
-              ? 'bg-gradient-to-r from-orange-400 to-red-500' 
-              : 'bg-gradient-to-r from-blue-400 to-indigo-500'
-          }`}
-          style={{ width: `${percentage}%` }}
-        />
-      </div>
+      {!isUnlimited && (
+        <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
+          <div 
+            className={`h-full rounded-full transition-all ${
+              isNearLimit 
+                ? 'bg-gradient-to-r from-orange-400 to-red-500' 
+                : 'bg-gradient-to-r from-blue-400 to-indigo-500'
+            }`}
+            style={{ width: `${percentage}%` }}
+          />
+        </div>
+      )}
     </div>
   );
 }

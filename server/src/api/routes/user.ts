@@ -1,11 +1,21 @@
 import { Router, Request, Response } from 'express';
 import { telegramAuth } from '../middleware/auth.js';
 import { timezoneMiddleware, isValidTimezone } from '../middleware/timezone.js';
-import { getUserEntries, countTodayEntries, getEffectiveTier, updateUserTimezone } from '../../services/user.js';
+import { getUserEntries, countTodayEntries, getEffectiveTier, updateUserTimezone, createEntry, processEntry, logUsage, getTodayVoiceUsageSeconds } from '../../services/user.js';
 import { getTierLimits, SUBSCRIPTION_PRICES } from '../../utils/pricing.js';
+import { analyzeMood } from '../../services/openai.js';
 import { apiLogger } from '../../utils/logger.js';
 
 const router = Router();
+
+// Helper: get mood label from score
+const getMoodLabel = (score: number): string => {
+  const labels: Record<number, string> = {
+    1: 'ужасно', 2: 'очень плохо', 3: 'плохо', 4: 'неважно', 5: 'нормально',
+    6: 'неплохо', 7: 'хорошо', 8: 'отлично', 9: 'прекрасно', 10: 'великолепно'
+  };
+  return labels[score] || 'нормально';
+};
 
 // Все роуты требуют аутентификации
 router.use(telegramAuth(true));
@@ -82,14 +92,339 @@ router.get('/me', async (req: Request, res: Response) => {
 });
 
 /**
+ * POST /api/user/entries
+ * Создать новую запись через Web App
+ */
+router.post('/entries', async (req: Request, res: Response) => {
+  try {
+    const user = req.user!;
+    const { textContent } = req.body;
+    
+    if (!textContent || typeof textContent !== 'string' || textContent.trim().length === 0) {
+      return res.status(400).json({ error: 'Текст записи обязателен' });
+    }
+    
+    if (textContent.length > 10000) {
+      return res.status(400).json({ error: 'Текст слишком длинный (макс 10000 символов)' });
+    }
+    
+    // Проверяем лимиты
+    const todayCounts = await countTodayEntries(user.id, user.timezone || 'UTC');
+    const tier = await getEffectiveTier(user.id);
+    const limits = await getTierLimits(tier);
+    
+    if (limits.dailyEntries !== -1 && todayCounts.total >= limits.dailyEntries) {
+      return res.status(429).json({ 
+        error: 'Дневной лимит записей исчерпан',
+        limit: limits.dailyEntries,
+        used: todayCounts.total,
+      });
+    }
+    
+    // Создаём запись
+    const entry = await createEntry({
+      userId: user.id,
+      textContent: textContent.trim(),
+      isVoice: false,
+    });
+    
+    apiLogger.info({ userId: user.id, entryId: entry.id }, 'Entry created via Web App');
+    
+    // Анализируем настроение через AI
+    try {
+      const analysisResponse = await analyzeMood(textContent.trim());
+      
+      // Логируем использование API
+      await logUsage({
+        userId: user.id,
+        entryId: entry.id,
+        serviceType: 'gpt_4o_mini',
+        modelName: 'gpt-4o-mini',
+        inputTokens: analysisResponse.usage?.inputTokens || 0,
+        outputTokens: analysisResponse.usage?.outputTokens || 0,
+        costUsd: analysisResponse.usage?.costUsd || 0,
+      });
+      
+      // Обновляем запись с результатами анализа
+      const processedEntry = await processEntry(entry.id, analysisResponse.result);
+      
+      res.status(201).json({
+        id: processedEntry.id,
+        textContent: processedEntry.textContent,
+        moodScore: processedEntry.moodScore,
+        moodLabel: processedEntry.moodLabel,
+        tags: processedEntry.aiTags || [],
+        aiSummary: processedEntry.aiSummary,
+        aiSuggestions: processedEntry.aiSuggestions,
+        isVoice: processedEntry.isVoice,
+        isProcessed: processedEntry.isProcessed,
+        createdAt: processedEntry.dateCreated?.toISOString() || null,
+        dateCreated: processedEntry.dateCreated?.toISOString() || null,
+      });
+    } catch (aiError) {
+      apiLogger.error({ error: aiError, entryId: entry.id }, 'AI analysis failed');
+      
+      // Возвращаем запись без анализа
+      res.status(201).json({
+        id: entry.id,
+        textContent: entry.textContent,
+        moodScore: null,
+        moodLabel: null,
+        tags: [],
+        aiSummary: null,
+        aiSuggestions: null,
+        isVoice: entry.isVoice,
+        isProcessed: false,
+        createdAt: entry.dateCreated?.toISOString() || null,
+        dateCreated: entry.dateCreated?.toISOString() || null,
+      });
+    }
+  } catch (error) {
+    apiLogger.error({ error }, 'Failed to create entry');
+    res.status(500).json({ error: 'Не удалось создать запись' });
+  }
+});
+
+/**
+ * GET /api/user/entries/:id
+ * Получить конкретную запись по ID
+ */
+router.get('/entries/:id', async (req: Request, res: Response) => {
+  try {
+    const user = req.user!;
+    const { id } = req.params;
+    
+    const { prisma } = await import('../../services/database.js');
+    
+    const entry = await prisma.journalEntry.findFirst({
+      where: {
+        id,
+        userId: user.id,
+      },
+    });
+    
+    if (!entry) {
+      return res.status(404).json({ error: 'Запись не найдена' });
+    }
+    
+    res.json({
+      id: entry.id,
+      textContent: entry.textContent,
+      moodScore: entry.moodScore,
+      moodLabel: entry.moodLabel,
+      tags: entry.aiTags || [],
+      aiSummary: entry.aiSummary,
+      aiSuggestions: entry.aiSuggestions,
+      isVoice: entry.isVoice,
+      voiceDuration: entry.voiceDurationSeconds,
+      voiceFileId: entry.voiceFileId,
+      isProcessed: entry.isProcessed,
+      createdAt: entry.dateCreated?.toISOString() || null,
+    });
+  } catch (error) {
+    apiLogger.error({ error }, 'Failed to get entry');
+    res.status(500).json({ error: 'Не удалось загрузить запись' });
+  }
+});
+
+/**
+ * PATCH /api/user/entries/:id
+ * Редактировать запись (текст, теги, настроение)
+ */
+router.patch('/entries/:id', async (req: Request, res: Response) => {
+  try {
+    const user = req.user!;
+    const { id } = req.params;
+    const { textContent, tags, moodScore, moodLabel } = req.body;
+    
+    // Validate at least one field to update
+    const hasTextContent = textContent !== undefined;
+    const hasTags = tags !== undefined;
+    const hasMood = moodScore !== undefined;
+    
+    if (!hasTextContent && !hasTags && !hasMood) {
+      return res.status(400).json({ error: 'Нужно указать данные для обновления' });
+    }
+    
+    if (hasTextContent && (typeof textContent !== 'string' || textContent.trim().length === 0)) {
+      return res.status(400).json({ error: 'Текст записи не может быть пустым' });
+    }
+    
+    if (hasTags && !Array.isArray(tags)) {
+      return res.status(400).json({ error: 'Теги должны быть массивом' });
+    }
+    
+    if (hasMood && (typeof moodScore !== 'number' || moodScore < 1 || moodScore > 10)) {
+      return res.status(400).json({ error: 'Настроение должно быть от 1 до 10' });
+    }
+    
+    const { prisma } = await import('../../services/database.js');
+    
+    const entry = await prisma.journalEntry.findFirst({
+      where: {
+        id,
+        userId: user.id,
+      },
+    });
+    
+    if (!entry) {
+      return res.status(404).json({ error: 'Запись не найдена' });
+    }
+    
+    // Build update data
+    const updateData: { textContent?: string; aiTags?: string[]; moodScore?: number; moodLabel?: string } = {};
+    if (hasTextContent) {
+      updateData.textContent = textContent.trim();
+    }
+    if (hasTags) {
+      // Sanitize tags: trim, lowercase, remove empty, dedupe
+      const cleanTags: string[] = [...new Set(
+        (tags as string[])
+          .map((t) => String(t).trim().toLowerCase())
+          .filter((t) => t.length > 0 && t.length <= 30)
+      )].slice(0, 10); // Max 10 tags
+      updateData.aiTags = cleanTags;
+    }
+    if (hasMood) {
+      updateData.moodScore = moodScore;
+      updateData.moodLabel = moodLabel || getMoodLabel(moodScore);
+    }
+    
+    const updated = await prisma.journalEntry.update({
+      where: { id },
+      data: updateData,
+    });
+    
+    apiLogger.info({ userId: user.id, entryId: id }, 'Entry updated');
+    
+    res.json({
+      id: updated.id,
+      textContent: updated.textContent,
+      moodScore: updated.moodScore,
+      moodLabel: updated.moodLabel,
+      tags: updated.aiTags || [],
+      aiSummary: updated.aiSummary,
+      aiSuggestions: updated.aiSuggestions,
+      isVoice: updated.isVoice,
+      voiceDuration: updated.voiceDurationSeconds,
+      voiceFileId: updated.voiceFileId,
+      isProcessed: updated.isProcessed,
+      createdAt: updated.dateCreated?.toISOString() || null,
+    });
+  } catch (error) {
+    apiLogger.error({ error }, 'Failed to update entry');
+    res.status(500).json({ error: 'Не удалось обновить запись' });
+  }
+});
+
+/**
+ * DELETE /api/user/entries/:id
+ * Удалить запись
+ */
+router.delete('/entries/:id', async (req: Request, res: Response) => {
+  try {
+    const user = req.user!;
+    const { id } = req.params;
+    
+    const { prisma } = await import('../../services/database.js');
+    
+    const entry = await prisma.journalEntry.findFirst({
+      where: {
+        id,
+        userId: user.id,
+      },
+    });
+    
+    if (!entry) {
+      return res.status(404).json({ error: 'Запись не найдена' });
+    }
+    
+    await prisma.journalEntry.delete({
+      where: { id },
+    });
+    
+    apiLogger.info({ userId: user.id, entryId: id }, 'Entry deleted');
+    
+    res.json({ success: true });
+  } catch (error) {
+    apiLogger.error({ error }, 'Failed to delete entry');
+    res.status(500).json({ error: 'Не удалось удалить запись' });
+  }
+});
+
+/**
+ * GET /api/user/entries/:id/audio
+ * Получить URL аудио файла
+ */
+router.get('/entries/:id/audio', async (req: Request, res: Response) => {
+  try {
+    const user = req.user!;
+    const { id } = req.params;
+    
+    apiLogger.info({ userId: user.id, entryId: id }, 'Getting audio for entry');
+    
+    const { prisma } = await import('../../services/database.js');
+    
+    const entry = await prisma.journalEntry.findFirst({
+      where: {
+        id,
+        userId: user.id,
+      },
+    });
+    
+    if (!entry) {
+      apiLogger.warn({ userId: user.id, entryId: id }, 'Entry not found for audio');
+      return res.status(404).json({ error: 'Запись не найдена' });
+    }
+    
+    apiLogger.info({ entryId: id, isVoice: entry.isVoice, voiceFileId: entry.voiceFileId }, 'Entry found');
+    
+    if (!entry.isVoice || !entry.voiceFileId) {
+      return res.status(400).json({ error: 'Эта запись не содержит аудио' });
+    }
+    
+    // Get file URL from Telegram
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    if (!botToken) {
+      apiLogger.error('TELEGRAM_BOT_TOKEN not configured');
+      return res.status(500).json({ error: 'Bot token not configured' });
+    }
+    
+    const telegramUrl = `https://api.telegram.org/bot${botToken}/getFile?file_id=${entry.voiceFileId}`;
+    apiLogger.info({ voiceFileId: entry.voiceFileId }, 'Requesting file from Telegram');
+    
+    const fileResponse = await fetch(telegramUrl);
+    const fileData = await fileResponse.json() as { ok: boolean; result?: { file_path: string }; description?: string };
+    
+    apiLogger.info({ telegramResponse: fileData }, 'Telegram getFile response');
+    
+    if (!fileData.ok || !fileData.result?.file_path) {
+      apiLogger.error({ telegramResponse: fileData }, 'Telegram getFile failed');
+      return res.status(404).json({ error: 'Аудио файл не найден в Telegram' });
+    }
+    
+    const audioUrl = `https://api.telegram.org/file/bot${botToken}/${fileData.result.file_path}`;
+    
+    res.json({ 
+      audioUrl,
+      duration: entry.voiceDurationSeconds,
+    });
+  } catch (error) {
+    apiLogger.error({ error, stack: (error as Error).stack }, 'Failed to get audio');
+    res.status(500).json({ error: 'Не удалось получить аудио' });
+  }
+});
+
+/**
  * GET /api/user/entries
  * Получить записи пользователя
  */
 router.get('/entries', async (req: Request, res: Response) => {
   try {
     const user = req.user!;
-    const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
-    const offset = parseInt(req.query.offset as string) || 0;
+    const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
+    const page = parseInt(req.query.page as string) || 1;
+    const offset = (page - 1) * limit;
     
     // Фильтр по дате
     let startDate: Date | undefined;
@@ -110,24 +445,24 @@ router.get('/entries', async (req: Request, res: Response) => {
     });
     
     res.json({
-      entries: entries.map((e) => ({
+      items: entries.map((e) => ({
         id: e.id,
         textContent: e.textContent,
         moodScore: e.moodScore,
         moodLabel: e.moodLabel,
-        aiTags: e.aiTags,
+        tags: e.aiTags || [],
         aiSummary: e.aiSummary,
         aiSuggestions: e.aiSuggestions,
         isVoice: e.isVoice,
         voiceDuration: e.voiceDurationSeconds,
         isProcessed: e.isProcessed,
-        createdAt: e.dateCreated,
+        createdAt: e.dateCreated?.toISOString() || null,
+        dateCreated: e.dateCreated?.toISOString() || null,
       })),
-      pagination: {
-        limit,
-        offset,
-        hasMore: entries.length === limit,
-      },
+      page,
+      pageSize: limit,
+      total: entries.length,
+      hasMore: entries.length === limit,
     });
   } catch (error) {
     apiLogger.error({ error }, 'Failed to get entries');
@@ -143,6 +478,12 @@ router.get('/stats', async (req: Request, res: Response) => {
   try {
     const user = req.user!;
     const days = Math.min(parseInt(req.query.days as string) || 30, 90);
+    
+    // Get user's tier and limits
+    const tier = await getEffectiveTier(user.id);
+    const limits = await getTierLimits(tier);
+    const todayCounts = await countTodayEntries(user.id, req.userTimezone);
+    const todayVoiceSeconds = await getTodayVoiceUsageSeconds(user.id, req.userTimezone);
     
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
@@ -206,7 +547,36 @@ router.get('/stats', async (req: Request, res: Response) => {
       ? allMoods.reduce((a, b) => a + b, 0) / allMoods.length
       : 0;
     
+    // Weekly moods for chart (last 7 days)
+    const weeklyMoods: Array<{ date: string; score: number }> = [];
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const dateKey = date.toISOString().split('T')[0];
+      const dayData = dailyStats[dateKey];
+      weeklyMoods.push({
+        date: dateKey,
+        score: dayData ? Math.round(dayData.moods.reduce((a, b) => a + b, 0) / dayData.moods.length) : 0,
+      });
+    }
+    
+    // Today's counts
+    
+    // Calculate today's voice usage in minutes
+    const todayVoiceMinutes = Math.round(todayVoiceSeconds / 60);
+    
     res.json({
+      totalEntries: entries.length,
+      todayEntries: todayCounts.total,
+      todayVoice: todayVoiceMinutes,
+      dailyLimit: limits.dailyEntries === -1 ? null : limits.dailyEntries,
+      voiceLimit: limits.voiceMinutesDaily === -1 ? null : limits.voiceMinutesDaily,
+      averageMood: Math.round(avgMood * 10) / 10,
+      currentStreak: 0, // TODO: calculate streak
+      longestStreak: 0,
+      moodTrend: 'stable' as const,
+      weeklyMoods,
+      // Additional data
       period: { days, startDate, endDate: new Date() },
       summary: {
         totalEntries: entries.length,
