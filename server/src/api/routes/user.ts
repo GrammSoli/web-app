@@ -706,7 +706,7 @@ router.post('/subscription/crypto-invoice', async (req: Request, res: Response) 
     const result = await createSubscriptionInvoice(
       tier,
       req.user!.id,
-      req.user!.telegramId
+      String(req.user!.telegramId)
     );
     
     if (!result) {
