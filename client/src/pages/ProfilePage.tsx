@@ -40,16 +40,16 @@ export default function ProfilePage() {
     window.location.reload();
   };
 
-  // Usage limits
+  // Usage limits (daily)
   const limits = {
     free: { entries: 5, label: '5' },
-    basic: { entries: 30, label: '30' },
+    basic: { entries: 20, label: '20' },
     premium: { entries: Infinity, label: '∞' },
   };
   const limit = limits[currentTier];
   const usagePercent = currentTier === 'premium' 
     ? 0 
-    : Math.min(((appUser?.entriesThisMonth || 0) / limit.entries) * 100, 100);
+    : Math.min(((appUser?.stats?.todayEntries || 0) / limit.entries) * 100, 100);
 
   return (
     <div className="fade-in min-h-screen">
@@ -119,7 +119,7 @@ export default function ProfilePage() {
                 </span>
               ) : (
                 <span className="text-sm text-gray-400">
-                  {appUser.entriesThisMonth || 0} / {limit.entries}
+                  {appUser.stats?.todayEntries || 0} / {limit.entries}
                 </span>
               )}
             </div>
@@ -131,7 +131,7 @@ export default function ProfilePage() {
                     style={{ width: `${usagePercent}%` }}
                   />
                 </div>
-                <p className="text-xs text-gray-400 mt-2">Записей в этом месяце</p>
+                <p className="text-xs text-gray-400 mt-2">Записей сегодня</p>
               </>
             )}
             {currentTier === 'premium' && (

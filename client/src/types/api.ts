@@ -18,7 +18,22 @@ export interface User {
   isAdmin: boolean;
   dateCreated: string;
   
-  // Additional fields for ProfilePage
+  // Stats from API /me
+  stats?: {
+    totalEntries: number;
+    totalVoice: number;
+    todayEntries: number;
+    todayVoice: number;
+  };
+  
+  // Limits from API /me
+  limits?: {
+    dailyEntries: number;
+    voiceAllowed: boolean;
+    voiceMinutesDaily: number;
+  };
+  
+  // Additional fields for ProfilePage (legacy)
   totalEntries?: number;
   streakDays?: number;
   entriesThisMonth?: number;
