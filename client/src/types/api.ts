@@ -58,6 +58,7 @@ export interface JournalEntry {
 
 // Stats
 export interface UserStats {
+  tier?: 'free' | 'basic' | 'premium';
   totalEntries: number;
   todayEntries: number;
   todayVoice: number;
@@ -67,9 +68,18 @@ export interface UserStats {
   currentStreak: number;
   longestStreak: number;
   moodTrend: 'up' | 'down' | 'stable';
+  trendPercentage?: number;
   weeklyMoods: Array<{
     date: string;
     score: number;
+  }>;
+  monthlyMoods?: Array<{
+    date: string;
+    score: number;
+  }>;
+  topTags?: Array<{
+    tag: string;
+    count: number;
   }>;
 }
 

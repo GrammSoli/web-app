@@ -1,4 +1,5 @@
-import { useEffect, ReactNode } from 'react';
+import { useEffect, useState, ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Preloader } from 'konsta/react';
 import { 
   XAxis, 
@@ -10,11 +11,19 @@ import {
 } from 'recharts';
 import { format, subDays } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { FileText, Smile, Flame, Trophy, TrendingUp, TrendingDown, ArrowRight, BarChart3, Mic, Crown } from 'lucide-react';
+import { FileText, Smile, Flame, Trophy, TrendingUp, TrendingDown, ArrowRight, BarChart3, Mic, Crown, Lock, Tag, Calendar } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
+import { useTelegram } from '@/hooks/useTelegram';
+
+type ChartPeriod = 'week' | 'month';
 
 export default function StatsPage() {
-  const { stats, statsLoading, fetchStats } = useAppStore();
+  const navigate = useNavigate();
+  const { haptic } = useTelegram();
+  const { stats, statsLoading, fetchStats, user } = useAppStore();
+  const [chartPeriod, setChartPeriod] = useState<ChartPeriod>('week');
+
+  const isFree = !user || user.subscriptionTier === 'free';
 
   useEffect(() => {
     fetchStats();
@@ -41,23 +50,30 @@ export default function StatsPage() {
     );
   }
 
-  // Prepare chart data
-  const chartData = (stats.weeklyMoods || []).map((item) => ({
-    date: format(new Date(item.date), 'EEE', { locale: ru }),
+  // Prepare chart data based on selected period
+  const rawData = chartPeriod === 'week' ? stats.weeklyMoods : (stats.monthlyMoods || stats.weeklyMoods);
+  const chartData = (rawData || []).map((item) => ({
+    date: format(new Date(item.date), chartPeriod === 'week' ? 'EEE' : 'd', { locale: ru }),
     score: item.score,
     fullDate: format(new Date(item.date), 'd MMM', { locale: ru }),
   }));
 
   // Fill missing days if needed
   const today = new Date();
-  while (chartData.length < 7) {
-    const dayIndex = 7 - chartData.length;
+  const targetLength = chartPeriod === 'week' ? 7 : 30;
+  while (chartData.length < targetLength) {
+    const dayIndex = targetLength - chartData.length;
     chartData.unshift({
-      date: format(subDays(today, dayIndex), 'EEE', { locale: ru }),
+      date: format(subDays(today, dayIndex), chartPeriod === 'week' ? 'EEE' : 'd', { locale: ru }),
       score: 0,
       fullDate: format(subDays(today, dayIndex), 'd MMM', { locale: ru }),
     });
   }
+
+  const handlePeriodChange = (period: ChartPeriod) => {
+    haptic.light();
+    setChartPeriod(period);
+  };
 
   return (
     <div className="fade-in min-h-screen">
@@ -101,10 +117,35 @@ export default function StatsPage() {
 
         {/* Mood Chart - Wide Card */}
         <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
-          <h2 className="text-base font-bold text-gray-700 mb-4 flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-indigo-500" />
-            Настроение за неделю
-          </h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-base font-bold text-gray-700 flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-indigo-500" />
+              Настроение
+            </h2>
+            {/* Period Switcher */}
+            <div className="flex bg-gray-100 rounded-xl p-1">
+              <button
+                onClick={() => handlePeriodChange('week')}
+                className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
+                  chartPeriod === 'week' 
+                    ? 'bg-white text-indigo-600 shadow-sm' 
+                    : 'text-gray-500'
+                }`}
+              >
+                Неделя
+              </button>
+              <button
+                onClick={() => handlePeriodChange('month')}
+                className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
+                  chartPeriod === 'month' 
+                    ? 'bg-white text-indigo-600 shadow-sm' 
+                    : 'text-gray-500'
+                }`}
+              >
+                Месяц
+              </button>
+            </div>
+          </div>
           <ResponsiveContainer width="100%" height={160}>
             <AreaChart data={chartData}>
               <defs>
@@ -117,7 +158,8 @@ export default function StatsPage() {
                 dataKey="date" 
                 axisLine={false}
                 tickLine={false}
-                tick={{ fill: '#9ca3af', fontSize: 11 }}
+                tick={{ fill: '#9ca3af', fontSize: 10 }}
+                interval={chartPeriod === 'month' ? 6 : 0}
               />
               <YAxis 
                 domain={[0, 10]} 
@@ -130,7 +172,7 @@ export default function StatsPage() {
                     return (
                       <div className="bg-gray-900 text-white rounded-xl px-3 py-2 shadow-lg">
                         <p className="text-xs opacity-70">{data.fullDate}</p>
-                        <p className="font-bold">{data.score}/10</p>
+                        <p className="font-bold">{data.score > 0 ? `${data.score}/10` : '—'}</p>
                       </div>
                     );
                   }
@@ -141,14 +183,14 @@ export default function StatsPage() {
                 type="monotone"
                 dataKey="score"
                 stroke="#6366f1"
-                strokeWidth={3}
+                strokeWidth={2}
                 fill="url(#moodGradient)"
               />
             </AreaChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Trend Card */}
+        {/* Trend Card with Comparison */}
         <div className="bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-3xl p-5 text-white shadow-xl shadow-indigo-500/25 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10 blur-2xl" />
           
@@ -159,13 +201,20 @@ export default function StatsPage() {
               {stats.moodTrend === 'stable' && <ArrowRight className="w-8 h-8 text-white" />}
             </div>
             <div className="flex-1">
-              <div className="font-bold text-lg">
+              <div className="font-bold text-lg flex items-center gap-2">
                 {stats.moodTrend === 'up' && 'Настроение улучшается'}
                 {stats.moodTrend === 'down' && 'Настроение снижается'}
                 {stats.moodTrend === 'stable' && 'Стабильное настроение'}
+                {stats.trendPercentage !== undefined && stats.trendPercentage !== 0 && (
+                  <span className={`text-sm px-2 py-0.5 rounded-full ${
+                    stats.trendPercentage > 0 ? 'bg-green-400/30' : 'bg-red-400/30'
+                  }`}>
+                    {stats.trendPercentage > 0 ? '+' : ''}{stats.trendPercentage}%
+                  </span>
+                )}
               </div>
               <p className="text-sm text-white/80 mt-1">
-                {stats.moodTrend === 'up' && 'Отличная динамика! Продолжай 💪'}
+                {stats.moodTrend === 'up' && 'По сравнению с прошлой неделей 💪'}
                 {stats.moodTrend === 'down' && 'Уделяй время тому, что радует'}
                 {stats.moodTrend === 'stable' && 'Постоянство — это тоже хорошо!'}
               </p>
@@ -173,10 +222,45 @@ export default function StatsPage() {
           </div>
         </div>
 
+        {/* Top Tags - Premium Feature */}
+        <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 relative overflow-hidden">
+          <h2 className="text-base font-bold text-gray-700 mb-4 flex items-center gap-2">
+            <Tag className="w-5 h-5 text-blue-500" />
+            Частые теги
+            {isFree && <span className="text-xs text-purple-500 ml-auto">Premium</span>}
+          </h2>
+          
+          <div className={`flex flex-wrap gap-2 ${isFree ? 'blur-[4px]' : ''}`}>
+            {(stats.topTags || []).slice(0, 8).map((item, i) => (
+              <span
+                key={i}
+                className="px-3 py-1.5 rounded-full bg-gradient-to-r from-blue-50 to-indigo-50
+                           text-blue-600 text-sm font-medium border border-blue-100 shadow-sm"
+              >
+                #{item.tag} <span className="text-blue-400 text-xs">({item.count})</span>
+              </span>
+            ))}
+            {(!stats.topTags || stats.topTags.length === 0) && (
+              <p className="text-gray-400 text-sm">Пока нет тегов</p>
+            )}
+          </div>
+          
+          {isFree && stats.topTags && stats.topTags.length > 0 && (
+            <div 
+              className="absolute inset-0 flex items-center justify-center cursor-pointer bg-white/30"
+              onClick={() => { haptic.light(); navigate('/premium'); }}
+            >
+              <span className="flex items-center gap-1.5 text-sm text-purple-600 bg-white/95 px-4 py-2 rounded-full shadow-lg border border-purple-100">
+                <Lock className="w-4 h-4" /> Открыть с подпиской
+              </span>
+            </div>
+          )}
+        </div>
+
         {/* Daily Limits */}
         <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
           <h2 className="text-base font-bold text-gray-700 mb-4 flex items-center gap-2">
-            <BarChart3 className="w-5 h-5 text-gray-500" />
+            <Calendar className="w-5 h-5 text-gray-500" />
             Лимиты на сегодня
           </h2>
           <div className="space-y-4">
@@ -191,6 +275,7 @@ export default function StatsPage() {
               current={stats.todayVoice}
               max={stats.voiceLimit}
               icon={<Mic className="w-4 h-4 text-gray-500" />}
+              suffix=" мин"
             />
           </div>
         </div>
@@ -231,12 +316,14 @@ function LimitBar({
   label, 
   current, 
   max,
-  icon
+  icon,
+  suffix = ''
 }: { 
   label: string; 
   current: number; 
   max: number | null;
   icon: ReactNode;
+  suffix?: string;
 }) {
   const isUnlimited = max === null || max === -1;
   const percentage = isUnlimited ? 0 : Math.min((current / max) * 100, 100);
@@ -256,7 +343,7 @@ function LimitBar({
           </span>
         ) : (
           <span className={`text-sm font-bold ${isNearLimit ? 'text-orange-500' : 'text-gray-500'}`}>
-            {current} / {max}
+            {current}{suffix} / {max}{suffix}
           </span>
         )}
       </div>

@@ -561,22 +561,108 @@ router.get('/stats', async (req: Request, res: Response) => {
       });
     }
     
+    // Calculate streaks
+    const sortedDates = Object.keys(dailyStats).sort().reverse();
+    let currentStreak = 0;
+    let longestStreak = 0;
+    let tempStreak = 0;
+    
+    // Check if user has entry today
+    const todayKey = new Date().toISOString().split('T')[0];
+    const yesterdayKey = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    
+    // Current streak - count consecutive days from today or yesterday
+    if (dailyStats[todayKey] || dailyStats[yesterdayKey]) {
+      const startDate = dailyStats[todayKey] ? todayKey : yesterdayKey;
+      let checkDate = new Date(startDate);
+      
+      while (true) {
+        const dateKey = checkDate.toISOString().split('T')[0];
+        if (dailyStats[dateKey]) {
+          currentStreak++;
+          checkDate = new Date(checkDate.getTime() - 86400000);
+        } else {
+          break;
+        }
+      }
+    }
+    
+    // Longest streak - find max consecutive days
+    for (let i = 0; i < sortedDates.length; i++) {
+      if (i === 0) {
+        tempStreak = 1;
+      } else {
+        const prevDate = new Date(sortedDates[i - 1]);
+        const currDate = new Date(sortedDates[i]);
+        const diffDays = (prevDate.getTime() - currDate.getTime()) / 86400000;
+        
+        if (diffDays === 1) {
+          tempStreak++;
+        } else {
+          tempStreak = 1;
+        }
+      }
+      longestStreak = Math.max(longestStreak, tempStreak);
+    }
+    
+    // Calculate mood trend (compare last 7 days to previous 7 days)
+    const last7Days = weeklyMoods.filter(m => m.score > 0).map(m => m.score);
+    const avgLast7 = last7Days.length > 0 ? last7Days.reduce((a, b) => a + b, 0) / last7Days.length : 0;
+    
+    // Previous 7 days
+    const prev7Moods: number[] = [];
+    for (let i = 13; i >= 7; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const dateKey = date.toISOString().split('T')[0];
+      const dayData = dailyStats[dateKey];
+      if (dayData && dayData.moods.length > 0) {
+        prev7Moods.push(dayData.moods.reduce((a, b) => a + b, 0) / dayData.moods.length);
+      }
+    }
+    const avgPrev7 = prev7Moods.length > 0 ? prev7Moods.reduce((a, b) => a + b, 0) / prev7Moods.length : 0;
+    
+    let moodTrend: 'up' | 'down' | 'stable' = 'stable';
+    let trendPercentage = 0;
+    
+    if (avgLast7 > 0 && avgPrev7 > 0) {
+      trendPercentage = Math.round(((avgLast7 - avgPrev7) / avgPrev7) * 100);
+      if (avgLast7 > avgPrev7 + 0.5) moodTrend = 'up';
+      else if (avgLast7 < avgPrev7 - 0.5) moodTrend = 'down';
+    }
+    
+    // Monthly moods for chart (last 30 days)
+    const monthlyMoods: Array<{ date: string; score: number }> = [];
+    for (let i = 29; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const dateKey = date.toISOString().split('T')[0];
+      const dayData = dailyStats[dateKey];
+      monthlyMoods.push({
+        date: dateKey,
+        score: dayData ? Math.round(dayData.moods.reduce((a, b) => a + b, 0) / dayData.moods.length) : 0,
+      });
+    }
+    
     // Today's counts
     
     // Calculate today's voice usage in minutes
     const todayVoiceMinutes = Math.round(todayVoiceSeconds / 60);
     
     res.json({
+      tier,
       totalEntries: entries.length,
       todayEntries: todayCounts.total,
       todayVoice: todayVoiceMinutes,
       dailyLimit: limits.dailyEntries === -1 ? null : limits.dailyEntries,
       voiceLimit: limits.voiceMinutesDaily === -1 ? null : limits.voiceMinutesDaily,
       averageMood: Math.round(avgMood * 10) / 10,
-      currentStreak: 0, // TODO: calculate streak
-      longestStreak: 0,
-      moodTrend: 'stable' as const,
+      currentStreak,
+      longestStreak,
+      moodTrend,
+      trendPercentage,
       weeklyMoods,
+      monthlyMoods,
       // Additional data
       period: { days, startDate, endDate: new Date() },
       summary: {
