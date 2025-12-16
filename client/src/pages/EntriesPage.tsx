@@ -297,54 +297,46 @@ export default function EntriesPage() {
 
         {/* Filters Panel */}
         {showFilters && (
-          <div className="bg-white rounded-2xl border border-gray-200 p-4 space-y-4">
+          <div className="space-y-3">
             
             {/* Sort Order - Premium */}
-            <div className="relative">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                  <ArrowUpDown className="w-4 h-4" />
-                  Сортировка
-                  {isFree && <Crown className="w-3 h-3 text-purple-500" />}
-                </div>
+            <div className="bg-white rounded-2xl p-3 border border-gray-100">
+              <div className="flex items-center gap-2 text-xs font-medium text-gray-500 mb-2 px-1">
+                <ArrowUpDown className="w-3.5 h-3.5" />
+                Сортировка
+                {isFree && <Lock className="w-3 h-3 text-purple-400" />}
               </div>
-              <div className={`flex flex-wrap gap-2 ${isFree ? 'opacity-50 pointer-events-none' : ''}`}>
+              <div className={`flex gap-1.5 overflow-x-auto no-scrollbar ${isFree ? 'opacity-50' : ''}`}>
                 {(['newest', 'oldest', 'mood-high', 'mood-low'] as SortOrder[]).map((order) => (
                   <button
                     key={order}
-                    onClick={() => !isFree && setSortOrder(order)}
-                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors
+                    onClick={() => isFree ? handlePremiumFeature() : setSortOrder(order)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all
                       ${sortOrder === order 
-                        ? 'bg-indigo-500 text-white' 
-                        : 'bg-gray-100 text-gray-600'}`}
+                        ? 'bg-indigo-500 text-white shadow-sm' 
+                        : 'bg-gray-50 text-gray-600 active:bg-gray-100'}`}
                   >
                     {sortLabels[order]}
                   </button>
                 ))}
               </div>
-              {isFree && (
-                <button 
-                  onClick={handlePremiumFeature}
-                  className="absolute inset-0 flex items-center justify-center"
-                />
-              )}
             </div>
             
             {/* Date Filter */}
-            <div>
-              <div className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
-                <Calendar className="w-4 h-4" />
+            <div className="bg-white rounded-2xl p-3 border border-gray-100">
+              <div className="flex items-center gap-2 text-xs font-medium text-gray-500 mb-2 px-1">
+                <Calendar className="w-3.5 h-3.5" />
                 Период
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
                 {(['all', 'today', 'week', 'month'] as DateFilter[]).map((filter) => (
                   <button
                     key={filter}
                     onClick={() => setDateFilter(filter)}
-                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all
                       ${dateFilter === filter 
-                        ? 'bg-indigo-500 text-white' 
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                        ? 'bg-indigo-500 text-white shadow-sm' 
+                        : 'bg-gray-50 text-gray-600 active:bg-gray-100'}`}
                   >
                     {dateFilterLabels[filter]}
                   </button>
@@ -352,33 +344,31 @@ export default function EntriesPage() {
                 {/* Custom date - Premium */}
                 <button
                   onClick={() => isFree ? handlePremiumFeature() : setDateFilter('custom')}
-                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors flex items-center gap-1
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all flex items-center gap-1
                     ${dateFilter === 'custom' 
-                      ? 'bg-indigo-500 text-white' 
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                      ? 'bg-indigo-500 text-white shadow-sm' 
+                      : 'bg-gray-50 text-gray-600 active:bg-gray-100'}`}
                 >
-                  <CalendarRange className="w-3.5 h-3.5" />
+                  <CalendarRange className="w-3 h-3" />
                   {dateFilterLabels.custom}
-                  {isFree && <Crown className="w-3 h-3 text-purple-500" />}
+                  {isFree && <Lock className="w-2.5 h-2.5 text-purple-400" />}
                 </button>
               </div>
               
               {/* Custom date inputs */}
               {dateFilter === 'custom' && !isFree && (
-                <div className="flex gap-2 mt-3">
+                <div className="flex gap-2 mt-2">
                   <input
                     type="date"
                     value={customDateFrom}
                     onChange={(e) => setCustomDateFrom(e.target.value)}
-                    className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    placeholder="От"
+                    className="flex-1 px-3 py-2 text-xs border border-gray-100 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                   <input
                     type="date"
                     value={customDateTo}
                     onChange={(e) => setCustomDateTo(e.target.value)}
-                    className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    placeholder="До"
+                    className="flex-1 px-3 py-2 text-xs border border-gray-100 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
               )}
@@ -386,32 +376,32 @@ export default function EntriesPage() {
 
             {/* Tags Filter - Premium */}
             {allTags.length > 0 && (
-              <div className="relative">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                    <Tag className="w-4 h-4" />
+              <div className="bg-white rounded-2xl p-3 border border-gray-100 relative">
+                <div className="flex items-center justify-between mb-2 px-1">
+                  <div className="flex items-center gap-2 text-xs font-medium text-gray-500">
+                    <Tag className="w-3.5 h-3.5" />
                     Теги
-                    <span className="text-gray-400 font-normal">({allTags.length})</span>
-                    {isFree && <Crown className="w-3 h-3 text-purple-500" />}
+                    <span className="text-gray-400">({allTags.length})</span>
+                    {isFree && <Lock className="w-3 h-3 text-purple-400" />}
                   </div>
                   {selectedTags.length > 0 && !isFree && (
                     <button
                       onClick={() => setSelectedTags([])}
-                      className="text-xs text-gray-400 hover:text-gray-600"
+                      className="text-xs text-indigo-500"
                     >
                       Сбросить
                     </button>
                   )}
                 </div>
-                <div className={`flex flex-wrap gap-1.5 ${isFree ? 'blur-[3px] pointer-events-none select-none' : ''}`}>
+                <div className={`flex flex-wrap gap-1.5 ${isFree ? 'blur-[2px] pointer-events-none' : ''}`}>
                   {(showAllTags ? allTags : allTags.slice(0, MAX_VISIBLE_TAGS)).map((tag) => (
                     <button
                       key={tag}
                       onClick={() => !isFree && toggleTag(tag)}
-                      className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors
+                      className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all
                         ${selectedTags.includes(tag) 
-                          ? 'bg-blue-500 text-white' 
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                          ? 'bg-indigo-500 text-white shadow-sm' 
+                          : 'bg-gray-50 text-gray-600 active:bg-gray-100'}`}
                     >
                       #{tag}
                     </button>
@@ -419,21 +409,17 @@ export default function EntriesPage() {
                   {allTags.length > MAX_VISIBLE_TAGS && !isFree && (
                     <button
                       onClick={() => setShowAllTags(!showAllTags)}
-                      className="px-2.5 py-1 rounded-full text-xs font-medium bg-gray-50 text-blue-500 hover:bg-gray-100"
+                      className="px-2.5 py-1 rounded-full text-xs font-medium text-indigo-500 bg-indigo-50"
                     >
-                      {showAllTags ? 'Свернуть' : `+${allTags.length - MAX_VISIBLE_TAGS}`}
+                      {showAllTags ? 'Меньше' : `+${allTags.length - MAX_VISIBLE_TAGS}`}
                     </button>
                   )}
                 </div>
                 {isFree && (
                   <button 
                     onClick={handlePremiumFeature}
-                    className="absolute inset-0 flex items-center justify-center bg-white/30 rounded-xl"
-                  >
-                    <span className="text-xs text-purple-600 flex items-center gap-1 bg-white px-3 py-1.5 rounded-full shadow-sm border border-purple-100">
-                      <Lock className="w-3 h-3" /> Premium
-                    </span>
-                  </button>
+                    className="absolute inset-0 flex items-center justify-center"
+                  />
                 )}
               </div>
             )}
@@ -442,11 +428,13 @@ export default function EntriesPage() {
             {hasActiveFilters && (
               <button
                 onClick={clearFilters}
-                className="w-full py-2 text-sm text-red-500 font-medium hover:bg-red-50 rounded-xl transition-colors"
+                className="w-full py-2.5 text-xs text-gray-500 font-medium bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors flex items-center justify-center gap-1"
               >
-                Сбросить фильтры
+                <X className="w-3.5 h-3.5" />
+                Сбросить все фильтры
               </button>
             )}
+          </div>
           </div>
         )}
 
