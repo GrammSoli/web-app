@@ -88,7 +88,7 @@ export function createApp() {
                   data: {
                     userId: user.id,
                     invoiceId: cryptoInvoiceId,
-                    transactionType: 'subscription',
+                    transactionType: 'stars_payment', // Using stars_payment for all payments
                     amountStars: 0, // Crypto payment, no stars
                     amountUsd: parseFloat(invoice.amount) || 0,
                     currency: invoice.paid_asset || 'USDT',

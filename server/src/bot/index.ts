@@ -239,7 +239,7 @@ export function createBot(token: string): Bot<MyContext> {
         data: {
           userId: dbUser.id,
           invoiceId: telegramPaymentId,
-          transactionType: 'subscription',
+          transactionType: 'stars_payment',
           amountStars: payment.total_amount,
           amountUsd: pricing.usd,
           currency: payment.currency,
