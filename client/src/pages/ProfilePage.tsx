@@ -1,4 +1,4 @@
-import { useState, useEffect, ReactNode, useReducer } from 'react';
+import { useEffect, ReactNode, useReducer } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Gem, Bell, Download, MessageCircle, RefreshCw, ChevronRight, Star, Crown, Gift, User, Clock, Settings, Globe, Shield, X } from 'lucide-react';
 import { format } from 'date-fns';

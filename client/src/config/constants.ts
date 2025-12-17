@@ -88,8 +88,6 @@ export const DEFAULT_PLANS = {
 
 // Tags display limits
 export const MAX_VISIBLE_TAGS = 8;
-export const MAX_TAGS_PER_ENTRY = 10;
-export const MAX_TAG_LENGTH = 30;
 
 // Text limits
 export const MAX_TEXT_PREVIEW_LENGTH = 100;
