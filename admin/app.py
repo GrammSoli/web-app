@@ -4,6 +4,7 @@ Flask-Admin для Mindful Journal
 """
 
 import os
+from pathlib import Path
 from flask import Flask, redirect, url_for, request
 from flask_admin import Admin, AdminIndexView, expose
 from flask_admin.contrib.sqla import ModelView
@@ -12,6 +13,10 @@ from sqlalchemy import create_engine, MetaData, text
 from sqlalchemy.orm import sessionmaker, scoped_session
 from sqlalchemy.ext.automap import automap_base
 from functools import wraps
+
+# Загружаем .env файл
+from dotenv import load_dotenv
+load_dotenv(Path(__file__).parent / '.env')
 
 # ============================================
 # КОНФИГУРАЦИЯ
