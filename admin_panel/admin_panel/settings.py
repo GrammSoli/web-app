@@ -166,7 +166,7 @@ UNFOLD = {
                 "separator": True,
                 "items": [
                     {
-                        "title": "Пользователи приложения",
+                        "title": "Пользователи",
                         "icon": "people",
                         "link": "/admin/core/user/",
                     },
@@ -178,9 +178,52 @@ UNFOLD = {
                 ],
             },
             {
+                "title": "Финансы",
+                "separator": True,
+                "items": [
+                    {
+                        "title": "Транзакции",
+                        "icon": "payments",
+                        "link": "/admin/core/transaction/",
+                    },
+                    {
+                        "title": "Подписки",
+                        "icon": "card_membership",
+                        "link": "/admin/core/subscription/",
+                    },
+                ],
+            },
+            {
+                "title": "Маркетинг",
+                "separator": True,
+                "items": [
+                    {
+                        "title": "Рассылки",
+                        "icon": "campaign",
+                        "link": "/admin/core/broadcast/",
+                    },
+                ],
+            },
+            {
+                "title": "Аналитика",
+                "separator": True,
+                "items": [
+                    {
+                        "title": "Логи AI",
+                        "icon": "analytics",
+                        "link": "/admin/core/usagelog/",
+                    },
+                ],
+            },
+            {
                 "title": "Система",
                 "separator": True,
                 "items": [
+                    {
+                        "title": "Настройки приложения",
+                        "icon": "settings",
+                        "link": "/admin/core/appconfig/",
+                    },
                     {
                         "title": "Администраторы",
                         "icon": "admin_panel_settings",
