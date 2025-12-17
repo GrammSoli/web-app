@@ -94,7 +94,7 @@ const sendBroadcastAction = {
 
 function getResources() {
   // Получаем DMMF для Prisma моделей
-  const dmmf = (prisma as any)._baseDmmf as DMMFClass;
+  const dmmf = (prisma as any)._baseDmmf;
   
   return [
     // ===== USERS =====

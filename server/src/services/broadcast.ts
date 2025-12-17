@@ -78,7 +78,7 @@ async function sendMessage(
       await bot.api.sendMessage(telegramId.toString(), text, {
         parse_mode: 'HTML',
         reply_markup: keyboard,
-        disable_web_page_preview: true,
+        link_preview_options: { is_disabled: true },
       });
     }
     
