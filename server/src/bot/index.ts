@@ -98,11 +98,11 @@ export function createBot(token: string): Bot<MyContext> {
       
       if (webAppUrl && webAppUrl.startsWith('https://')) {
         keyboard.push([{ text: '📱 Открыть Дневник', web_app: { url: webAppUrl } }]);
+        keyboard.push([
+          { text: '💎 Premium', web_app: { url: `${webAppUrl}/premium` } },
+          { text: '❓ Помощь', callback_data: 'show_help' }
+        ]);
       }
-      keyboard.push(
-        [{ text: '💎 Premium', callback_data: 'show_premium' }],
-        [{ text: '❓ Помощь', callback_data: 'show_help' }]
-      );
       
       await ctx.reply(
         `Рад тебя видеть! 🌿\n\n` +
