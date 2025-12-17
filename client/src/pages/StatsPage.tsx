@@ -248,8 +248,7 @@ export default function StatsPage() {
                 key={item.tag}
                 onClick={() => {
                   haptic?.light?.();
-                  // TODO: Navigate to entries filtered by this tag
-                  // navigate(`/entries?tag=${encodeURIComponent(item.tag)}`);
+                  navigate(`/entries?tag=${encodeURIComponent(item.tag)}`);
                 }}
                 className="text-xs px-2.5 py-1 rounded-full bg-gray-50 dark:bg-gray-700 
                            text-gray-600 dark:text-gray-300 font-medium
