@@ -238,42 +238,7 @@ export default function ProfilePage() {
 
 
 
-        {/* Usage Card */}
-        {appUser && (
-          <div className="bg-white dark:bg-gray-800 rounded-3xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
-            <div className="flex justify-between items-center mb-3">
-              <span className="font-bold text-gray-700 dark:text-gray-200 flex items-center gap-2">
-                <BarChart3 className="w-5 h-5 text-gray-500" /> Использование
-              </span>
-              {currentTier === 'premium' ? (
-                <span className="text-sm text-purple-500 font-medium flex items-center gap-1">
-                  <Crown className="w-4 h-4" />
-                  Безлимит
-                </span>
-              ) : (
-                <span className="text-sm text-gray-400">
-                  {appUser.stats?.todayEntries || 0} / {limit.entries}
-                </span>
-              )}
-            </div>
-            {currentTier !== 'premium' && (
-              <>
-                <div className="h-3 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full bg-gradient-to-r ${tierInfo.gradient} transition-all`}
-                    style={{ width: `${usagePercent}%` }}
-                  />
-                </div>
-                <p className="text-xs text-gray-400 mt-2">Записей сегодня</p>
-              </>
-            )}
-            {currentTier === 'premium' && (
-              <p className="text-xs text-gray-400">
-                У вас нет ограничений на количество записей
-              </p>
-            )}
-          </div>
-        )}
+
 
         {/* Menu */}
         <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">

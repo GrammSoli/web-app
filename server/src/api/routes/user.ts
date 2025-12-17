@@ -67,6 +67,40 @@ router.get('/me', async (req: Request, res: Response) => {
     ]);
     const limits = await getTierLimits(tier);
     
+    // Calculate current streak
+    const entries = await getUserEntries(user.id, { limit: 100 }); // Last 100 entries should be enough for streak
+    const dailyStats: Record<string, { moods: number[] }> = {};
+    
+    entries.forEach((entry) => {
+      if (entry.moodScore) {
+        const dateKey = entry.createdAt.toISOString().split('T')[0];
+        if (!dailyStats[dateKey]) {
+          dailyStats[dateKey] = { moods: [] };
+        }
+        dailyStats[dateKey].moods.push(entry.moodScore);
+      }
+    });
+    
+    let currentStreak = 0;
+    const todayKey = new Date().toISOString().split('T')[0];
+    const yesterdayKey = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    
+    // Current streak - count consecutive days from today or yesterday
+    if (dailyStats[todayKey] || dailyStats[yesterdayKey]) {
+      const startDate = dailyStats[todayKey] ? todayKey : yesterdayKey;
+      let checkDate = new Date(startDate);
+      
+      while (true) {
+        const dateKey = checkDate.toISOString().split('T')[0];
+        if (dailyStats[dateKey]) {
+          currentStreak++;
+          checkDate = new Date(checkDate.getTime() - 86400000);
+        } else {
+          break;
+        }
+      }
+    }
+    
     res.json({
       id: user.id,
       telegramId: user.telegramId.toString(),
@@ -77,6 +111,7 @@ router.get('/me', async (req: Request, res: Response) => {
       subscriptionExpiresAt: user.subscriptionExpiresAt,
       balanceStars: user.balanceStars,
       isAdmin: user.isAdmin,
+      streakDays: currentStreak,
       settings: {
         timezone: user.timezone,
         reminderEnabled: (user as Record<string, unknown>).reminderEnabled as boolean || false,
