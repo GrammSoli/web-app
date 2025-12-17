@@ -217,7 +217,7 @@ export default function HomePage() {
                 </p>
               </div>
             ) : (
-              (entries || []).slice(0, 5).map((entry) => (
+              entries.map((entry) => (
                 <div 
                   key={entry.id}
                   className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden"
@@ -231,7 +231,7 @@ export default function HomePage() {
             )}
 
             {/* Load more */}
-            {hasMoreEntries && entries && entries.length > 5 && (
+            {hasMoreEntries && entries && entries.length >= 5 && (
               <div className="py-2 flex justify-center">
                 {entriesLoading ? (
                   <Preloader />
