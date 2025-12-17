@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Preloader } from 'konsta/react';
 import { format } from 'date-fns';
@@ -12,6 +12,7 @@ import { QUICK_MOOD_OPTIONS } from '@/config/moods';
 export default function HomePage() {
   const navigate = useNavigate();
   const { user, haptic } = useTelegram();
+  const [displayCount, setDisplayCount] = useState(5);
   const { 
     entries, 
     entriesLoading, 
@@ -33,9 +34,16 @@ export default function HomePage() {
   }, []); // Empty deps - run only once on mount
 
   const loadMore = () => {
-    console.log(`🔄 Load more clicked: loading=${entriesLoading}, hasMore=${hasMoreEntries}`);
-    if (!entriesLoading && hasMoreEntries) {
-      fetchEntries(false);
+    console.log(`🔄 Load more clicked: loading=${entriesLoading}, hasMore=${hasMoreEntries}, currentDisplay=${displayCount}, totalEntries=${entries.length}`);
+    
+    // Если уже показаны все загруженные записи, загружаем следующую порцию с сервера
+    if (displayCount >= entries.length) {
+      if (!entriesLoading && hasMoreEntries) {
+        fetchEntries(false);
+      }
+    } else {
+      // Иначе просто показываем больше из уже загруженных
+      setDisplayCount(prev => prev + 5);
     }
   };
 
@@ -217,7 +225,7 @@ export default function HomePage() {
                 </p>
               </div>
             ) : (
-              entries.map((entry) => (
+              entries.slice(0, displayCount).map((entry) => (
                 <div 
                   key={entry.id}
                   className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden"
@@ -230,8 +238,8 @@ export default function HomePage() {
               ))
             )}
 
-            {/* Load more */}
-            {hasMoreEntries && entries && entries.length >= 5 && (
+            {/* Load more - показываем если есть еще локальные или серверные записи */}
+            {(displayCount < entries.length || hasMoreEntries) && entries && entries.length > 0 && (
               <div className="py-2 flex justify-center">
                 {entriesLoading ? (
                   <Preloader />
