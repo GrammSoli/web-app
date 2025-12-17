@@ -345,8 +345,7 @@ export function createBot(token: string): Bot<MyContext> {
     });
     
     // Check if user has completed WebApp activation
-    const userSettings = dbUser.settings as { timezone?: string } | null;
-    const hasTimezone = userSettings?.timezone && userSettings.timezone !== 'UTC';
+    const hasTimezone = dbUser.timezone && dbUser.timezone !== 'UTC';
     
     if (!hasTimezone) {
       await ctx.reply(
@@ -356,7 +355,7 @@ export function createBot(token: string): Bot<MyContext> {
       return;
     }
     
-    const userTimezone = userSettings.timezone || 'UTC';
+    const userTimezone = dbUser.timezone || 'UTC';
     const today = await countTodayEntries(dbUser.id, userTimezone);
     const tier = await getEffectiveTier(dbUser.id);
     // For text messages: pass 0 for voice seconds (not a voice message)
@@ -427,8 +426,7 @@ export function createBot(token: string): Bot<MyContext> {
     });
     
     // Check if user has completed WebApp activation
-    const userSettings = dbUser.settings as { timezone?: string } | null;
-    const hasTimezone = userSettings?.timezone && userSettings.timezone !== 'UTC';
+    const hasTimezone = dbUser.timezone && dbUser.timezone !== 'UTC';
     
     if (!hasTimezone) {
       await ctx.reply(
@@ -438,7 +436,7 @@ export function createBot(token: string): Bot<MyContext> {
       return;
     }
     
-    const userTimezone = userSettings.timezone || 'UTC';
+    const userTimezone = dbUser.timezone || 'UTC';
     
     // Get today's usage data
     const [todayEntries, usedVoiceSecondsToday] = await Promise.all([
