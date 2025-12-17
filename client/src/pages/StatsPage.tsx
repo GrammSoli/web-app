@@ -247,7 +247,7 @@ export default function StatsPage() {
               <button
                 key={item.tag}
                 onClick={() => {
-                  haptic.light();
+                  haptic?.light?.();
                   // TODO: Navigate to entries filtered by this tag
                   // navigate(`/entries?tag=${encodeURIComponent(item.tag)}`);
                 }}
