@@ -88,7 +88,7 @@ DATABASES = {
         'HOST': os.getenv('DB_HOST', 'localhost'),
         'PORT': os.getenv('DB_PORT', '5432'),
         'OPTIONS': {
-            'options': '-c search_path=public',
+            'options': '-c search_path=app,public',
         },
     }
 }

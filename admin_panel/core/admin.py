@@ -28,9 +28,9 @@ class UserAdmin(ModelAdmin):
         'display_telegram_id',
         'username',
         'first_name',
-        'display_premium_status',
-        'display_blocked_status',
-        'created_at',
+        'display_subscription',
+        'total_entries_count',
+        'date_created',
     ]
     
     # Поля для поиска
@@ -43,22 +43,26 @@ class UserAdmin(ModelAdmin):
     
     # Фильтры в боковой панели
     list_filter = [
-        'is_premium',
-        'is_blocked',
+        'subscription_tier',
+        'status',
+        'is_admin',
         'language_code',
-        'created_at',
+        'date_created',
     ]
     
     # Поля только для чтения (нельзя редактировать)
     readonly_fields = [
         'id',
         'telegram_id',
-        'created_at',
-        'updated_at',
+        'total_entries_count',
+        'total_voice_count',
+        'total_spend_usd',
+        'date_created',
+        'date_updated',
     ]
     
     # Сортировка по умолчанию
-    ordering = ['-created_at']
+    ordering = ['-date_created']
     
     # Количество записей на странице
     list_per_page = 50
@@ -71,11 +75,17 @@ class UserAdmin(ModelAdmin):
         ('Основная информация', {
             'fields': ('telegram_id', 'username', 'first_name', 'last_name')
         }),
+        ('Подписка', {
+            'fields': ('subscription_tier', 'subscription_expires_at', 'balance_stars')
+        }),
+        ('Статистика', {
+            'fields': ('total_entries_count', 'total_voice_count', 'total_spend_usd')
+        }),
         ('Настройки', {
-            'fields': ('language_code', 'timezone', 'is_premium', 'is_blocked')
+            'fields': ('language_code', 'timezone', 'status', 'is_admin', 'reminder_enabled', 'reminder_time')
         }),
         ('Даты', {
-            'fields': ('created_at', 'updated_at'),
+            'fields': ('date_created', 'date_updated'),
             'classes': ('collapse',),
         }),
     )
@@ -85,29 +95,15 @@ class UserAdmin(ModelAdmin):
         """Отображение Telegram ID с форматированием."""
         return f"🆔 {obj.telegram_id}"
     
-    @display(
-        description="Premium",
-        ordering="is_premium",
-        label={
-            True: "success",
-            False: "warning",
+    @display(description="Подписка")
+    def display_subscription(self, obj):
+        """Отображение типа подписки."""
+        tier_labels = {
+            'free': '🆓 Free',
+            'premium': '⭐ Premium',
+            'pro': '💎 Pro',
         }
-    )
-    def display_premium_status(self, obj):
-        """Отображение Premium статуса с цветной меткой."""
-        return obj.is_premium
-    
-    @display(
-        description="Заблокирован",
-        ordering="is_blocked",
-        label={
-            True: "danger",
-            False: "success",
-        }
-    )
-    def display_blocked_status(self, obj):
-        """Отображение статуса блокировки с цветной меткой."""
-        return obj.is_blocked
+        return tier_labels.get(obj.subscription_tier, obj.subscription_tier or '🆓 Free')
 
 
 @admin.register(JournalEntry)
@@ -124,34 +120,37 @@ class JournalEntryAdmin(ModelAdmin):
         'mood_score',
         'display_voice_badge',
         'short_content_display',
-        'created_at',
+        'date_created',
     ]
     
     # Поля для поиска
     search_fields = [
-        'content',
+        'text_content',
         'user__telegram_id',
         'user__username',
     ]
     
     # Фильтры
     list_filter = [
-        'mood',
+        'mood_label',
         'is_voice',
-        'created_at',
+        'is_processed',
+        'date_created',
     ]
     
     # Поля только для чтения
     readonly_fields = [
         'id',
         'user',
-        'created_at',
-        'updated_at',
-        'ai_analysis',
+        'date_created',
+        'date_updated',
+        'ai_summary',
+        'ai_suggestions',
+        'ai_tags',
     ]
     
     # Сортировка
-    ordering = ['-created_at']
+    ordering = ['-date_created']
     
     # Записей на странице
     list_per_page = 50
@@ -159,18 +158,18 @@ class JournalEntryAdmin(ModelAdmin):
     # Группировка полей
     fieldsets = (
         ('Запись', {
-            'fields': ('user', 'content', 'mood', 'mood_score')
+            'fields': ('user', 'text_content', 'mood_label', 'mood_score')
         }),
         ('Голосовое сообщение', {
-            'fields': ('is_voice', 'voice_duration'),
+            'fields': ('is_voice', 'voice_duration_seconds', 'voice_file_id'),
             'classes': ('collapse',),
         }),
         ('AI анализ', {
-            'fields': ('ai_analysis',),
+            'fields': ('ai_summary', 'ai_suggestions', 'ai_tags', 'is_processed', 'processing_error'),
             'classes': ('collapse',),
         }),
         ('Метаданные', {
-            'fields': ('created_at', 'updated_at'),
+            'fields': ('date_created', 'date_updated'),
             'classes': ('collapse',),
         }),
     )
@@ -178,16 +177,14 @@ class JournalEntryAdmin(ModelAdmin):
     @display(description="Настроение")
     def display_mood(self, obj):
         """Отображение настроения с эмодзи."""
-        mood_emojis = {
-            'happy': '😊 Счастливый',
-            'sad': '😢 Грустный',
-            'anxious': '😰 Тревожный',
-            'calm': '😌 Спокойный',
-            'angry': '😠 Злой',
-            'excited': '🎉 Возбуждённый',
-            'neutral': '😐 Нейтральный',
-        }
-        return mood_emojis.get(obj.mood, obj.mood or '—')
+        if obj.mood_score:
+            if obj.mood_score >= 8:
+                return f"😊 {obj.mood_score}/10"
+            elif obj.mood_score >= 5:
+                return f"😐 {obj.mood_score}/10"
+            else:
+                return f"😢 {obj.mood_score}/10"
+        return obj.mood_label or '—'
     
     @display(
         description="Голос",
@@ -203,6 +200,6 @@ class JournalEntryAdmin(ModelAdmin):
     @display(description="Содержание")
     def short_content_display(self, obj):
         """Сокращённое содержание записи."""
-        if obj.content:
-            return obj.content[:80] + '...' if len(obj.content) > 80 else obj.content
+        if obj.text_content:
+            return obj.text_content[:80] + '...' if len(obj.text_content) > 80 else obj.text_content
         return '(пусто)'
