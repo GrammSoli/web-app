@@ -153,7 +153,6 @@ export function createAdminJS(): AdminJS {
     branding: {
       companyName: 'Mindful AI Admin',
       logo: false,
-      softwareBrothers: false,
     },
     locale: {
       language: 'ru',
