@@ -30,9 +30,10 @@ export default function HomePage() {
     fetchUser();
     fetchEntries(true);
     fetchStats();
-  }, [fetchUser, fetchEntries, fetchStats]);
+  }, []); // Empty deps - run only once on mount
 
   const loadMore = () => {
+    console.log(`🔄 Load more clicked: loading=${entriesLoading}, hasMore=${hasMoreEntries}`);
     if (!entriesLoading && hasMoreEntries) {
       fetchEntries(false);
     }
