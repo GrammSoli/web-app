@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { telegramAuth } from '../middleware/auth.js';
 import { timezoneMiddleware, isValidTimezone } from '../middleware/timezone.js';
-import { getUserEntries, countTodayEntries, getEffectiveTier, updateUserTimezone, createEntry, processEntry, logUsage, getTodayVoiceUsageSeconds, getAverageMood } from '../../services/user.js';
+import { getUserEntries, countTodayEntries, getEffectiveTier, updateUserTimezone, createEntry, processEntry, logUsage, getTodayVoiceUsageSeconds, getAverageMood, getDateInTimezone } from '../../services/user.js';
 import { getTierLimits, getSubscriptionPricing } from '../../utils/pricing.js';
 import { analyzeMood } from '../../services/openai.js';
 import { apiLogger } from '../../utils/logger.js';
@@ -67,13 +67,14 @@ router.get('/me', async (req: Request, res: Response) => {
     ]);
     const limits = await getTierLimits(tier);
     
-    // Calculate current streak
+    // Calculate current streak with timezone awareness
     const entries = await getUserEntries(user.id, { limit: 100 }); // Last 100 entries should be enough for streak
     const dailyStats: Record<string, { moods: number[] }> = {};
     
     entries.forEach((entry) => {
       if (entry.moodScore) {
-        const dateKey = entry.dateCreated.toISOString().split('T')[0];
+        // Convert entry date to user's timezone
+        const dateKey = getDateInTimezone(entry.dateCreated, req.userTimezone);
         if (!dailyStats[dateKey]) {
           dailyStats[dateKey] = { moods: [] };
         }
@@ -82,16 +83,19 @@ router.get('/me', async (req: Request, res: Response) => {
     });
     
     let currentStreak = 0;
-    const todayKey = new Date().toISOString().split('T')[0];
-    const yesterdayKey = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    // Get today and yesterday in user's timezone
+    const now = new Date();
+    const todayKey = getDateInTimezone(now, req.userTimezone);
+    const yesterday = new Date(now.getTime() - 86400000);
+    const yesterdayKey = getDateInTimezone(yesterday, req.userTimezone);
     
     // Current streak - count consecutive days from today or yesterday
     if (dailyStats[todayKey] || dailyStats[yesterdayKey]) {
       const startDate = dailyStats[todayKey] ? todayKey : yesterdayKey;
-      let checkDate = new Date(startDate);
+      let checkDate = new Date(startDate + 'T00:00:00Z');
       
       while (true) {
-        const dateKey = checkDate.toISOString().split('T')[0];
+        const dateKey = getDateInTimezone(checkDate, req.userTimezone);
         if (dailyStats[dateKey]) {
           currentStreak++;
           checkDate = new Date(checkDate.getTime() - 86400000);
@@ -552,7 +556,8 @@ router.get('/stats', async (req: Request, res: Response) => {
     for (const entry of entries) {
       if (!entry.moodScore) continue;
       
-      const dateKey = entry.dateCreated.toISOString().split('T')[0];
+      // Convert entry date to user's timezone
+      const dateKey = getDateInTimezone(entry.dateCreated, req.userTimezone);
       
       if (!dailyStats[dateKey]) {
         dailyStats[dateKey] = { count: 0, avgMood: 0, moods: [] };
@@ -600,12 +605,12 @@ router.get('/stats', async (req: Request, res: Response) => {
       ? allMoods.reduce((a, b) => a + b, 0) / allMoods.length
       : 0;
     
-    // Weekly moods for chart (last 7 days)
+    // Weekly moods for chart (last 7 days in user's timezone)
     const weeklyMoods: Array<{ date: string; score: number }> = [];
+    const now = new Date();
     for (let i = 6; i >= 0; i--) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      const dateKey = date.toISOString().split('T')[0];
+      const date = new Date(now.getTime() - i * 86400000);
+      const dateKey = getDateInTimezone(date, req.userTimezone);
       const dayData = dailyStats[dateKey];
       weeklyMoods.push({
         date: dateKey,
@@ -613,23 +618,25 @@ router.get('/stats', async (req: Request, res: Response) => {
       });
     }
     
-    // Calculate streaks
+    // Calculate streaks with timezone awareness
     const sortedDates = Object.keys(dailyStats).sort().reverse();
     let currentStreak = 0;
     let longestStreak = 0;
     let tempStreak = 0;
     
-    // Check if user has entry today
-    const todayKey = new Date().toISOString().split('T')[0];
-    const yesterdayKey = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    // Check if user has entry today in their timezone
+    const now = new Date();
+    const todayKey = getDateInTimezone(now, req.userTimezone);
+    const yesterday = new Date(now.getTime() - 86400000);
+    const yesterdayKey = getDateInTimezone(yesterday, req.userTimezone);
     
     // Current streak - count consecutive days from today or yesterday
     if (dailyStats[todayKey] || dailyStats[yesterdayKey]) {
       const startDate = dailyStats[todayKey] ? todayKey : yesterdayKey;
-      let checkDate = new Date(startDate);
+      let checkDate = new Date(startDate + 'T00:00:00Z');
       
       while (true) {
-        const dateKey = checkDate.toISOString().split('T')[0];
+        const dateKey = getDateInTimezone(checkDate, req.userTimezone);
         if (dailyStats[dateKey]) {
           currentStreak++;
           checkDate = new Date(checkDate.getTime() - 86400000);
@@ -661,12 +668,12 @@ router.get('/stats', async (req: Request, res: Response) => {
     const last7Days = weeklyMoods.filter(m => m.score > 0).map(m => m.score);
     const avgLast7 = last7Days.length > 0 ? last7Days.reduce((a, b) => a + b, 0) / last7Days.length : 0;
     
-    // Previous 7 days
+    // Previous 7 days in user's timezone
     const prev7Moods: number[] = [];
+    const now = new Date();
     for (let i = 13; i >= 7; i--) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      const dateKey = date.toISOString().split('T')[0];
+      const date = new Date(now.getTime() - i * 86400000);
+      const dateKey = getDateInTimezone(date, req.userTimezone);
       const dayData = dailyStats[dateKey];
       if (dayData && dayData.moods.length > 0) {
         prev7Moods.push(dayData.moods.reduce((a, b) => a + b, 0) / dayData.moods.length);
@@ -683,12 +690,12 @@ router.get('/stats', async (req: Request, res: Response) => {
       else if (avgLast7 < avgPrev7 - 0.5) moodTrend = 'down';
     }
     
-    // Monthly moods for chart (last 30 days)
+    // Monthly moods for chart (last 30 days in user's timezone)
     const monthlyMoods: Array<{ date: string; score: number }> = [];
+    const now = new Date();
     for (let i = 29; i >= 0; i--) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      const dateKey = date.toISOString().split('T')[0];
+      const date = new Date(now.getTime() - i * 86400000);
+      const dateKey = getDateInTimezone(date, req.userTimezone);
       const dayData = dailyStats[dateKey];
       monthlyMoods.push({
         date: dateKey,
