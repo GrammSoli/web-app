@@ -4,14 +4,14 @@
  * Внутренняя админ-панель для управления данными.
  */
 
-import AdminJS from 'adminjs';
-import AdminJSExpress from '@adminjs/express';
-import { Database, Resource } from '@adminjs/prisma';
+const AdminJS: any = require('adminjs');
+const AdminJSExpress: any = require('@adminjs/express');
+const { Database, Resource } = require('@adminjs/prisma');
 import { Router } from 'express';
-import session from 'express-session';
-import connectPgSimple from 'connect-pg-simple';
-import { prisma } from '../services/database.js';
-import { adminLogger } from '../utils/logger.js';
+const session: any = require('express-session');
+const connectPgSimple: any = require('connect-pg-simple');
+const { prisma } = require('../services/database.js');
+const { adminLogger } = require('../utils/logger.js');
 
 // Регистрируем Prisma адаптер
 AdminJS.registerAdapter({ Database, Resource });
