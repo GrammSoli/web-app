@@ -4,7 +4,23 @@ Flask-Admin для Mindful Journal
 """
 
 import os
+import sys
 from pathlib import Path
+
+# Загружаем .env файл ДО всего остального
+from dotenv import load_dotenv
+
+# Определяем путь к .env
+env_path = Path(__file__).parent / '.env'
+print(f"Loading .env from: {env_path}", file=sys.stderr)
+print(f".env exists: {env_path.exists()}", file=sys.stderr)
+
+# Загружаем с override=True чтобы перезаписать существующие переменные
+load_dotenv(env_path, override=True)
+
+# Дебаг: показываем что загрузили
+print(f"DATABASE_URL: {os.environ.get('DATABASE_URL', 'NOT SET')[:50]}...", file=sys.stderr)
+
 from flask import Flask, redirect, url_for, request
 from flask_admin import Admin, AdminIndexView, expose
 from flask_admin.contrib.sqla import ModelView
@@ -14,10 +30,6 @@ from sqlalchemy.orm import sessionmaker, scoped_session
 from sqlalchemy.ext.automap import automap_base
 from functools import wraps
 
-# Загружаем .env файл
-from dotenv import load_dotenv
-load_dotenv(Path(__file__).parent / '.env')
-
 # ============================================
 # КОНФИГУРАЦИЯ
 # ============================================
@@ -26,6 +38,8 @@ DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://postgres:postgres@lo
 ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'mindful123')
 SECRET_KEY = os.environ.get('SECRET_KEY', 'super-secret-key-change-in-prod')
+
+print(f"Using DATABASE_URL: {DATABASE_URL[:50]}...", file=sys.stderr)
 
 # ============================================
 # FLASK APP
