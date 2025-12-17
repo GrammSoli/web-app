@@ -128,6 +128,8 @@ model JournalEntry {
   usageLogs           UsageLog[]
 
   @@index([userId])
+  @@index([userId, dateCreated(sort: Desc)])
+  @@index([userId, isVoice])
   @@index([dateCreated(sort: Desc)])
   @@index([moodScore])
   @@map("journal_entries")
@@ -162,6 +164,7 @@ model UsageLog {
   entry               JournalEntry?     @relation(fields: [entryId], references: [id], onDelete: SetNull)
 
   @@index([userId])
+  @@index([userId, serviceType, dateCreated(sort: Desc)])
   @@index([serviceType])
   @@index([dateCreated(sort: Desc)])
   @@map("usage_logs")
