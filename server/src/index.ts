@@ -5,6 +5,7 @@ import { prisma } from './services/database.js';
 import { configService } from './services/config.js';
 import { startScheduler, stopScheduler } from './services/scheduler.js';
 import { logger } from './utils/logger.js';
+import { createAdminRouter } from './admin/setup.js';
 
 // ============================================
 // ENVIRONMENT VALIDATION
@@ -48,6 +49,15 @@ async function main() {
   
   // Запускаем Express API
   const app = createApp();
+  
+  // Подключаем AdminJS панель
+  try {
+    const adminRouter = await createAdminRouter();
+    app.use('/internal_admin', adminRouter);
+    logger.info('✅ AdminJS panel mounted at /internal_admin');
+  } catch (error) {
+    logger.error({ error }, '⚠️ Failed to setup AdminJS, continuing without admin panel');
+  }
   
   app.listen(PORT, () => {
     logger.info({ port: PORT }, `✅ API server running on port ${PORT}`);
