@@ -69,26 +69,51 @@ export function createBot(token: string): Bot<MyContext> {
     
     const webAppUrl = process.env.WEBAPP_URL;
     
-    // Формируем клавиатуру: WebApp кнопка только если URL настроен
-    const keyboard = [];
+    // Check if user has completed WebApp activation
+    const hasTimezone = dbUser.timezone && dbUser.timezone !== 'UTC';
     
-    if (webAppUrl && webAppUrl.startsWith('https://')) {
-      keyboard.push([{ text: '📊 Открыть дневник', web_app: { url: webAppUrl } }]);
-    }
-    keyboard.push([{ text: '⭐ Premium подписка', callback_data: 'show_premium' }]);
-    
-    // Get dynamic welcome message
-    const welcomeMessage = await getMessage('msg.welcome', { name: user.first_name });
-    
-    await ctx.reply(
-      welcomeMessage,
-      {
-        parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: keyboard as any,
-        },
+    if (!hasTimezone) {
+      // Сценарий 1: Новый пользователь (Newbie)
+      const keyboard = [];
+      
+      if (webAppUrl && webAppUrl.startsWith('https://')) {
+        keyboard.push([{ text: '🚀 Активировать Дневник', web_app: { url: webAppUrl } }]);
       }
-    );
+      keyboard.push([{ text: '⭐ Premium подписка', callback_data: 'show_premium' }]);
+      
+      const welcomeMessage = await getMessage('msg.welcome', { name: user.first_name });
+      
+      await ctx.reply(
+        welcomeMessage,
+        {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: keyboard as any,
+          },
+        }
+      );
+    } else {
+      // Сценарий 2: Активный пользователь (уже заходил)
+      const keyboard = [];
+      
+      if (webAppUrl && webAppUrl.startsWith('https://')) {
+        keyboard.push([{ text: '📱 Открыть Дневник', web_app: { url: webAppUrl } }]);
+      }
+      keyboard.push(
+        [{ text: '💎 Premium', callback_data: 'show_premium' }],
+        [{ text: '❓ Помощь', callback_data: 'show_help' }]
+      );
+      
+      await ctx.reply(
+        `Рад тебя видеть! 🌿\n\n` +
+        `Можешь писать мысли или отправлять голосовые прямо сюда. Я всё сохраню. Или открой приложение, чтобы увидеть аналитику.`,
+        {
+          reply_markup: {
+            inline_keyboard: keyboard as any,
+          },
+        }
+      );
+    }
   });
 
   bot.command('help', async (ctx) => {
@@ -168,12 +193,6 @@ export function createBot(token: string): Bot<MyContext> {
   // ============================================
   // CALLBACK QUERIES
   // ============================================
-
-  bot.callbackQuery('show_help', async (ctx) => {
-    await ctx.answerCallbackQuery();
-    const helpMessage = await getMessage('msg.help');
-    await ctx.reply(helpMessage, { parse_mode: 'Markdown' });
-  });
 
   bot.callbackQuery('show_help', async (ctx) => {
     await ctx.answerCallbackQuery();
