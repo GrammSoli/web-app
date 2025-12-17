@@ -50,16 +50,6 @@ async function main() {
   // Запускаем Express API
   const app = createApp();
   
-  // Подключаем AdminJS панель (v6)
-  try {
-    const { createAdminRouter } = await import('./admin/setup.js');
-    const adminRouter = createAdminRouter();
-    app.use('/internal_admin', adminRouter);
-    logger.info('✅ AdminJS panel mounted at /internal_admin');
-  } catch (error) {
-    logger.error({ error }, '⚠️ Failed to setup AdminJS, continuing without admin panel');
-  }
-  
   app.listen(PORT, () => {
     logger.info({ port: PORT }, `✅ API server running on port ${PORT}`);
   });

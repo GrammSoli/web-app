@@ -28,4 +28,3 @@ export const apiLogger = logger.child({ module: 'api' });
 export const aiLogger = logger.child({ module: 'ai' });
 export const dbLogger = logger.child({ module: 'db' });
 export const configLogger = logger.child({ module: 'config' });
-export const adminLogger = logger.child({ module: 'admin' });
