@@ -560,3 +560,74 @@ export async function getAverageMood(userId: string): Promise<number | null> {
   
   return result._avg.moodScore;
 }
+
+/**
+ * Calculate user's current and longest streak
+ * @param entries - User's journal entries with moodScore
+ * @param timezone - User's timezone (IANA format)
+ * @returns Object with current and longest streak counts
+ */
+export function calculateStreak(
+  entries: JournalEntry[],
+  timezone: string
+): { current: number; longest: number } {
+  // Group entries by date in user's timezone
+  const dailyStats: Record<string, { moods: number[] }> = {};
+  
+  entries.forEach((entry) => {
+    if (entry.moodScore) {
+      const dateKey = getDateInTimezone(entry.dateCreated, timezone);
+      if (!dailyStats[dateKey]) {
+        dailyStats[dateKey] = { moods: [] };
+      }
+      dailyStats[dateKey].moods.push(entry.moodScore);
+    }
+  });
+  
+  // Calculate current streak
+  let currentStreak = 0;
+  const now = new Date();
+  const todayKey = getDateInTimezone(now, timezone);
+  const yesterday = new Date(now.getTime() - 86400000);
+  const yesterdayKey = getDateInTimezone(yesterday, timezone);
+  
+  // Start from today or yesterday if user has entry
+  if (dailyStats[todayKey] || dailyStats[yesterdayKey]) {
+    const startDate = dailyStats[todayKey] ? todayKey : yesterdayKey;
+    let checkDate = new Date(startDate + 'T00:00:00Z');
+    
+    while (true) {
+      const dateKey = getDateInTimezone(checkDate, timezone);
+      if (dailyStats[dateKey]) {
+        currentStreak++;
+        checkDate = new Date(checkDate.getTime() - 86400000);
+      } else {
+        break;
+      }
+    }
+  }
+  
+  // Calculate longest streak
+  let longestStreak = 0;
+  let tempStreak = 0;
+  const sortedDates = Object.keys(dailyStats).sort().reverse();
+  
+  for (let i = 0; i < sortedDates.length; i++) {
+    if (i === 0) {
+      tempStreak = 1;
+    } else {
+      const prevDate = new Date(sortedDates[i - 1]);
+      const currDate = new Date(sortedDates[i]);
+      const diffDays = (prevDate.getTime() - currDate.getTime()) / 86400000;
+      
+      if (diffDays === 1) {
+        tempStreak++;
+      } else {
+        tempStreak = 1;
+      }
+    }
+    longestStreak = Math.max(longestStreak, tempStreak);
+  }
+  
+  return { current: currentStreak, longest: longestStreak };
+}
