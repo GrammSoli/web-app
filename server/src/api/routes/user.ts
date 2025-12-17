@@ -495,14 +495,18 @@ router.get('/entries', async (req: Request, res: Response) => {
     }
     
     const entries = await getUserEntries(user.id, {
-      limit,
+      limit: limit + 1, // Запрашиваем на 1 больше чтобы узнать есть ли еще
       offset,
       startDate,
       endDate,
     });
     
+    // Если получили больше чем лимит - значит есть еще записи
+    const hasMore = entries.length > limit;
+    const items = hasMore ? entries.slice(0, limit) : entries;
+    
     res.json({
-      items: entries.map((e) => ({
+      items: items.map((e) => ({
         id: e.id,
         textContent: e.textContent,
         moodScore: e.moodScore,
@@ -518,8 +522,8 @@ router.get('/entries', async (req: Request, res: Response) => {
       })),
       page,
       pageSize: limit,
-      total: entries.length,
-      hasMore: entries.length === limit,
+      total: items.length,
+      hasMore,
     });
   } catch (error) {
     apiLogger.error({ error }, 'Failed to get entries');
