@@ -625,9 +625,9 @@ router.get('/stats', async (req: Request, res: Response) => {
     let tempStreak = 0;
     
     // Check if user has entry today in their timezone
-    const now = new Date();
-    const todayKey = getDateInTimezone(now, req.userTimezone);
-    const yesterday = new Date(now.getTime() - 86400000);
+    const now1 = new Date();
+    const todayKey = getDateInTimezone(now1, req.userTimezone);
+    const yesterday = new Date(now1.getTime() - 86400000);
     const yesterdayKey = getDateInTimezone(yesterday, req.userTimezone);
     
     // Current streak - count consecutive days from today or yesterday
@@ -670,9 +670,9 @@ router.get('/stats', async (req: Request, res: Response) => {
     
     // Previous 7 days in user's timezone
     const prev7Moods: number[] = [];
-    const now = new Date();
+    const now2 = new Date();
     for (let i = 13; i >= 7; i--) {
-      const date = new Date(now.getTime() - i * 86400000);
+      const date = new Date(now2.getTime() - i * 86400000);
       const dateKey = getDateInTimezone(date, req.userTimezone);
       const dayData = dailyStats[dateKey];
       if (dayData && dayData.moods.length > 0) {
@@ -692,9 +692,9 @@ router.get('/stats', async (req: Request, res: Response) => {
     
     // Monthly moods for chart (last 30 days in user's timezone)
     const monthlyMoods: Array<{ date: string; score: number }> = [];
-    const now = new Date();
+    const now3 = new Date();
     for (let i = 29; i >= 0; i--) {
-      const date = new Date(now.getTime() - i * 86400000);
+      const date = new Date(now3.getTime() - i * 86400000);
       const dateKey = getDateInTimezone(date, req.userTimezone);
       const dayData = dailyStats[dateKey];
       monthlyMoods.push({

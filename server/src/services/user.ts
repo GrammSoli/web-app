@@ -532,6 +532,19 @@ export default {
 };
 
 /**
+ * Helper: Get date string (YYYY-MM-DD) in specific timezone
+ */
+export function getDateInTimezone(date: Date, timezone: string): string {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  return formatter.format(date);
+}
+
+/**
  * Получить среднюю оценку настроения пользователя
  */
 export async function getAverageMood(userId: string): Promise<number | null> {
