@@ -1,0 +1,614 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}Аналитика | {{ site_title }}{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    .dashboard-container {
+        padding: 0;
+    }
+    
+    /* Фильтр периода */
+    .period-filter {
+        background: var(--color-bg-primary, #fff);
+        border-radius: 12px;
+        padding: 16px 24px;
+        margin-bottom: 24px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    .period-filter label {
+        font-weight: 600;
+        color: var(--color-text-primary, #1f2937);
+    }
+    
+    .period-btn {
+        padding: 8px 16px;
+        border-radius: 8px;
+        border: 1px solid var(--color-border, #e5e7eb);
+        background: var(--color-bg-primary, #fff);
+        color: var(--color-text-primary, #374151);
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+    
+    .period-btn:hover {
+        background: var(--color-bg-secondary, #f3f4f6);
+    }
+    
+    .period-btn.active {
+        background: #8B5CF6;
+        color: white;
+        border-color: #8B5CF6;
+    }
+    
+    .date-inputs {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+    
+    .date-inputs input {
+        padding: 8px 12px;
+        border-radius: 8px;
+        border: 1px solid var(--color-border, #e5e7eb);
+        font-size: 14px;
+    }
+    
+    /* Секции */
+    .dashboard-section {
+        margin-bottom: 32px;
+    }
+    
+    .section-title {
+        font-size: 20px;
+        font-weight: 700;
+        color: var(--color-text-primary, #1f2937);
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    /* KPI карточки */
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 16px;
+    }
+    
+    .kpi-card {
+        background: var(--color-bg-primary, #fff);
+        border-radius: 12px;
+        padding: 20px 24px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .kpi-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+    }
+    
+    .kpi-card.pulse::before { background: linear-gradient(90deg, #10B981, #34D399); }
+    .kpi-card.money::before { background: linear-gradient(90deg, #F59E0B, #FBBF24); }
+    .kpi-card.retention::before { background: linear-gradient(90deg, #8B5CF6, #A78BFA); }
+    .kpi-card.danger::before { background: linear-gradient(90deg, #EF4444, #F87171); }
+    
+    .kpi-label {
+        font-size: 13px;
+        color: var(--color-text-secondary, #6b7280);
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 8px;
+    }
+    
+    .kpi-value {
+        font-size: 32px;
+        font-weight: 700;
+        color: var(--color-text-primary, #1f2937);
+        line-height: 1.2;
+    }
+    
+    .kpi-change {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 13px;
+        font-weight: 600;
+        margin-top: 8px;
+        padding: 4px 8px;
+        border-radius: 6px;
+    }
+    
+    .kpi-change.positive {
+        color: #059669;
+        background: #D1FAE5;
+    }
+    
+    .kpi-change.negative {
+        color: #DC2626;
+        background: #FEE2E2;
+    }
+    
+    .kpi-change.neutral {
+        color: #6B7280;
+        background: #F3F4F6;
+    }
+    
+    .kpi-subtitle {
+        font-size: 12px;
+        color: var(--color-text-secondary, #9ca3af);
+        margin-top: 4px;
+    }
+    
+    /* Графики */
+    .charts-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+        gap: 24px;
+    }
+    
+    .chart-card {
+        background: var(--color-bg-primary, #fff);
+        border-radius: 12px;
+        padding: 24px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    .chart-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--color-text-primary, #1f2937);
+        margin-bottom: 16px;
+    }
+    
+    .chart-container {
+        position: relative;
+        height: 250px;
+    }
+    
+    /* Таблицы */
+    .tables-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+        gap: 24px;
+    }
+    
+    .table-card {
+        background: var(--color-bg-primary, #fff);
+        border-radius: 12px;
+        padding: 24px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    .table-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--color-text-primary, #1f2937);
+        margin-bottom: 16px;
+    }
+    
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .data-table th,
+    .data-table td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid var(--color-border, #e5e7eb);
+        font-size: 14px;
+    }
+    
+    .data-table th {
+        font-weight: 600;
+        color: var(--color-text-secondary, #6b7280);
+        font-size: 12px;
+        text-transform: uppercase;
+    }
+    
+    .data-table tr:last-child td {
+        border-bottom: none;
+    }
+    
+    .data-table tr:hover td {
+        background: var(--color-bg-secondary, #f9fafb);
+    }
+    
+    .amount-positive {
+        color: #059669;
+        font-weight: 600;
+    }
+    
+    .amount-negative {
+        color: #DC2626;
+        font-weight: 600;
+    }
+    
+    /* Retention bars */
+    .retention-bar {
+        height: 8px;
+        background: #E5E7EB;
+        border-radius: 4px;
+        overflow: hidden;
+        margin-top: 8px;
+    }
+    
+    .retention-bar-fill {
+        height: 100%;
+        border-radius: 4px;
+        transition: width 0.5s ease;
+    }
+    
+    .retention-bar-fill.good { background: linear-gradient(90deg, #10B981, #34D399); }
+    .retention-bar-fill.warning { background: linear-gradient(90deg, #F59E0B, #FBBF24); }
+    .retention-bar-fill.bad { background: linear-gradient(90deg, #EF4444, #F87171); }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+        .kpi-grid { grid-template-columns: 1fr; }
+        .charts-grid { grid-template-columns: 1fr; }
+        .tables-grid { grid-template-columns: 1fr; }
+        .period-filter { flex-direction: column; align-items: stretch; }
+    }
+    
+    /* Dark mode support */
+    @media (prefers-color-scheme: dark) {
+        .kpi-card, .chart-card, .table-card, .period-filter {
+            background: #1f2937;
+        }
+        .kpi-value, .section-title, .chart-title, .table-title {
+            color: #f9fafb;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    
+    <!-- Фильтр периода -->
+    <div class="period-filter">
+        <label>📅 Период:</label>
+        <button class="period-btn {% if current_period == 'today' %}active{% endif %}" 
+                onclick="setPeriod('today')">Сегодня</button>
+        <button class="period-btn {% if current_period == 'yesterday' %}active{% endif %}" 
+                onclick="setPeriod('yesterday')">Вчера</button>
+        <button class="period-btn {% if current_period == 'week' %}active{% endif %}" 
+                onclick="setPeriod('week')">Неделя</button>
+        <button class="period-btn {% if current_period == 'month' %}active{% endif %}" 
+                onclick="setPeriod('month')">Месяц</button>
+        
+        <div class="date-inputs">
+            <input type="date" id="start_date" value="{{ start_date }}">
+            <span>—</span>
+            <input type="date" id="end_date" value="{{ end_date }}">
+            <button class="period-btn" onclick="setCustomPeriod()">Применить</button>
+        </div>
+    </div>
+    
+    <!-- БЛОК 1: ПУЛЬС -->
+    <div class="dashboard-section">
+        <h2 class="section-title">💓 Пульс (Жив ли пациент?)</h2>
+        <div class="kpi-grid">
+            <div class="kpi-card pulse">
+                <div class="kpi-label">DAU (Активные пользователи)</div>
+                <div class="kpi-value">{{ dashboard.pulse.dau.value }}</div>
+                <div class="kpi-change {% if dashboard.pulse.dau.change >= 0 %}positive{% else %}negative{% endif %}">
+                    {% if dashboard.pulse.dau.change >= 0 %}↑{% else %}↓{% endif %} 
+                    {{ dashboard.pulse.dau.change }}%
+                </div>
+                <div class="kpi-subtitle">Было: {{ dashboard.pulse.dau.prev }}</div>
+            </div>
+            
+            <div class="kpi-card pulse">
+                <div class="kpi-label">Записей</div>
+                <div class="kpi-value">{{ dashboard.pulse.entries.value }}</div>
+                <div class="kpi-change {% if dashboard.pulse.entries.change >= 0 %}positive{% else %}negative{% endif %}">
+                    {% if dashboard.pulse.entries.change >= 0 %}↑{% else %}↓{% endif %} 
+                    {{ dashboard.pulse.entries.change }}%
+                </div>
+                <div class="kpi-subtitle">🎤 Голосовых: {{ dashboard.pulse.entries.voice }}</div>
+            </div>
+            
+            <div class="kpi-card pulse">
+                <div class="kpi-label">Новых пользователей</div>
+                <div class="kpi-value">{{ dashboard.pulse.signups.value }}</div>
+                <div class="kpi-change {% if dashboard.pulse.signups.change >= 0 %}positive{% else %}negative{% endif %}">
+                    {% if dashboard.pulse.signups.change >= 0 %}↑{% else %}↓{% endif %} 
+                    {{ dashboard.pulse.signups.change }}%
+                </div>
+                <div class="kpi-subtitle">Было: {{ dashboard.pulse.signups.prev }}</div>
+            </div>
+            
+            <div class="kpi-card pulse">
+                <div class="kpi-label">Записей на юзера</div>
+                <div class="kpi-value">{{ dashboard.pulse.entries_per_user }}</div>
+                <div class="kpi-subtitle">Средняя активность</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- БЛОК 2: ДЕНЬГИ -->
+    <div class="dashboard-section">
+        <h2 class="section-title">💸 Деньги (Хватает ли на еду?)</h2>
+        <div class="kpi-grid">
+            <div class="kpi-card money">
+                <div class="kpi-label">MRR (Месячный доход)</div>
+                <div class="kpi-value">${{ dashboard.money.mrr.usd|floatformat:2 }}</div>
+                <div class="kpi-subtitle">⭐ {{ dashboard.money.mrr.stars }} звёзд • {{ dashboard.money.mrr.subscribers }} подписчиков</div>
+            </div>
+            
+            <div class="kpi-card money">
+                <div class="kpi-label">Доход за период</div>
+                <div class="kpi-value">${{ dashboard.money.revenue.usd|floatformat:2 }}</div>
+                <div class="kpi-subtitle">⭐ {{ dashboard.money.revenue.stars }} • {{ dashboard.money.revenue.transactions }} транзакций</div>
+            </div>
+            
+            <div class="kpi-card {% if dashboard.money.conversion < 1 %}danger{% else %}money{% endif %}">
+                <div class="kpi-label">Конверсия в покупку</div>
+                <div class="kpi-value">{{ dashboard.money.conversion }}%</div>
+                <div class="kpi-subtitle">
+                    {% if dashboard.money.conversion < 0.5 %}
+                        🚨 Критично низкая!
+                    {% elif dashboard.money.conversion < 1 %}
+                        ⚠️ Ниже нормы
+                    {% elif dashboard.money.conversion >= 5 %}
+                        🔥 Отлично!
+                    {% else %}
+                        ✅ В норме (1-3%)
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="kpi-card {% if dashboard.money.unit_economics.status == 'negative' %}danger{% else %}money{% endif %}">
+                <div class="kpi-label">Маржа на юзера</div>
+                <div class="kpi-value">${{ dashboard.money.unit_economics.margin|floatformat:4 }}</div>
+                <div class="kpi-subtitle">
+                    ARPU: ${{ dashboard.money.unit_economics.arpu|floatformat:4 }} | 
+                    Расходы: ${{ dashboard.money.unit_economics.cost_per_user|floatformat:4 }}
+                </div>
+            </div>
+            
+            <div class="kpi-card money">
+                <div class="kpi-label">Расходы на AI</div>
+                <div class="kpi-value">${{ dashboard.money.ai_costs.cost_usd|floatformat:4 }}</div>
+                <div class="kpi-subtitle">{{ dashboard.money.ai_costs.requests }} запросов • {{ dashboard.money.ai_costs.tokens }} токенов</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- БЛОК 3: УДЕРЖАНИЕ -->
+    <div class="dashboard-section">
+        <h2 class="section-title">🪣 Удержание (Дырявое ли ведро?)</h2>
+        <div class="kpi-grid">
+            <div class="kpi-card retention">
+                <div class="kpi-label">Retention Day 1</div>
+                <div class="kpi-value">{{ dashboard.retention.day_1.rate }}%</div>
+                <div class="retention-bar">
+                    <div class="retention-bar-fill {% if dashboard.retention.day_1.rate >= 20 %}good{% elif dashboard.retention.day_1.rate >= 10 %}warning{% else %}bad{% endif %}" 
+                         style="width: {{ dashboard.retention.day_1.rate }}%"></div>
+                </div>
+                <div class="kpi-subtitle">
+                    {{ dashboard.retention.day_1.returned }} из {{ dashboard.retention.day_1.cohort_size }} вернулись
+                    {% if dashboard.retention.day_1.rate < 15 %}• 🚨 Проблема с онбордингом!{% endif %}
+                </div>
+            </div>
+            
+            <div class="kpi-card retention">
+                <div class="kpi-label">Retention Day 7</div>
+                <div class="kpi-value">{{ dashboard.retention.day_7.rate }}%</div>
+                <div class="retention-bar">
+                    <div class="retention-bar-fill {% if dashboard.retention.day_7.rate >= 10 %}good{% elif dashboard.retention.day_7.rate >= 5 %}warning{% else %}bad{% endif %}" 
+                         style="width: {{ dashboard.retention.day_7.rate }}%"></div>
+                </div>
+                <div class="kpi-subtitle">{{ dashboard.retention.day_7.returned }} из {{ dashboard.retention.day_7.cohort_size }} вернулись</div>
+            </div>
+            
+            <div class="kpi-card retention">
+                <div class="kpi-label">Retention Day 30</div>
+                <div class="kpi-value">{{ dashboard.retention.day_30.rate }}%</div>
+                <div class="retention-bar">
+                    <div class="retention-bar-fill {% if dashboard.retention.day_30.rate >= 5 %}good{% elif dashboard.retention.day_30.rate >= 2 %}warning{% else %}bad{% endif %}" 
+                         style="width: {{ dashboard.retention.day_30.rate }}%"></div>
+                </div>
+                <div class="kpi-subtitle">{{ dashboard.retention.day_30.returned }} из {{ dashboard.retention.day_30.cohort_size }} вернулись</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ГРАФИКИ -->
+    <div class="dashboard-section">
+        <h2 class="section-title">📈 Динамика</h2>
+        <div class="charts-grid">
+            <div class="chart-card">
+                <div class="chart-title">👥 Пользователи (14 дней)</div>
+                <div class="chart-container">
+                    <canvas id="usersChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="chart-card">
+                <div class="chart-title">📝 Записи (14 дней)</div>
+                <div class="chart-container">
+                    <canvas id="entriesChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="chart-card">
+                <div class="chart-title">💰 Доход (14 дней)</div>
+                <div class="chart-container">
+                    <canvas id="revenueChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ТАБЛИЦЫ -->
+    <div class="dashboard-section">
+        <h2 class="section-title">📊 Детали</h2>
+        <div class="tables-grid">
+            <div class="table-card">
+                <div class="table-title">💳 Последние транзакции</div>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Пользователь</th>
+                            <th>Тип</th>
+                            <th>Сумма</th>
+                            <th>Дата</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for tx in recent_transactions %}
+                        <tr>
+                            <td>{{ tx.user }}</td>
+                            <td>{{ tx.transaction_type }}</td>
+                            <td class="amount-positive">⭐ {{ tx.amount_stars }} (${{ tx.amount_usd }})</td>
+                            <td>{{ tx.date_created|date:"d.m H:i" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" style="text-align: center; color: #9ca3af;">Нет транзакций</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="table-card">
+                <div class="table-title">🏆 Топ пользователей</div>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Пользователь</th>
+                            <th>Записей</th>
+                            <th>Подписка</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in top_users %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td>{{ user }}</td>
+                            <td>{{ user.entries_count }}</td>
+                            <td>{{ user.subscription_tier|default:"free" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" style="text-align: center; color: #9ca3af;">Нет данных</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+</div>
+
+<script>
+    const dashboardData = {{ dashboard_json|safe }};
+    
+    // Инициализация графиков
+    document.addEventListener('DOMContentLoaded', function() {
+        // График пользователей
+        const usersCtx = document.getElementById('usersChart').getContext('2d');
+        new Chart(usersCtx, {
+            type: 'line',
+            data: dashboardData.charts.users,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+        
+        // График записей
+        const entriesCtx = document.getElementById('entriesChart').getContext('2d');
+        new Chart(entriesCtx, {
+            type: 'bar',
+            data: dashboardData.charts.entries,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                    }
+                },
+                scales: {
+                    x: {
+                        stacked: true,
+                    },
+                    y: {
+                        stacked: true,
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+        
+        // График дохода
+        const revenueCtx = document.getElementById('revenueChart').getContext('2d');
+        new Chart(revenueCtx, {
+            type: 'line',
+            data: dashboardData.charts.revenue,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    });
+    
+    // Функции фильтра периода
+    function setPeriod(period) {
+        window.location.href = '?period=' + period;
+    }
+    
+    function setCustomPeriod() {
+        const startDate = document.getElementById('start_date').value;
+        const endDate = document.getElementById('end_date').value;
+        if (startDate && endDate) {
+            window.location.href = '?period=custom&start_date=' + startDate + '&end_date=' + endDate;
+        }
+    }
+</script>
+{% endblock %}

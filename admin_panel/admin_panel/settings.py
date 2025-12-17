@@ -159,6 +159,11 @@ UNFOLD = {
                         "icon": "home",
                         "link": "/admin/",
                     },
+                    {
+                        "title": "📊 Аналитика",
+                        "icon": "insights",
+                        "link": "/admin/dashboard/",
+                    },
                 ],
             },
             {
