@@ -50,15 +50,9 @@ async function main() {
   // Запускаем Express API
   const app = createApp();
   
-  // Подключаем AdminJS панель (динамический импорт для совместимости ESM)
-  try {
-    const { createAdminRouter } = await import('./admin/setup.js');
-    const adminRouter = await createAdminRouter();
-    app.use('/internal_admin', adminRouter);
-    logger.info('✅ AdminJS panel mounted at /internal_admin');
-  } catch (error) {
-    logger.error({ error }, '⚠️ Failed to setup AdminJS, continuing without admin panel');
-  }
+  // TODO: AdminJS временно отключен из-за ESM/CommonJS конфликта
+  // Для админки используй Prisma Studio: npx prisma studio
+  // или подключись напрямую к PostgreSQL
   
   app.listen(PORT, () => {
     logger.info({ port: PORT }, `✅ API server running on port ${PORT}`);
