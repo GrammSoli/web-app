@@ -288,7 +288,7 @@ export default function ProfilePage() {
           <MenuItem 
             icon={<Bell className="w-6 h-6 text-amber-500" />} 
             title="Напоминания" 
-            subtitle={state.settings?.reminderEnabled ? `Ежедневно в ${state.settings.reminderTime}` : 'Выключены'} 
+            subtitle={state.settings?.reminderEnabled ? `Ежедневно в ${state.settings.reminderTime || '20:00'}` : 'Выключены'} 
             onClick={() => { haptic.light(); dispatch({ type: 'TOGGLE_REMINDERS' }); }} 
           />
           <MenuItem 
