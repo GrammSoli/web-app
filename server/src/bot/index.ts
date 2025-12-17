@@ -348,9 +348,17 @@ export function createBot(token: string): Bot<MyContext> {
     const hasTimezone = dbUser.timezone && dbUser.timezone !== 'UTC';
     
     if (!hasTimezone) {
+      const webAppUrl = process.env.WEBAPP_URL;
       await ctx.reply(
         'Сначала активируй дневник по кнопке ниже 👇\n\n' +
-        'Это нужно, чтобы я мог правильно вести твою статистику.'
+        'Это нужно, чтобы я мог правильно вести твою статистику.',
+        {
+          reply_markup: {
+            inline_keyboard: [[
+              { text: '📊 Открыть дневник', web_app: { url: webAppUrl! } }
+            ]]
+          }
+        }
       );
       return;
     }
@@ -429,9 +437,17 @@ export function createBot(token: string): Bot<MyContext> {
     const hasTimezone = dbUser.timezone && dbUser.timezone !== 'UTC';
     
     if (!hasTimezone) {
+      const webAppUrl = process.env.WEBAPP_URL;
       await ctx.reply(
         'Сначала активируй дневник по кнопке ниже 👇\n\n' +
-        'Это нужно, чтобы я мог правильно вести твою статистику.'
+        'Это нужно, чтобы я мог правильно вести твою статистику.',
+        {
+          reply_markup: {
+            inline_keyboard: [[
+              { text: '📊 Открыть дневник', web_app: { url: webAppUrl! } }
+            ]]
+          }
+        }
       );
       return;
     }
