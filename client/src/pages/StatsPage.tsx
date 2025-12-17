@@ -238,25 +238,38 @@ export default function StatsPage() {
         {/* Top Tags */}
         <div className="bg-white dark:bg-gray-800 rounded-3xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
           <h2 className="text-base font-bold text-gray-700 dark:text-gray-200 mb-4 flex items-center gap-2">
-            <Tag className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+            <Tag className="w-5 h-5 text-indigo-500" />
             Частые теги
           </h2>
           
           <div className="flex flex-wrap gap-2">
-            {(stats.topTags || []).slice(0, 8).map((item) => (
-              <button
-                key={item.tag}
-                onClick={() => {
-                  haptic?.light?.();
-                  navigate(`/entries?tag=${encodeURIComponent(item.tag)}`);
-                }}
-                className="text-xs px-2.5 py-1 rounded-full bg-gray-50 dark:bg-gray-700 
-                           text-gray-600 dark:text-gray-300 font-medium
-                           active:bg-gray-200 dark:active:bg-gray-600 transition-colors"
-              >
-                #{item.tag} <span className="opacity-60">({item.count})</span>
-              </button>
-            ))}
+            {(stats.topTags || []).slice(0, 8).map((item, index) => {
+              // Gradient colors for tags
+              const tagColors = [
+                'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300 active:bg-indigo-100',
+                'bg-purple-50 text-purple-600 dark:bg-purple-900/40 dark:text-purple-300 active:bg-purple-100',
+                'bg-pink-50 text-pink-600 dark:bg-pink-900/40 dark:text-pink-300 active:bg-pink-100',
+                'bg-blue-50 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300 active:bg-blue-100',
+                'bg-teal-50 text-teal-600 dark:bg-teal-900/40 dark:text-teal-300 active:bg-teal-100',
+                'bg-amber-50 text-amber-600 dark:bg-amber-900/40 dark:text-amber-300 active:bg-amber-100',
+                'bg-rose-50 text-rose-600 dark:bg-rose-900/40 dark:text-rose-300 active:bg-rose-100',
+                'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300 active:bg-emerald-100',
+              ];
+              const colorClass = tagColors[index % tagColors.length];
+              
+              return (
+                <button
+                  key={item.tag}
+                  onClick={() => {
+                    haptic?.light?.();
+                    navigate(`/entries?tag=${encodeURIComponent(item.tag)}`);
+                  }}
+                  className={`text-xs px-3 py-1.5 rounded-full font-medium transition-all ${colorClass}`}
+                >
+                  #{item.tag} <span className="opacity-70">({item.count})</span>
+                </button>
+              );
+            })}
             {(!stats.topTags || stats.topTags.length === 0) && (
               <p className="text-gray-400 text-sm">Пока нет тегов</p>
             )}
