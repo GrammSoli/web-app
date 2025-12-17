@@ -10,9 +10,7 @@ import { validateTags, validateEntryText, validateMoodScore } from '../../utils/
 import { 
   STREAK_ENTRIES_LIMIT, 
   STATS_ENTRIES_LIMIT, 
-  MAX_ENTRY_TEXT_LENGTH, 
-  MAX_TAGS_PER_ENTRY, 
-  MAX_TAG_LENGTH,
+  MAX_ENTRY_TEXT_LENGTH,
   STATS_DEFAULT_DAYS,
   STATS_MAX_DAYS,
   STATS_TOP_TAGS_COUNT,
