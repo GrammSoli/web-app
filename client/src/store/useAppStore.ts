@@ -98,19 +98,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     const { entriesPage, entries, entriesLoading } = get();
     
     // Prevent concurrent requests
-    if (entriesLoading) {
-      console.log('⚠️ Entries already loading, skipping request');
-      return;
-    }
+    if (entriesLoading) return;
     
     const page = reset ? 1 : entriesPage;
     
-    console.log(`📥 Fetching entries: page=${page}, reset=${reset}, currentEntries=${entries.length}`);
     set({ entriesLoading: true, entriesError: null });
     
     try {
       const response = await api.entries.getAll({ page, limit: 20 });
-      console.log(`✅ Received ${response.items.length} entries, hasMore=${response.hasMore}`);
       
       // Deduplicate entries by id to prevent duplicates from race conditions
       const newEntries = reset 
@@ -119,8 +114,6 @@ export const useAppStore = create<AppState>((set, get) => ({
             (entry, index, self) => self.findIndex(e => e.id === entry.id) === index
           );
       
-      console.log(`📊 Total entries after merge: ${newEntries.length}`);
-      
       set({
         entries: newEntries,
         entriesPage: page + 1,
@@ -128,7 +121,6 @@ export const useAppStore = create<AppState>((set, get) => ({
         entriesLoading: false,
       });
     } catch (error) {
-      console.error('❌ Failed to fetch entries:', error);
       set({
         entriesError: error instanceof Error ? error.message : 'Failed to load entries',
         entriesLoading: false,

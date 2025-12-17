@@ -34,8 +34,6 @@ export default function HomePage() {
   }, []); // Empty deps - run only once on mount
 
   const loadMore = () => {
-    console.log(`🔄 Load more clicked: loading=${entriesLoading}, hasMore=${hasMoreEntries}, currentDisplay=${displayCount}, totalEntries=${entries.length}`);
-    
     // Если уже показаны все загруженные записи, загружаем следующую порцию с сервера
     if (displayCount >= entries.length) {
       if (!entriesLoading && hasMoreEntries) {
