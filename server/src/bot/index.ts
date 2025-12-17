@@ -13,8 +13,8 @@ import {
   activateSubscription,
 } from '../services/user.js';
 import { analyzeMood, processVoiceMessage } from '../services/openai.js';
-import { checkLimitsAsync, getSubscriptionPricing, getTierLimits } from '../utils/pricing.js';
-import { configService, getMessage } from '../services/config.js';
+import { checkLimitsAsync, getSubscriptionPricing } from '../utils/pricing.js';
+import { getMessage } from '../services/config.js';
 
 // ============================================
 // ТИПЫ
@@ -119,75 +119,6 @@ export function createBot(token: string): Bot<MyContext> {
   bot.command('help', async (ctx) => {
     const helpMessage = await getMessage('msg.help');
     await ctx.reply(helpMessage, { parse_mode: 'Markdown' });
-  });
-
-  bot.command('stats', async (ctx) => {
-    const user = ctx.from;
-    if (!user) return;
-    
-    const dbUser = await getOrCreateUser({
-      telegramId: BigInt(user.id),
-      username: user.username,
-      firstName: user.first_name,
-    });
-    
-    const userTimezone = (dbUser as { timezone?: string }).timezone || 'UTC';
-    
-    // Get both entry count and voice usage
-    const [today, usedVoiceSeconds] = await Promise.all([
-      countTodayEntries(dbUser.id, userTimezone),
-      getTodayVoiceUsageSeconds(dbUser.id, userTimezone),
-    ]);
-    
-    const tier = await getEffectiveTier(dbUser.id);
-    const limits = await getTierLimits(tier);
-    
-    const dailyLimit = limits.dailyEntries === -1 ? '∞' : limits.dailyEntries;
-    const voiceLimitMinutes = limits.voiceMinutesDaily === -1 ? '∞' : limits.voiceMinutesDaily;
-    const usedVoiceMinutes = Math.round((usedVoiceSeconds / 60) * 10) / 10; // Round to 1 decimal
-    
-    await ctx.reply(
-      `📊 *Твоя статистика:*\n\n` +
-      `📝 Записей сегодня: ${today.total}/${dailyLimit}\n` +
-      `🎤 Голосовых минут сегодня: ${usedVoiceMinutes}/${voiceLimitMinutes}\n` +
-      `⭐ Тариф: ${tier === 'free' ? 'Бесплатный' : tier === 'basic' ? 'Basic' : 'Premium'}\n` +
-      `💰 Баланс: ${dbUser.balanceStars} Stars`,
-      { parse_mode: 'Markdown' }
-    );
-  });
-
-  bot.command('premium', async (ctx) => {
-    // Get dynamic pricing
-    const [basicPricing, premiumPricing, basicLimits, premiumLimits] = await Promise.all([
-      getSubscriptionPricing('basic'),
-      getSubscriptionPricing('premium'),
-      configService.getTierLimits('basic'),
-      configService.getTierLimits('premium'),
-    ]);
-    
-    const premiumEntriesText = premiumLimits.dailyEntries === -1 ? 'Безлимитные записи' : `${premiumLimits.dailyEntries} записей в день`;
-    const premiumVoiceText = premiumLimits.voiceMinutesDaily === -1 ? 'Безлимит голосовых минут' : `${premiumLimits.voiceMinutesDaily} минут голосовых в день`;
-    
-    await ctx.reply(
-      `⭐ *Premium подписка*\n\n` +
-      `*Basic (${basicPricing.stars} Stars/мес):*\n` +
-      `• ${basicLimits.dailyEntries} записей в день\n` +
-      `• ${basicLimits.voiceMinutesDaily} минут голосовых в день\n\n` +
-      `*Premium (${premiumPricing.stars} Stars/мес):*\n` +
-      `• ${premiumEntriesText}\n` +
-      `• ${premiumVoiceText}\n` +
-      `• Расширенная аналитика\n\n` +
-      `Для оформления подписки нажми кнопку ниже:`,
-      {
-        parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: `💳 Оформить Basic — ${basicPricing.stars} ⭐`, callback_data: 'buy_basic' }],
-            [{ text: `💳 Оформить Premium — ${premiumPricing.stars} ⭐`, callback_data: 'buy_premium' }],
-          ],
-        },
-      }
-    );
   });
 
   // ============================================
