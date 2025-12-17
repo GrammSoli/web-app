@@ -5,7 +5,7 @@ import { prisma } from './services/database.js';
 import { configService } from './services/config.js';
 import { startScheduler, stopScheduler } from './services/scheduler.js';
 import { logger } from './utils/logger.js';
-import { createAdminRouter } from './admin/setup.js';
+// AdminJS импортируется динамически ниже
 
 // ============================================
 // ENVIRONMENT VALIDATION
@@ -50,8 +50,9 @@ async function main() {
   // Запускаем Express API
   const app = createApp();
   
-  // Подключаем AdminJS панель
+  // Подключаем AdminJS панель (динамический импорт для совместимости ESM)
   try {
+    const { createAdminRouter } = await import('./admin/setup.js');
     const adminRouter = await createAdminRouter();
     app.use('/internal_admin', adminRouter);
     logger.info('✅ AdminJS panel mounted at /internal_admin');
