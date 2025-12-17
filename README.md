@@ -301,6 +301,7 @@ mindful-journal/
 | [ENVIRONMENT_VARIABLES.md](./docs/ENVIRONMENT_VARIABLES.md) | Все переменные окружения |
 | [DATABASE_SCHEMA.md](./docs/DATABASE_SCHEMA.md) | Схема базы данных Prisma |
 | [DIRECTUS_SETUP.md](./docs/DIRECTUS_SETUP.md) | Настройка CMS, ключи конфигурации, Broadcast |
+| [DIRECTUS_INTERFACES.md](./docs/DIRECTUS_INTERFACES.md) | 🎨 Рекомендуемые UI интерфейсы для полей |
 | [IMAGES_QUICKSTART.md](./docs/IMAGES_QUICKSTART.md) | 🖼️ Управление изображениями через Directus |
 
 ---
