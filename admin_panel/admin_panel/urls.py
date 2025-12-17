@@ -8,8 +8,9 @@ from django.shortcuts import redirect
 from core.views import DashboardView, dashboard_api
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    # Dashboard должен быть ДО admin.site.urls!
     path('admin/dashboard/', DashboardView.as_view(), name='dashboard'),
     path('api/dashboard/', dashboard_api, name='dashboard_api'),
+    path('admin/', admin.site.urls),
     path('', lambda r: redirect('/admin/')),
 ]
