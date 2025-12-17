@@ -9,7 +9,7 @@ import { useAppStore } from '@/store/useAppStore';
 import { api } from '@/lib/api';
 import type { JournalEntry } from '@/types/api';
 import { getMoodEmoji, getMoodGradient } from '@/config/moods';
-import { MAX_TAGS_PER_ENTRY, MAX_TAG_LENGTH } from '@/config/constants';
+import { validateTag, MAX_TAGS_PER_ENTRY } from '@/config/constants';
 
 export default function EntryDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -41,22 +41,34 @@ export default function EntryDetailPage() {
   useEffect(() => {
     if (!id) return;
     
+    const abortController = new AbortController();
+    
     const loadEntry = async () => {
       try {
         const data = await api.entries.get(id);
-        setEntry(data);
-        setEditText(data.textContent);
-        setEditTags(data.tags || []);
-        setEditMood(data.moodScore || 5);
+        if (!abortController.signal.aborted) {
+          setEntry(data);
+          setEditText(data.textContent);
+          setEditTags(data.tags || []);
+          setEditMood(data.moodScore || 5);
+        }
       } catch (error) {
-        setLoadError(error instanceof Error ? error.message : 'Не удалось загрузить запись');
+        if (!abortController.signal.aborted) {
+          setLoadError(error instanceof Error ? error.message : 'Не удалось загрузить запись');
+        }
       } finally {
-        setLoading(false);
+        if (!abortController.signal.aborted) {
+          setLoading(false);
+        }
       }
     };
     
     loadEntry();
-  }, [id, navigate, showAlert]);
+    
+    return () => {
+      abortController.abort();
+    };
+  }, [id]);
   
   const loadAudio = async () => {
     if (!entry || audioUrl) return;
@@ -118,7 +130,7 @@ export default function EntryDetailPage() {
   };
   
   const addTag = () => {
-    const tag = newTag.trim().toLowerCase().slice(0, MAX_TAG_LENGTH);
+    const tag = validateTag(newTag);
     if (tag && !editTags.includes(tag) && editTags.length < MAX_TAGS_PER_ENTRY) {
       setEditTags([...editTags, tag]);
       setNewTag('');

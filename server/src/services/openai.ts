@@ -2,6 +2,7 @@ import OpenAI from 'openai';
 import { aiLogger } from '../utils/logger.js';
 import { calculateTextCost, calculateAudioCost, type TextModel } from '../utils/pricing.js';
 import { configService } from './config.js';
+import { DEFAULT_MOOD_ANALYSIS, validateMoodScoreRange } from '../config/ai-constants.js';
 
 // ============================================
 // OPENAI CLIENT INITIALIZATION
@@ -131,17 +132,11 @@ export async function analyzeMood(
       result = JSON.parse(content);
     } catch {
       aiLogger.error({ content }, 'Failed to parse AI response as JSON');
-      result = {
-        moodScore: 5,
-        moodLabel: 'неопределённо',
-        tags: [],
-        summary: 'Не удалось проанализировать запись',
-        suggestions: 'Попробуйте написать подробнее о своих чувствах',
-      };
+      result = { ...DEFAULT_MOOD_ANALYSIS };
     }
     
     // Валидация moodScore
-    result.moodScore = Math.max(1, Math.min(10, Math.round(result.moodScore || 5)));
+    result.moodScore = validateMoodScoreRange(result.moodScore);
     
     const inputTokens = usage?.prompt_tokens || 0;
     const outputTokens = usage?.completion_tokens || 0;

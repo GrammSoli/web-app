@@ -71,12 +71,16 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       const user = await api.user.getCurrent();
       
-      // Sync timezone only if different from server
+      // Sync timezone only once per session to avoid redundant API calls
       const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      if (user.settings?.timezone !== browserTimezone) {
+      const lastSyncedTimezone = sessionStorage.getItem('lastSyncedTimezone');
+      
+      if (user.settings?.timezone !== browserTimezone && lastSyncedTimezone !== browserTimezone) {
         await api.user.syncTimezone(browserTimezone).catch(() => {
-          // Ignore timezone sync errors
+          // Ignore timezone sync errors, will retry on next session
         });
+        // Mark timezone as synced for this session
+        sessionStorage.setItem('lastSyncedTimezone', browserTimezone);
       }
       
       set({ user, userLoading: false });

@@ -1,4 +1,4 @@
-import { useState, useEffect, ReactNode } from 'react';
+import { useState, useEffect, ReactNode, useReducer } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Gem, Bell, Download, MessageCircle, RefreshCw, ChevronRight, Star, Crown, Gift, User, Clock, Settings, Globe, Shield, X } from 'lucide-react';
 import { format } from 'date-fns';
@@ -87,17 +87,62 @@ const tierConfig = {
   premium: { name: 'Premium', gradient: 'from-purple-500 to-pink-500' },
 };
 
+// Profile page state management with useReducer
+interface ProfileState {
+  refreshing: boolean;
+  exporting: boolean;
+  showSettings: boolean;
+  showReminders: boolean;
+  showExport: boolean;
+  settings: UserSettings | null;
+  settingsLoading: boolean;
+}
+
+type ProfileAction =
+  | { type: 'SET_REFRESHING'; payload: boolean }
+  | { type: 'SET_EXPORTING'; payload: boolean }
+  | { type: 'TOGGLE_SETTINGS' }
+  | { type: 'TOGGLE_REMINDERS' }
+  | { type: 'TOGGLE_EXPORT' }
+  | { type: 'SET_SETTINGS'; payload: UserSettings | null }
+  | { type: 'SET_SETTINGS_LOADING'; payload: boolean };
+
+function profileReducer(state: ProfileState, action: ProfileAction): ProfileState {
+  switch (action.type) {
+    case 'SET_REFRESHING':
+      return { ...state, refreshing: action.payload };
+    case 'SET_EXPORTING':
+      return { ...state, exporting: action.payload };
+    case 'TOGGLE_SETTINGS':
+      return { ...state, showSettings: !state.showSettings };
+    case 'TOGGLE_REMINDERS':
+      return { ...state, showReminders: !state.showReminders };
+    case 'TOGGLE_EXPORT':
+      return { ...state, showExport: !state.showExport };
+    case 'SET_SETTINGS':
+      return { ...state, settings: action.payload };
+    case 'SET_SETTINGS_LOADING':
+      return { ...state, settingsLoading: action.payload };
+    default:
+      return state;
+  }
+}
+
+const initialProfileState: ProfileState = {
+  refreshing: false,
+  exporting: false,
+  showSettings: false,
+  showReminders: false,
+  showExport: false,
+  settings: null,
+  settingsLoading: false,
+};
+
 export default function ProfilePage() {
   const navigate = useNavigate();
   const { user, haptic } = useTelegram();
   const { user: appUser, loadUser, userLoading } = useAppStore();
-  const [refreshing, setRefreshing] = useState(false);
-  const [exporting, setExporting] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
-  const [showReminders, setShowReminders] = useState(false);
-  const [showExport, setShowExport] = useState(false);
-  const [settings, setSettings] = useState<UserSettings | null>(null);
-  const [settingsLoading, setSettingsLoading] = useState(false);
+  const [state, dispatch] = useReducer(profileReducer, initialProfileState);
 
   const currentTier = (appUser?.subscriptionTier || 'free') as keyof typeof tierConfig;
   const tierInfo = tierConfig[currentTier];
@@ -106,21 +151,21 @@ export default function ProfilePage() {
 
   // Load settings when any sheet opens
   useEffect(() => {
-    if ((showSettings || showReminders) && !settings) {
-      setSettingsLoading(true);
+    if ((state.showSettings || state.showReminders) && !state.settings) {
+      dispatch({ type: 'SET_SETTINGS_LOADING', payload: true });
       getUserSettings()
-        .then(setSettings)
+        .then((data) => dispatch({ type: 'SET_SETTINGS', payload: data }))
         .catch(console.error)
-        .finally(() => setSettingsLoading(false));
+        .finally(() => dispatch({ type: 'SET_SETTINGS_LOADING', payload: false }));
     }
-  }, [showSettings, showReminders, settings]);
+  }, [state.showSettings, state.showReminders, state.settings]);
 
   const handleRefresh = async () => {
-    setRefreshing(true);
+    dispatch({ type: 'SET_REFRESHING', payload: true });
     haptic.impact();
     await loadUser();
     haptic.success();
-    setRefreshing(false);
+    dispatch({ type: 'SET_REFRESHING', payload: false });
   };
 
   const handleExport = async (format: 'json' | 'csv') => {
@@ -130,7 +175,7 @@ export default function ProfilePage() {
       return;
     }
     
-    setExporting(true);
+    dispatch({ type: 'SET_EXPORTING', payload: true });
     haptic.impact();
     try {
       const blob = await exportData(format);
@@ -145,17 +190,17 @@ export default function ProfilePage() {
       console.error('Export failed:', error);
       haptic.warning();
     } finally {
-      setExporting(false);
+      dispatch({ type: 'SET_EXPORTING', payload: false });
     }
   };
 
   const handleUpdateSetting = async (key: keyof UserSettings, value: unknown) => {
-    if (!settings) return;
+    if (!state.settings) return;
     
     haptic.light();
     try {
       const updated = await updateUserSettings({ [key]: value });
-      setSettings(updated);
+      dispatch({ type: 'SET_SETTINGS', payload: updated });
       haptic.success();
     } catch (error) {
       console.error('Failed to update setting:', error);
@@ -238,13 +283,13 @@ export default function ProfilePage() {
             icon={<Settings className="w-6 h-6 text-gray-500" />} 
             title="Настройки" 
             subtitle="Часовой пояс, приватность" 
-            onClick={() => { haptic.light(); setShowSettings(true); }} 
+            onClick={() => { haptic.light(); dispatch({ type: 'TOGGLE_SETTINGS' }); }} 
           />
           <MenuItem 
             icon={<Bell className="w-6 h-6 text-amber-500" />} 
             title="Напоминания" 
-            subtitle={settings?.reminderEnabled ? `Ежедневно в ${settings.reminderTime}` : 'Выключены'} 
-            onClick={() => { haptic.light(); setShowReminders(true); }} 
+            subtitle={state.settings?.reminderEnabled ? `Ежедневно в ${state.settings.reminderTime}` : 'Выключены'} 
+            onClick={() => { haptic.light(); dispatch({ type: 'TOGGLE_REMINDERS' }); }} 
           />
           <MenuItem 
             icon={<Download className="w-6 h-6 text-blue-500" />} 
@@ -256,7 +301,7 @@ export default function ProfilePage() {
                 navigate('/premium');
               } else {
                 haptic.light();
-                setShowExport(true);
+                dispatch({ type: 'TOGGLE_EXPORT' });
               }
             }} 
           />
@@ -273,13 +318,13 @@ export default function ProfilePage() {
         <div className="space-y-3">
           <button
             onClick={handleRefresh}
-            disabled={userLoading || refreshing}
+            disabled={userLoading || state.refreshing}
             className="w-full flex items-center justify-center gap-2 py-4 
                        bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700
                        active:bg-gray-50 dark:active:bg-gray-700 transition-colors font-semibold"
           >
-            <RefreshCw className={`w-5 h-5 ${refreshing || userLoading ? 'animate-spin' : ''}`} />
-            {refreshing || userLoading ? 'Обновление...' : 'Обновить статус'}
+            <RefreshCw className={`w-5 h-5 ${state.refreshing || userLoading ? 'animate-spin' : ''}`} />
+            {state.refreshing || userLoading ? 'Обновление...' : 'Обновить статус'}
           </button>
         </div>
 
@@ -292,14 +337,14 @@ export default function ProfilePage() {
 
       {/* Settings Bottom Sheet */}
       <BottomSheet
-        isOpen={showSettings}
-        onClose={() => setShowSettings(false)}
+        isOpen={state.showSettings}
+        onClose={() => dispatch({ type: 'TOGGLE_SETTINGS' })}
         title="Настройки"
         icon={<Settings className="w-5 h-5 text-gray-500" />}
       >
-        {settingsLoading ? (
+        {state.settingsLoading ? (
           <div className="text-center text-gray-400 py-8">Загрузка...</div>
-        ) : settings && (
+        ) : state.settings && (
           <div className="space-y-6">
             {/* Timezone */}
             <div className="space-y-2">
@@ -307,7 +352,7 @@ export default function ProfilePage() {
                 <Globe className="w-4 h-4" /> Часовой пояс
               </label>
               <select
-                value={settings.timezone}
+                value={state.settings.timezone}
                 onChange={(e) => handleUpdateSetting('timezone', e.target.value)}
                 className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-800 dark:text-white bg-white dark:bg-gray-800 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               >
@@ -337,12 +382,12 @@ export default function ProfilePage() {
                   <Shield className="w-4 h-4" /> Приватность по умолчанию
                 </label>
                 <button
-                  onClick={() => handleUpdateSetting('privacyBlurDefault', !settings.privacyBlurDefault)}
+                  onClick={() => handleUpdateSetting('privacyBlurDefault', !state.settings!.privacyBlurDefault)}
                   role="switch"
-                  aria-checked={settings.privacyBlurDefault}
+                  aria-checked={state.settings.privacyBlurDefault}
                   aria-label="Приватность по умолчанию"
                   className={`w-12 h-7 rounded-full transition-colors flex items-center px-1 ${
-                    settings.privacyBlurDefault ? 'bg-indigo-500 justify-end' : 'bg-gray-300 dark:bg-gray-600 justify-start'
+                    state.settings.privacyBlurDefault ? 'bg-indigo-500 justify-end' : 'bg-gray-300 dark:bg-gray-600 justify-start'
                   }`}
                 >
                   <span className="w-5 h-5 bg-white rounded-full shadow-sm" />
@@ -358,14 +403,14 @@ export default function ProfilePage() {
 
       {/* Reminders Bottom Sheet */}
       <BottomSheet
-        isOpen={showReminders}
-        onClose={() => setShowReminders(false)}
+        isOpen={state.showReminders}
+        onClose={() => dispatch({ type: 'TOGGLE_REMINDERS' })}
         title="Напоминания"
         icon={<Bell className="w-5 h-5 text-amber-500" />}
       >
-        {settingsLoading ? (
+        {state.settingsLoading ? (
           <div className="text-center text-gray-400 py-8">Загрузка...</div>
-        ) : settings && (
+        ) : state.settings && (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <div>
@@ -373,26 +418,26 @@ export default function ProfilePage() {
                 <p className="text-sm text-gray-500 dark:text-gray-400">Получать уведомление каждый день</p>
               </div>
               <button
-                onClick={() => handleUpdateSetting('reminderEnabled', !settings.reminderEnabled)}
+                onClick={() => handleUpdateSetting('reminderEnabled', !state.settings!.reminderEnabled)}
                 role="switch"
-                aria-checked={settings.reminderEnabled}
+                aria-checked={state.settings.reminderEnabled}
                 aria-label="Ежедневное напоминание"
                 className={`w-14 h-8 rounded-full transition-colors flex items-center px-1 ${
-                  settings.reminderEnabled ? 'bg-indigo-500 justify-end' : 'bg-gray-300 dark:bg-gray-600 justify-start'
+                  state.settings.reminderEnabled ? 'bg-indigo-500 justify-end' : 'bg-gray-300 dark:bg-gray-600 justify-start'
                 }`}
               >
                 <span className="w-6 h-6 bg-white rounded-full shadow-sm" />
               </button>
             </div>
             
-            {settings.reminderEnabled && (
+            {state.settings.reminderEnabled && (
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-200 flex items-center gap-2">
                   <Clock className="w-4 h-4" /> Время напоминания
                 </label>
                 <input
                   type="time"
-                  value={settings.reminderTime || '20:00'}
+                  value={state.settings.reminderTime || '20:00'}
                   onChange={(e) => handleUpdateSetting('reminderTime', e.target.value)}
                   className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-800 dark:text-white bg-white dark:bg-gray-800 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 />
@@ -407,8 +452,8 @@ export default function ProfilePage() {
 
       {/* Export Bottom Sheet */}
       <BottomSheet
-        isOpen={showExport}
-        onClose={() => setShowExport(false)}
+        isOpen={state.showExport}
+        onClose={() => dispatch({ type: 'TOGGLE_EXPORT' })}
         title="Экспорт данных"
         icon={<Download className="w-5 h-5 text-blue-500" />}
       >
@@ -418,20 +463,20 @@ export default function ProfilePage() {
           </p>
           <div className="space-y-3">
             <button
-              onClick={() => { handleExport('json'); setShowExport(false); }}
-              disabled={exporting}
+              onClick={() => { handleExport('json'); dispatch({ type: 'TOGGLE_EXPORT' }); }}
+              disabled={state.exporting}
               className="w-full py-4 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl font-semibold active:bg-blue-100 dark:active:bg-blue-900/50 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
               <Download className="w-5 h-5" />
-              {exporting ? 'Загрузка...' : 'Скачать JSON'}
+              {state.exporting ? 'Загрузка...' : 'Скачать JSON'}
             </button>
             <button
-              onClick={() => { handleExport('csv'); setShowExport(false); }}
-              disabled={exporting}
+              onClick={() => { handleExport('csv'); dispatch({ type: 'TOGGLE_EXPORT' }); }}
+              disabled={state.exporting}
               className="w-full py-4 bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-xl font-semibold active:bg-green-100 dark:active:bg-green-900/50 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
               <Download className="w-5 h-5" />
-              {exporting ? 'Загрузка...' : 'Скачать CSV'}
+              {state.exporting ? 'Загрузка...' : 'Скачать CSV'}
             </button>
           </div>
           <p className="text-xs text-gray-400 text-center">

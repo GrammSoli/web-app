@@ -5,6 +5,45 @@
 // Search limits
 export const FREE_SEARCH_LIMIT = 30;
 
+// Entry and tag validation
+export const MAX_ENTRY_TEXT_LENGTH = 10000;
+export const MAX_TAGS_PER_ENTRY = 10;
+export const MAX_TAG_LENGTH = 30;
+
+/**
+ * Validates and cleans tag input
+ * @param tag - Raw tag string
+ * @returns Cleaned tag or null if invalid
+ */
+export function validateTag(tag: string): string | null {
+  const cleaned = tag.trim().toLowerCase();
+  if (cleaned.length === 0 || cleaned.length > MAX_TAG_LENGTH) {
+    return null;
+  }
+  return cleaned;
+}
+
+/**
+ * Validates and cleans array of tags
+ * @param tags - Array of raw tag strings
+ * @param maxTags - Maximum number of tags allowed (default: MAX_TAGS_PER_ENTRY)
+ * @returns Deduplicated array of valid tags
+ */
+export function validateTags(tags: string[], maxTags: number = MAX_TAGS_PER_ENTRY): string[] {
+  const validated = new Set<string>();
+  
+  for (const tag of tags) {
+    if (validated.size >= maxTags) break;
+    
+    const cleanTag = validateTag(tag);
+    if (cleanTag) {
+      validated.add(cleanTag);
+    }
+  }
+  
+  return Array.from(validated);
+}
+
 // Placeholder texts for new entry
 export const PLACEHOLDER_TEXTS = [
   'Сегодня я чувствую себя...',

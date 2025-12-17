@@ -6,6 +6,7 @@ import { getTierLimits, getSubscriptionPricing } from '../../utils/pricing.js';
 import { analyzeMood } from '../../services/openai.js';
 import { apiLogger } from '../../utils/logger.js';
 import { getBot } from '../../bot/index.js';
+import { validateTags, validateEntryText, validateMoodScore } from '../../utils/validation.js';
 import { 
   STREAK_ENTRIES_LIMIT, 
   STATS_ENTRIES_LIMIT, 
@@ -275,16 +276,22 @@ router.patch('/entries/:id', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Нужно указать данные для обновления' });
     }
     
-    if (hasTextContent && (typeof textContent !== 'string' || textContent.trim().length === 0)) {
-      return res.status(400).json({ error: 'Текст записи не может быть пустым' });
+    if (hasTextContent) {
+      const textError = validateEntryText(textContent);
+      if (textError) {
+        return res.status(400).json({ error: textError });
+      }
     }
     
     if (hasTags && !Array.isArray(tags)) {
       return res.status(400).json({ error: 'Теги должны быть массивом' });
     }
     
-    if (hasMood && (typeof moodScore !== 'number' || moodScore < 1 || moodScore > 10)) {
-      return res.status(400).json({ error: 'Настроение должно быть от 1 до 10' });
+    if (hasMood) {
+      const moodError = validateMoodScore(moodScore);
+      if (moodError) {
+        return res.status(400).json({ error: moodError });
+      }
     }
     
     const { prisma } = await import('../../services/database.js');
@@ -306,13 +313,7 @@ router.patch('/entries/:id', async (req: Request, res: Response) => {
       updateData.textContent = textContent.trim();
     }
     if (hasTags) {
-      // Sanitize tags: trim, lowercase, remove empty, dedupe
-      const cleanTags: string[] = [...new Set(
-        (tags as string[])
-          .map((t) => String(t).trim().toLowerCase())
-          .filter((t) => t.length > 0 && t.length <= MAX_TAG_LENGTH)
-      )].slice(0, MAX_TAGS_PER_ENTRY);
-      updateData.aiTags = cleanTags;
+      updateData.aiTags = validateTags(tags as string[]);
     }
     if (hasMood) {
       updateData.moodScore = moodScore;
