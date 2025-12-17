@@ -73,7 +73,7 @@ router.get('/me', async (req: Request, res: Response) => {
     
     entries.forEach((entry) => {
       if (entry.moodScore) {
-        const dateKey = entry.createdAt.toISOString().split('T')[0];
+        const dateKey = entry.dateCreated.toISOString().split('T')[0];
         if (!dailyStats[dateKey]) {
           dailyStats[dateKey] = { moods: [] };
         }
