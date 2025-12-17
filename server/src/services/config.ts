@@ -216,10 +216,16 @@ class ConfigService {
     voiceAllowed: boolean;
     voiceMinutesDaily: number;
   }> {
+    const defaults = {
+      free: { dailyEntries: 5, voiceAllowed: false, voiceMinutesDaily: 0 },
+      basic: { dailyEntries: 20, voiceAllowed: true, voiceMinutesDaily: 5 },
+      premium: { dailyEntries: -1, voiceAllowed: true, voiceMinutesDaily: -1 },
+    };
+    
     const [dailyEntries, voiceAllowed, voiceMinutesDaily] = await Promise.all([
-      this.getNumber(`limits.${tier}.daily_entries`),
-      this.getBool(`limits.${tier}.voice_allowed`),
-      this.getNumber(`limits.${tier}.voice_minutes_daily`),
+      this.getNumber(`limits.${tier}.daily_entries`, defaults[tier].dailyEntries),
+      this.getBool(`limits.${tier}.voice_allowed`, defaults[tier].voiceAllowed),
+      this.getNumber(`limits.${tier}.voice_minutes_daily`, defaults[tier].voiceMinutesDaily),
     ]);
 
     return { dailyEntries, voiceAllowed, voiceMinutesDaily };
@@ -232,9 +238,14 @@ class ConfigService {
     stars: number;
     durationDays: number;
   }> {
+    const defaults = {
+      basic: { stars: 50, durationDays: 30 },
+      premium: { stars: 150, durationDays: 30 },
+    };
+    
     const [stars, durationDays] = await Promise.all([
-      this.getNumber(`subscription.${tier}.stars`),
-      this.getNumber(`subscription.${tier}.duration_days`),
+      this.getNumber(`subscription.${tier}.stars`, defaults[tier].stars),
+      this.getNumber(`subscription.${tier}.duration_days`, defaults[tier].durationDays),
     ]);
 
     return { stars, durationDays };
@@ -248,10 +259,14 @@ class ConfigService {
     output: number;
   }> {
     const normalizedKey = model === 'gpt-4o-mini' ? 'gpt4o_mini' : 'gpt4o';
+    const defaults = {
+      gpt4o_mini: { input: 0.15, output: 0.60 },
+      gpt4o: { input: 2.50, output: 10.00 },
+    };
     
     const [input, output] = await Promise.all([
-      this.getNumber(`openai.${normalizedKey}.input`),
-      this.getNumber(`openai.${normalizedKey}.output`),
+      this.getNumber(`openai.${normalizedKey}.input`, defaults[normalizedKey].input),
+      this.getNumber(`openai.${normalizedKey}.output`, defaults[normalizedKey].output),
     ]);
 
     return { input, output };
@@ -261,7 +276,7 @@ class ConfigService {
    * Get Whisper pricing
    */
   async getWhisperPricing(): Promise<number> {
-    return this.getNumber('openai.whisper.per_minute');
+    return this.getNumber('openai.whisper.per_minute', 0.006);
   }
 
   /**
