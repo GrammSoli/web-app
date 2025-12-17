@@ -1,12 +1,12 @@
 import { useState, useEffect, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Gem, Bell, Download, MessageCircle, RefreshCw, BarChart3, ChevronRight, Star, Crown, Gift, User, Clock, Settings, Globe, Shield, X } from 'lucide-react';
+import { Gem, Bell, Download, MessageCircle, RefreshCw, ChevronRight, Star, Crown, Gift, User, Clock, Settings, Globe, Shield, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useTelegram } from '@/hooks/useTelegram';
 import { useAppStore } from '@/store/useAppStore';
 import { exportData, getUserSettings, updateUserSettings } from '@/lib/api';
-import { DEFAULT_LIMITS, SUPPORT_LINK } from '@/config/constants';
+import { SUPPORT_LINK } from '@/config/constants';
 import type { UserSettings } from '@/types/api';
 
 // Bottom Sheet Component
@@ -168,15 +168,6 @@ export default function ProfilePage() {
     window.Telegram?.WebApp?.openTelegramLink?.(SUPPORT_LINK) ||
     window.open(SUPPORT_LINK, '_blank');
   };
-
-  // Usage limits from server (fallback to defaults)
-  const serverLimit = appUser?.limits?.dailyEntries;
-  const limit = serverLimit !== undefined && serverLimit !== null
-    ? { entries: serverLimit === -1 ? Infinity : serverLimit, label: serverLimit === -1 ? '∞' : String(serverLimit) }
-    : DEFAULT_LIMITS[currentTier as keyof typeof DEFAULT_LIMITS];
-  const usagePercent = limit.entries === Infinity 
-    ? 0 
-    : Math.min(((appUser?.stats?.todayEntries || 0) / limit.entries) * 100, 100);
 
   return (
     <div className="fade-in min-h-screen">
