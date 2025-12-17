@@ -18,17 +18,23 @@ enum UserStatus {
   active
   banned
   deleted
+
+  @@map("user_status")
 }
 
 enum SubscriptionTier {
   free
   basic
   premium
+
+  @@map("subscription_tier")
 }
 
 enum ServiceType {
   gpt_4o_mini  @map("gpt-4o-mini")
   whisper_1    @map("whisper-1")
+
+  @@map("service_type")
 }
 
 enum BroadcastStatus {
@@ -37,19 +43,24 @@ enum BroadcastStatus {
   sending
   sent
   failed
+
+  @@map("broadcast_status")
 }
 
 enum BroadcastAudience {
   all
   premium
   free
+
+  @@map("broadcast_audience")
 }
 
 enum TransactionType {
   stars_payment
-  subscription
   adsgram_reward
   refund
+
+  @@map("transaction_type")
 }
 
 // ============================================
