@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import type { User, JournalEntry, UserStats } from '@/types/api';
-import { api } from '@/lib/api';
+import type { User, JournalEntry, UserStats, UserSettings } from '@/types/api';
+import { api, updateUserSettings } from '@/lib/api';
 
 interface AppState {
   // User
@@ -22,6 +22,9 @@ interface AppState {
   // Privacy
   privacyBlur: boolean;
   
+  // Settings update loading
+  settingsUpdating: boolean;
+  
   // Computed
   isLoading: boolean;
   
@@ -33,6 +36,7 @@ interface AppState {
   addEntry: (entry: JournalEntry) => void;
   removeEntry: (id: string) => void;
   togglePrivacyBlur: () => void;
+  updateSettings: (updates: Partial<UserSettings>) => Promise<boolean>;
   reset: () => void;
 }
 
@@ -61,6 +65,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   statsLoading: false,
   
   privacyBlur: getInitialPrivacyBlur(),
+  
+  settingsUpdating: false,
   
   // isLoading is a computed alias
   isLoading: false,
@@ -166,6 +172,46 @@ export const useAppStore = create<AppState>((set, get) => ({
       } catch {}
       return { privacyBlur: newValue };
     });
+  },
+
+  // Update user settings with optimistic update
+  updateSettings: async (updates: Partial<UserSettings>) => {
+    const { user } = get();
+    if (!user?.settings) return false;
+    
+    // Optimistic update
+    const previousSettings = { ...user.settings };
+    set({
+      user: {
+        ...user,
+        settings: { ...user.settings, ...updates },
+      },
+      settingsUpdating: true,
+    });
+    
+    try {
+      const updatedSettings = await updateUserSettings(updates);
+      // Update with server response
+      set(state => ({
+        user: state.user ? {
+          ...state.user,
+          settings: updatedSettings,
+        } : null,
+        settingsUpdating: false,
+      }));
+      return true;
+    } catch (error) {
+      // Rollback on error
+      set(state => ({
+        user: state.user ? {
+          ...state.user,
+          settings: previousSettings,
+        } : null,
+        settingsUpdating: false,
+      }));
+      console.error('Failed to update settings:', error);
+      return false;
+    }
   },
 
   // Reset store

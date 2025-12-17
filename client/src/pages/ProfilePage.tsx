@@ -5,7 +5,7 @@ import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useTelegram } from '@/hooks/useTelegram';
 import { useAppStore } from '@/store/useAppStore';
-import { exportData, getUserSettings, updateUserSettings } from '@/lib/api';
+import { exportData } from '@/lib/api';
 import { SUPPORT_LINK } from '@/config/constants';
 import type { UserSettings } from '@/types/api';
 
@@ -94,8 +94,6 @@ interface ProfileState {
   showSettings: boolean;
   showReminders: boolean;
   showExport: boolean;
-  settings: UserSettings | null;
-  settingsLoading: boolean;
 }
 
 type ProfileAction =
@@ -103,9 +101,7 @@ type ProfileAction =
   | { type: 'SET_EXPORTING'; payload: boolean }
   | { type: 'TOGGLE_SETTINGS' }
   | { type: 'TOGGLE_REMINDERS' }
-  | { type: 'TOGGLE_EXPORT' }
-  | { type: 'SET_SETTINGS'; payload: UserSettings | null }
-  | { type: 'SET_SETTINGS_LOADING'; payload: boolean };
+  | { type: 'TOGGLE_EXPORT' };
 
 function profileReducer(state: ProfileState, action: ProfileAction): ProfileState {
   switch (action.type) {
@@ -119,10 +115,6 @@ function profileReducer(state: ProfileState, action: ProfileAction): ProfileStat
       return { ...state, showReminders: !state.showReminders };
     case 'TOGGLE_EXPORT':
       return { ...state, showExport: !state.showExport };
-    case 'SET_SETTINGS':
-      return { ...state, settings: action.payload };
-    case 'SET_SETTINGS_LOADING':
-      return { ...state, settingsLoading: action.payload };
     default:
       return state;
   }
@@ -134,31 +126,21 @@ const initialProfileState: ProfileState = {
   showSettings: false,
   showReminders: false,
   showExport: false,
-  settings: null,
-  settingsLoading: false,
 };
 
 export default function ProfilePage() {
   const navigate = useNavigate();
   const { user, haptic } = useTelegram();
-  const { user: appUser, loadUser, userLoading } = useAppStore();
+  const { user: appUser, loadUser, userLoading, updateSettings, settingsUpdating } = useAppStore();
   const [state, dispatch] = useReducer(profileReducer, initialProfileState);
 
   const currentTier = (appUser?.subscriptionTier || 'free') as keyof typeof tierConfig;
   const tierInfo = tierConfig[currentTier];
   const TierIcon = tierIcons[currentTier];
   const isPaid = currentTier !== 'free';
-
-  // Load settings when any sheet opens
-  useEffect(() => {
-    if ((state.showSettings || state.showReminders) && !state.settings) {
-      dispatch({ type: 'SET_SETTINGS_LOADING', payload: true });
-      getUserSettings()
-        .then((data) => dispatch({ type: 'SET_SETTINGS', payload: data }))
-        .catch(console.error)
-        .finally(() => dispatch({ type: 'SET_SETTINGS_LOADING', payload: false }));
-    }
-  }, [state.showSettings, state.showReminders, state.settings]);
+  
+  // Get settings from global store
+  const settings = appUser?.settings;
 
   const handleRefresh = async () => {
     dispatch({ type: 'SET_REFRESHING', payload: true });
@@ -195,15 +177,13 @@ export default function ProfilePage() {
   };
 
   const handleUpdateSetting = async (key: keyof UserSettings, value: unknown) => {
-    if (!state.settings) return;
+    if (!settings) return;
     
     haptic.light();
-    try {
-      const updated = await updateUserSettings({ [key]: value });
-      dispatch({ type: 'SET_SETTINGS', payload: updated });
+    const success = await updateSettings({ [key]: value });
+    if (success) {
       haptic.success();
-    } catch (error) {
-      console.error('Failed to update setting:', error);
+    } else {
       haptic.warning();
     }
   };
@@ -288,7 +268,7 @@ export default function ProfilePage() {
           <MenuItem 
             icon={<Bell className="w-6 h-6 text-amber-500" />} 
             title="Напоминания" 
-            subtitle={state.settings?.reminderEnabled ? `Ежедневно в ${state.settings.reminderTime || '20:00'}` : 'Выключены'} 
+            subtitle={settings?.reminderEnabled ? `Ежедневно в ${settings.reminderTime || '20:00'}` : 'Выключены'} 
             onClick={() => { haptic.light(); dispatch({ type: 'TOGGLE_REMINDERS' }); }} 
           />
           <MenuItem 
@@ -342,9 +322,9 @@ export default function ProfilePage() {
         title="Настройки"
         icon={<Settings className="w-5 h-5 text-gray-500" />}
       >
-        {state.settingsLoading ? (
+        {!settings ? (
           <div className="text-center text-gray-400 py-8">Загрузка...</div>
-        ) : state.settings && (
+        ) : (
           <div className="space-y-6">
             {/* Timezone */}
             <div className="space-y-2">
@@ -352,9 +332,10 @@ export default function ProfilePage() {
                 <Globe className="w-4 h-4" /> Часовой пояс
               </label>
               <select
-                value={state.settings.timezone}
+                value={settings.timezone}
                 onChange={(e) => handleUpdateSetting('timezone', e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-800 dark:text-white bg-white dark:bg-gray-800 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                disabled={settingsUpdating}
+                className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-800 dark:text-white bg-white dark:bg-gray-800 focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50"
               >
                 <option value="Europe/Moscow">Москва (UTC+3)</option>
                 <option value="Europe/Kaliningrad">Калининград (UTC+2)</option>
@@ -382,12 +363,13 @@ export default function ProfilePage() {
                   <Shield className="w-4 h-4" /> Приватность по умолчанию
                 </label>
                 <button
-                  onClick={() => handleUpdateSetting('privacyBlurDefault', !state.settings!.privacyBlurDefault)}
+                  onClick={() => handleUpdateSetting('privacyBlurDefault', !settings.privacyBlurDefault)}
+                  disabled={settingsUpdating}
                   role="switch"
-                  aria-checked={state.settings.privacyBlurDefault}
+                  aria-checked={settings.privacyBlurDefault}
                   aria-label="Приватность по умолчанию"
-                  className={`w-12 h-7 rounded-full transition-colors flex items-center px-1 ${
-                    state.settings.privacyBlurDefault ? 'bg-indigo-500 justify-end' : 'bg-gray-300 dark:bg-gray-600 justify-start'
+                  className={`w-12 h-7 rounded-full transition-colors flex items-center px-1 disabled:opacity-50 ${
+                    settings.privacyBlurDefault ? 'bg-indigo-500 justify-end' : 'bg-gray-300 dark:bg-gray-600 justify-start'
                   }`}
                 >
                   <span className="w-5 h-5 bg-white rounded-full shadow-sm" />
@@ -408,9 +390,9 @@ export default function ProfilePage() {
         title="Напоминания"
         icon={<Bell className="w-5 h-5 text-amber-500" />}
       >
-        {state.settingsLoading ? (
+        {!settings ? (
           <div className="text-center text-gray-400 py-8">Загрузка...</div>
-        ) : state.settings && (
+        ) : (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <div>
@@ -418,28 +400,30 @@ export default function ProfilePage() {
                 <p className="text-sm text-gray-500 dark:text-gray-400">Получать уведомление каждый день</p>
               </div>
               <button
-                onClick={() => handleUpdateSetting('reminderEnabled', !state.settings!.reminderEnabled)}
+                onClick={() => handleUpdateSetting('reminderEnabled', !settings.reminderEnabled)}
+                disabled={settingsUpdating}
                 role="switch"
-                aria-checked={state.settings.reminderEnabled}
+                aria-checked={settings.reminderEnabled}
                 aria-label="Ежедневное напоминание"
-                className={`w-14 h-8 rounded-full transition-colors flex items-center px-1 ${
-                  state.settings.reminderEnabled ? 'bg-indigo-500 justify-end' : 'bg-gray-300 dark:bg-gray-600 justify-start'
+                className={`w-14 h-8 rounded-full transition-colors flex items-center px-1 disabled:opacity-50 ${
+                  settings.reminderEnabled ? 'bg-indigo-500 justify-end' : 'bg-gray-300 dark:bg-gray-600 justify-start'
                 }`}
               >
                 <span className="w-6 h-6 bg-white rounded-full shadow-sm" />
               </button>
             </div>
             
-            {state.settings.reminderEnabled && (
+            {settings.reminderEnabled && (
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-200 flex items-center gap-2">
                   <Clock className="w-4 h-4" /> Время напоминания
                 </label>
                 <input
                   type="time"
-                  value={state.settings.reminderTime || '20:00'}
+                  value={settings.reminderTime || '20:00'}
                   onChange={(e) => handleUpdateSetting('reminderTime', e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-800 dark:text-white bg-white dark:bg-gray-800 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  disabled={settingsUpdating}
+                  className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-800 dark:text-white bg-white dark:bg-gray-800 focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50"
                 />
                 <p className="text-xs text-gray-400">
                   Напоминание придёт в указанное время по вашему часовому поясу
