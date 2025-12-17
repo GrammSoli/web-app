@@ -146,7 +146,7 @@ function getResources() {
 // СОЗДАНИЕ ADMINJS INSTANCE
 // ============================================
 
-export function createAdminJS(): AdminJS {
+export function createAdminJS(): any {
   const admin = new AdminJS({
     resources: getResources(),
     rootPath: '/internal_admin',
