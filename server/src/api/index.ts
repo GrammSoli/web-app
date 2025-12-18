@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import * as Sentry from '@sentry/node';
 import { apiLimiter } from './middleware/index.js';
 import { userRoutes, adminRoutes, internalRoutes } from './routes/index.js';
 import { apiLogger } from '../utils/logger.js';
@@ -161,15 +162,41 @@ export function createApp() {
   app.use('/api/admin', adminRoutes);
   app.use('/api/internal', internalRoutes);
   
-  // Health check (публичный)
-  app.get('/health', (_req, res) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  // Health check (публичный) - расширенная версия
+  app.get('/health', async (_req, res) => {
+    const health: {
+      status: 'ok' | 'degraded' | 'down';
+      timestamp: string;
+      uptime: number;
+      database: 'connected' | 'error';
+      version: string;
+    } = {
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      uptime: Math.floor(process.uptime()),
+      database: 'connected',
+      version: process.env.npm_package_version || '1.0.0',
+    };
+    
+    // Check database
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+    } catch {
+      health.database = 'error';
+      health.status = 'degraded';
+    }
+    
+    const statusCode = health.status === 'ok' ? 200 : 503;
+    res.status(statusCode).json(health);
   });
   
   // 404 handler
   app.use((_req, res) => {
     res.status(404).json({ error: 'Not found' });
   });
+  
+  // Sentry error handler (must be before custom error handler)
+  Sentry.setupExpressErrorHandler(app);
   
   // Error handler
   app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

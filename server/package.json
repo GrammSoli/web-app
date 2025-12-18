@@ -18,6 +18,7 @@
     "@grammyjs/hydrate": "^1.4.1",
     "@grammyjs/runner": "^2.0.3",
     "@prisma/client": "^5.22.0",
+    "@sentry/node": "^10.31.0",
     "cors": "^2.8.5",
     "crypto-js": "^4.2.0",
     "dotenv": "^16.4.5",

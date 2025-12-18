@@ -1,4 +1,8 @@
 import 'dotenv/config';
+// Sentry MUST be initialized first
+import { initSentry } from './utils/sentry.js';
+initSentry();
+
 import { initBot, getBot } from './bot/index.js';
 import { createApp } from './api/index.js';
 import { prisma } from './services/database.js';
