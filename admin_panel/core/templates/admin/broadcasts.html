@@ -880,7 +880,7 @@
                             {% endif %}
                             <span class="card-status status-{{ b.status }}">
                                 {% if b.status == 'draft' %}черновик
-                                {% elif b.status == 'scheduled' %}запланирована
+                                {% elif b.status == 'scheduled' %}⏰ {{ b.scheduled_at|date:"d.m H:i" }}
                                 {% elif b.status == 'sending' %}отправка
                                 {% elif b.status == 'sent' %}отправлено
                                 {% else %}ошибка{% endif %}
@@ -890,12 +890,12 @@
                         <!-- Контент -->
                         <div class="card-body">
                             <h4 class="card-title">{{ b.title }}</h4>
-                            <div class="card-text collapsed" id="text-{{ b.id }}">{{ b.message_text|safe }}</div>
+                            <div class="card-text collapsed" id="text-{{ b.id }}">{{ b.message_text|linebreaksbr }}</div>
                             <button class="read-more-btn" id="btn-{{ b.id }}" onclick="toggleText('{{ b.id }}')">Читать далее</button>
                             
                             <div class="card-meta">
                                 <span>👥 {{ b.get_target_audience_display }}</span>
-                                <span>📅 {{ b.date_created|date:"d.m.Y H:i" }}</span>
+                                <span>📅 Создано: {{ b.date_created|date:"d.m.Y H:i" }}</span>
                             </div>
                             
                             {% if b.total_recipients %}
