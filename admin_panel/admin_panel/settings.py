@@ -242,9 +242,9 @@ UNFOLD = {
                 "separator": True,
                 "items": [
                     {
-                        "title": "Рассылки",
+                        "title": "📢 Рассылки",
                         "icon": "campaign",
-                        "link": "/admin/core/broadcast/",
+                        "link": "/admin/broadcasts/",
                     },
                 ],
             },
