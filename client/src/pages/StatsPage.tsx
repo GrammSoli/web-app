@@ -237,12 +237,12 @@ export default function StatsPage() {
 
         {/* Top Tags */}
         <div className="bg-white dark:bg-gray-800 rounded-3xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
-          <h2 className="text-base font-bold text-gray-700 dark:text-gray-200 mb-4 flex items-center gap-2">
+          <h2 className="text-base font-bold text-gray-700 dark:text-gray-200 mb-3 flex items-center gap-2">
             <Tag className="w-5 h-5 text-indigo-500" />
             Частые теги
           </h2>
           
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
             {(stats.topTags || []).slice(0, 8).map((item, index) => {
               // Gradient colors for tags
               const tagColors = [
@@ -264,9 +264,9 @@ export default function StatsPage() {
                     haptic?.light?.();
                     navigate(`/entries?tag=${encodeURIComponent(item.tag)}`);
                   }}
-                  className={`text-xs px-3 py-1.5 rounded-full font-medium transition-all ${colorClass}`}
+                  className={`text-xs px-2.5 py-1 rounded-full font-medium transition-all ${colorClass}`}
                 >
-                  #{item.tag} <span className="opacity-70">({item.count})</span>
+                  #{item.tag} <span className="opacity-60">({item.count})</span>
                 </button>
               );
             })}
