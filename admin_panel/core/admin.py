@@ -291,8 +291,11 @@ class SubscriptionAdmin(ModelAdmin):
         return f"⭐ {obj.price_stars} (${obj.price_usd})"
 
 
+# Используем стандартный Django admin для Broadcast (Unfold имеет баг с UUID)
+from django.contrib.admin import ModelAdmin as DjangoModelAdmin
+
 @admin.register(Broadcast)
-class BroadcastAdmin(ModelAdmin):
+class BroadcastAdmin(DjangoModelAdmin):
     """
     Админ-класс для рассылок с интеграцией Celery.
     
@@ -397,7 +400,6 @@ class BroadcastAdmin(ModelAdmin):
         
         return super().response_add(request, obj, post_url_continue)
     
-    @display(description="Статус")
     def display_status(self, obj):
         status_icons = {
             'draft': '📝 Черновик',
@@ -407,13 +409,14 @@ class BroadcastAdmin(ModelAdmin):
             'failed': '❌ Ошибка',
         }
         return status_icons.get(obj.status, obj.status)
+    display_status.short_description = "Статус"
     
-    @display(description="Статистика")
     def display_stats(self, obj):
         if obj.total_recipients:
             percent = round(obj.sent_count / obj.total_recipients * 100, 1) if obj.total_recipients > 0 else 0
             return f"✉️ {obj.sent_count}/{obj.total_recipients} ({percent}%) • ❌ {obj.failed_count}"
         return '—'
+    display_stats.short_description = "Статистика"
     
     @admin.action(description="🚀 Запустить рассылку")
     def start_broadcast_action(self, request, queryset):
