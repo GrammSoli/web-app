@@ -225,20 +225,34 @@ class Broadcast(models.Model):
     message_text = models.TextField(verbose_name='Текст сообщения')
     message_photo_url = models.TextField(blank=True, null=True, verbose_name='URL фото')
     
-    target_audience = models.CharField(max_length=20, default='all', verbose_name='Аудитория')
-    status = models.CharField(max_length=20, default='draft', verbose_name='Статус')
+    target_audience = models.CharField(
+        max_length=20, 
+        choices=AUDIENCE_CHOICES,
+        default='all', 
+        blank=True,
+        null=True,
+        verbose_name='Аудитория'
+    )
+    status = models.CharField(
+        max_length=20, 
+        choices=STATUS_CHOICES,
+        default='draft', 
+        blank=True,
+        null=True,
+        verbose_name='Статус'
+    )
     
     scheduled_at = models.DateTimeField(blank=True, null=True, verbose_name='Запланировано на')
     started_at = models.DateTimeField(blank=True, null=True, verbose_name='Начало')
     completed_at = models.DateTimeField(blank=True, null=True, verbose_name='Завершено')
     
-    total_recipients = models.IntegerField(default=0, verbose_name='Всего получателей')
-    sent_count = models.IntegerField(default=0, verbose_name='Отправлено')
-    failed_count = models.IntegerField(default=0, verbose_name='Ошибок')
+    total_recipients = models.IntegerField(default=0, blank=True, null=True, verbose_name='Всего получателей')
+    sent_count = models.IntegerField(default=0, blank=True, null=True, verbose_name='Отправлено')
+    failed_count = models.IntegerField(default=0, blank=True, null=True, verbose_name='Ошибок')
     last_error = models.TextField(blank=True, null=True, verbose_name='Последняя ошибка')
     
-    date_created = models.DateTimeField(auto_now_add=True, verbose_name='Создана')
-    date_updated = models.DateTimeField(auto_now=True, verbose_name='Обновлена')
+    date_created = models.DateTimeField(auto_now_add=True, blank=True, null=True, verbose_name='Создана')
+    date_updated = models.DateTimeField(auto_now=True, blank=True, null=True, verbose_name='Обновлена')
 
     class Meta:
         managed = False
