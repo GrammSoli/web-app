@@ -185,8 +185,8 @@
     
     .status-draft { background: #374151; color: #9ca3af; }
     .status-scheduled { background: #1e3a5f; color: #60a5fa; }
-    .status-in_progress { background: #422006; color: #fbbf24; }
-    .status-completed { background: #14532d; color: #4ade80; }
+    .status-sending { background: #422006; color: #fbbf24; }
+    .status-sent { background: #14532d; color: #4ade80; }
     .status-failed { background: #450a0a; color: #f87171; }
     
     .broadcast-meta {
@@ -417,8 +417,8 @@
                             <span class="broadcast-status status-{{ b.status }}">
                                 {% if b.status == 'draft' %}📝 Черновик
                                 {% elif b.status == 'scheduled' %}⏰ Запланирована
-                                {% elif b.status == 'in_progress' %}🚀 В процессе
-                                {% elif b.status == 'completed' %}✅ Завершена
+                                {% elif b.status == 'sending' %}🚀 В процессе
+                                {% elif b.status == 'sent' %}✅ Завершена
                                 {% else %}❌ Ошибка
                                 {% endif %}
                             </span>
@@ -429,7 +429,7 @@
                         </div>
                         <div class="broadcast-preview">{{ b.message_text|truncatechars:150 }}</div>
                         
-                        {% if b.status == 'in_progress' or b.total_recipients %}
+                        {% if b.status == 'sending' or b.total_recipients %}
                         <div class="broadcast-progress">
                             <div class="progress-bar">
                                 <div class="progress-fill" style="width: {% widthratio b.sent_count b.total_recipients 100 %}%"></div>

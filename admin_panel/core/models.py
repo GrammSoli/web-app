@@ -206,11 +206,12 @@ class Broadcast(models.Model):
     Модель рассылки.
     Соответствует таблице app.broadcasts.
     """
+    # Значения должны совпадать с enum app.broadcast_status в PostgreSQL!
     STATUS_CHOICES = [
         ('draft', 'Черновик'),
         ('scheduled', 'Запланирована'),
-        ('in_progress', 'В процессе'),
-        ('completed', 'Завершена'),
+        ('sending', 'В процессе'),
+        ('sent', 'Завершена'),
         ('failed', 'Ошибка'),
     ]
     

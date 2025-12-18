@@ -211,7 +211,7 @@ def get_broadcast_cache_key(broadcast_id: str) -> str:
     return f'broadcast_progress:{broadcast_id}'
 
 
-def update_broadcast_progress(broadcast_id: str, sent: int, failed: int, total: int, status: str = 'in_progress'):
+def update_broadcast_progress(broadcast_id: str, sent: int, failed: int, total: int, status: str = 'sending'):
     """Обновляет прогресс рассылки в Redis."""
     key = get_broadcast_cache_key(broadcast_id)
     cache.set(key, {
@@ -283,7 +283,7 @@ def execute_broadcast(self, broadcast_id: str) -> Dict[str, Any]:
     
     if total == 0:
         Broadcast.objects.filter(id=broadcast_id).update(
-            status='completed',
+            status='sent',
             total_recipients=0,
             sent_count=0,
             completed_at=timezone.now()
@@ -292,7 +292,7 @@ def execute_broadcast(self, broadcast_id: str) -> Dict[str, Any]:
     
     # Обновляем статус в БД
     Broadcast.objects.filter(id=broadcast_id).update(
-        status='in_progress',
+        status='sending',
         started_at=timezone.now(),
         total_recipients=total,
         sent_count=0,
@@ -354,7 +354,7 @@ def execute_broadcast(self, broadcast_id: str) -> Dict[str, Any]:
     
     # Завершаем рассылку
     Broadcast.objects.filter(id=broadcast_id).update(
-        status='completed',
+        status='sent',
         completed_at=timezone.now(),
         sent_count=sent_count,
         failed_count=failed_count,
@@ -366,10 +366,10 @@ def execute_broadcast(self, broadcast_id: str) -> Dict[str, Any]:
         sent=sent_count,
         failed=failed_count,
         total=total,
-        status='completed'
+        status='sent'
     )
     
-    logger.info(f"Broadcast {broadcast_id} completed: {sent_count} sent, {failed_count} failed")
+    logger.info(f"Broadcast {broadcast_id} sent: {sent_count} sent, {failed_count} failed")
     
     return {
         'success': True,

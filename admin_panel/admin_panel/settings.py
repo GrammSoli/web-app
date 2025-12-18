@@ -199,7 +199,7 @@ UNFOLD = {
                         "link": "/admin/",
                     },
                     {
-                        "title": "📊 Аналитика",
+                        "title": "Аналитика",
                         "icon": "insights",
                         "link": "/admin/dashboard/",
                     },
@@ -242,9 +242,9 @@ UNFOLD = {
                 "separator": True,
                 "items": [
                     {
-                        "title": "📢 Рассылки",
+                        "title": "Рассылки",
                         "icon": "campaign",
-                        "link": "/admin/broadcasts/",
+                        "link": "/admin/core/broadcast/",
                     },
                 ],
             },

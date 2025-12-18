@@ -413,7 +413,7 @@ class BroadcastAdmin(DjangoModelAdmin):
                 '">🚀 Запустить</a>',
                 obj.id
             )
-        elif obj.status == 'in_progress':
+        elif obj.status == 'sending':
             return format_html('<span style="color: #ffc107;">⏳ В процессе...</span>')
         else:
             return format_html('<span style="color: #6c757d;">✅ Завершено</span>')
@@ -424,8 +424,8 @@ class BroadcastAdmin(DjangoModelAdmin):
         status_icons = {
             'draft': '📝 Черновик',
             'scheduled': '⏰ Запланирована',
-            'in_progress': '🚀 В процессе',
-            'completed': '✅ Завершена',
+            'sending': '🚀 В процессе',
+            'sent': '✅ Завершена',
             'failed': '❌ Ошибка',
         }
         return status_icons.get(obj.status, obj.status)

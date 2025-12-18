@@ -187,7 +187,7 @@ def broadcast_launch(request, broadcast_id: str):
             Broadcast.objects.filter(id=broadcast.id).update(status='scheduled')
             execute_broadcast.delay(str(broadcast.id))
             messages.success(request, f'🚀 Рассылка "{broadcast.title}" запущена!')
-        elif broadcast.status == 'in_progress':
+        elif broadcast.status == 'sending':
             messages.warning(request, f'⏳ Рассылка "{broadcast.title}" уже выполняется!')
         else:
             messages.info(request, f'✅ Рассылка "{broadcast.title}" уже завершена.')
@@ -207,12 +207,12 @@ def broadcasts_page(request):
     """Главная страница рассылок."""
     broadcasts = Broadcast.objects.all().order_by('-date_created')
     
-    # Статистика
+    # Статистика (sending = в процессе в enum PostgreSQL)
     stats = {
         'total': broadcasts.count(),
         'total_sent': broadcasts.aggregate(s=Sum('sent_count'))['s'] or 0,
         'total_failed': broadcasts.aggregate(f=Sum('failed_count'))['f'] or 0,
-        'in_progress': broadcasts.filter(status='in_progress').count(),
+        'in_progress': broadcasts.filter(status='sending').count(),
     }
     
     return render(request, 'admin/broadcasts.html', {
@@ -231,7 +231,7 @@ def broadcasts_api_list(request):
         'total': broadcasts.count(),
         'total_sent': broadcasts.aggregate(s=Sum('sent_count'))['s'] or 0,
         'total_failed': broadcasts.aggregate(f=Sum('failed_count'))['f'] or 0,
-        'in_progress': broadcasts.filter(status='in_progress').count(),
+        'in_progress': broadcasts.filter(status='sending').count(),
     }
     
     broadcasts_data = [{
