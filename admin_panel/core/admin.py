@@ -313,6 +313,7 @@ class BroadcastAdmin(DjangoModelAdmin):
         'display_stats',
         'scheduled_at',
         'date_created',
+        'launch_button',
     ]
     
     search_fields = [
@@ -399,6 +400,25 @@ class BroadcastAdmin(DjangoModelAdmin):
             return HttpResponseRedirect(reverse('admin:core_broadcast_changelist'))
         
         return super().response_add(request, obj, post_url_continue)
+    
+    def launch_button(self, obj):
+        """Кнопка для запуска рассылки."""
+        from django.utils.html import format_html
+        
+        if obj.status in ('draft', 'scheduled', 'failed'):
+            return format_html(
+                '<a class="button" href="/admin/core/broadcast/{}/launch/" style="'
+                'background: #28a745; color: white; padding: 5px 12px; '
+                'border-radius: 5px; text-decoration: none; font-size: 12px;'
+                '">🚀 Запустить</a>',
+                obj.id
+            )
+        elif obj.status == 'in_progress':
+            return format_html('<span style="color: #ffc107;">⏳ В процессе...</span>')
+        else:
+            return format_html('<span style="color: #6c757d;">✅ Завершено</span>')
+    launch_button.short_description = "Действие"
+    launch_button.allow_tags = True
     
     def display_status(self, obj):
         status_icons = {

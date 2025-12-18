@@ -167,3 +167,32 @@ def broadcast_create(request):
     return render(request, 'admin/broadcast_create.html', {
         'title': 'Создать рассылку',
     })
+
+
+@staff_member_required
+def broadcast_launch(request, broadcast_id: str):
+    """
+    Запускает рассылку через Celery.
+    """
+    from django.shortcuts import redirect
+    from django.contrib import messages
+    from .models import Broadcast
+    from .tasks import execute_broadcast
+    
+    try:
+        broadcast = Broadcast.objects.get(id=broadcast_id)
+        
+        if broadcast.status in ('draft', 'scheduled', 'failed'):
+            # Обновляем статус и запускаем
+            Broadcast.objects.filter(id=broadcast.id).update(status='scheduled')
+            execute_broadcast.delay(str(broadcast.id))
+            messages.success(request, f'🚀 Рассылка "{broadcast.title}" запущена!')
+        elif broadcast.status == 'in_progress':
+            messages.warning(request, f'⏳ Рассылка "{broadcast.title}" уже выполняется!')
+        else:
+            messages.info(request, f'✅ Рассылка "{broadcast.title}" уже завершена.')
+            
+    except Broadcast.DoesNotExist:
+        messages.error(request, 'Рассылка не найдена!')
+    
+    return redirect('/admin/core/broadcast/')
