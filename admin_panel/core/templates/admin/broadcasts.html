@@ -132,8 +132,8 @@
     .broadcast-list {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
-        gap: 20px;
-        padding: 20px;
+        gap: 16px;
+        padding: 16px;
     }
     
     @media (max-width: 1400px) {
@@ -148,174 +148,300 @@
         }
     }
     
-    /* Карточка в стиле Telegram поста */
-    .broadcast-item {
+    /* Карточка рассылки */
+    .broadcast-card {
         background: var(--color-bg-primary, #fff);
-        border-radius: 16px;
+        border-radius: 12px;
+        border: 1px solid var(--color-border, #e5e7eb);
         overflow: hidden;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
         transition: all 0.2s;
         display: flex;
         flex-direction: column;
+    }
+    
+    .broadcast-card:hover {
+        border-color: #8B5CF6;
+        box-shadow: 0 4px 12px rgba(139, 92, 246, 0.1);
+    }
+    
+    /* Изображение */
+    .card-image {
         position: relative;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     }
     
-    .broadcast-item:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-    }
-    
-    /* Изображение сверху */
-    .broadcast-image {
+    .card-image img {
         width: 100%;
-        aspect-ratio: 16/9;
+        height: 140px;
         object-fit: cover;
-        background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+        display: block;
     }
     
-    .broadcast-image-placeholder {
+    .card-image-placeholder {
         width: 100%;
-        aspect-ratio: 16/9;
-        background: linear-gradient(135deg, #8B5CF6 0%, #A78BFA 100%);
+        height: 80px;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 48px;
-        color: rgba(255,255,255,0.5);
+        font-size: 32px;
+        opacity: 0.6;
     }
     
-    /* Контент карточки */
-    .broadcast-content {
-        padding: 16px;
+    .card-status {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .status-draft { background: rgba(107, 114, 128, 0.9); color: white; }
+    .status-scheduled { background: rgba(37, 99, 235, 0.9); color: white; }
+    .status-sending { background: rgba(217, 119, 6, 0.9); color: white; }
+    .status-sent { background: rgba(5, 150, 105, 0.9); color: white; }
+    .status-failed { background: rgba(220, 38, 38, 0.9); color: white; }
+    
+    /* Контент */
+    .card-body {
+        padding: 12px;
         flex: 1;
         display: flex;
         flex-direction: column;
     }
     
-    /* Заголовок с бейджем */
-    .broadcast-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        margin-bottom: 8px;
-        gap: 8px;
-    }
-    
-    .broadcast-title {
+    .card-title {
         font-weight: 600;
+        font-size: 14px;
         color: var(--color-text-primary, #1f2937);
-        font-size: 15px;
-        margin: 0;
+        margin: 0 0 6px 0;
         line-height: 1.3;
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
     }
     
-    .status-badge {
-        padding: 4px 10px;
-        border-radius: 12px;
-        font-size: 11px;
-        font-weight: 600;
-        white-space: nowrap;
-        flex-shrink: 0;
-    }
-    
-    .status-draft { background: #F3F4F6; color: #6B7280; }
-    .status-scheduled { background: #DBEAFE; color: #2563EB; }
-    .status-sending { background: #FEF3C7; color: #D97706; }
-    .status-sent { background: #D1FAE5; color: #059669; }
-    .status-failed { background: #FEE2E2; color: #DC2626; }
-    
-    /* Текст сообщения */
-    .broadcast-text {
-        font-size: 13px;
+    .card-text {
+        font-size: 12px;
         color: var(--color-text-secondary, #6b7280);
         line-height: 1.5;
-        display: -webkit-box;
-        -webkit-line-clamp: 4;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-        margin-bottom: 12px;
+        margin-bottom: 8px;
         flex: 1;
     }
     
-    /* Мета информация */
-    .broadcast-meta {
+    .card-text.collapsed {
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    
+    .card-text.expanded {
+        display: block;
+    }
+    
+    .read-more-btn {
+        background: none;
+        border: none;
+        color: #8B5CF6;
+        font-size: 11px;
+        cursor: pointer;
+        padding: 0;
+        margin-bottom: 8px;
+        font-weight: 500;
+    }
+    
+    .read-more-btn:hover {
+        text-decoration: underline;
+    }
+    
+    /* Мета */
+    .card-meta {
         display: flex;
-        align-items: center;
-        gap: 12px;
-        font-size: 12px;
+        gap: 8px;
+        font-size: 11px;
         color: var(--color-text-secondary, #9ca3af);
-        margin-bottom: 12px;
-        flex-wrap: wrap;
+        margin-bottom: 8px;
     }
     
-    .broadcast-meta span {
-        display: flex;
-        align-items: center;
-        gap: 4px;
+    /* Прогресс */
+    .card-progress {
+        margin-bottom: 8px;
     }
     
-    /* Футер с кнопками */
-    .broadcast-footer {
+    .progress-bar-sm {
+        height: 3px;
+        background: var(--color-border, #e5e7eb);
+        border-radius: 2px;
+        overflow: hidden;
+        margin-bottom: 2px;
+    }
+    
+    .progress-fill-sm {
+        height: 100%;
+        background: #10B981;
+    }
+    
+    .progress-label {
+        font-size: 10px;
+        color: var(--color-text-secondary, #9ca3af);
+    }
+    
+    /* Футер карточки */
+    .card-footer {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding-top: 12px;
+        padding: 8px 12px;
+        background: var(--color-bg-secondary, #f9fafb);
         border-top: 1px solid var(--color-border, #e5e7eb);
-        gap: 8px;
     }
     
-    .broadcast-actions {
+    .card-actions {
         display: flex;
-        gap: 6px;
+        gap: 4px;
     }
     
-    .btn-sm {
-        padding: 6px 12px;
-        font-size: 12px;
-        border-radius: 6px;
-    }
-    
-    .btn-delete-icon {
-        background: transparent;
+    .btn-icon {
+        width: 28px;
+        height: 28px;
         border: none;
-        color: var(--color-text-secondary, #9ca3af);
-        cursor: pointer;
-        padding: 6px;
+        background: transparent;
         border-radius: 6px;
-        transition: all 0.2s;
+        cursor: pointer;
         font-size: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.15s;
+        color: var(--color-text-secondary, #6b7280);
     }
     
-    .btn-delete-icon:hover {
+    .btn-icon:hover {
+        background: var(--color-bg-primary, #fff);
+    }
+    
+    .btn-icon.launch:hover {
+        background: #D1FAE5;
+        color: #059669;
+    }
+    
+    .btn-icon.delete:hover {
         background: #FEE2E2;
         color: #DC2626;
     }
     
-    /* Прогресс бар */
-    .broadcast-progress {
-        margin-top: auto;
+    /* Модальное окно */
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.2s;
     }
     
-    .progress-bar-mini {
-        height: 4px;
-        background: var(--color-border, #e5e7eb);
-        border-radius: 2px;
+    .modal-overlay.active {
+        opacity: 1;
+        visibility: visible;
+    }
+    
+    .modal {
+        background: var(--color-bg-primary, #fff);
+        border-radius: 16px;
+        width: 100%;
+        max-width: 560px;
+        max-height: 90vh;
         overflow: hidden;
-        margin-bottom: 4px;
+        transform: scale(0.9) translateY(20px);
+        transition: all 0.2s;
+        display: flex;
+        flex-direction: column;
     }
     
-    .progress-fill-mini {
-        height: 100%;
-        background: linear-gradient(90deg, #10B981, #34D399);
+    .modal-overlay.active .modal {
+        transform: scale(1) translateY(0);
     }
     
-    .progress-text-mini {
-        font-size: 11px;
-        color: var(--color-text-secondary, #9ca3af);
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--color-border, #e5e7eb);
+    }
+    
+    .modal-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--color-text-primary, #1f2937);
+        margin: 0;
+    }
+    
+    .modal-close {
+        width: 32px;
+        height: 32px;
+        border: none;
+        background: var(--color-bg-secondary, #f3f4f6);
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 18px;
+        color: var(--color-text-secondary, #6b7280);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .modal-close:hover {
+        background: #FEE2E2;
+        color: #DC2626;
+    }
+    
+    .modal-body {
+        padding: 20px;
+        overflow-y: auto;
+        flex: 1;
+    }
+    
+    .modal-footer {
+        padding: 16px 20px;
+        border-top: 1px solid var(--color-border, #e5e7eb);
+        display: flex;
+        gap: 12px;
+        justify-content: flex-end;
+    }
+    
+    /* Кнопка создания */
+    .btn-create-new {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #8B5CF6 0%, #A78BFA 100%);
+        color: white;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        box-shadow: 0 4px 16px rgba(139, 92, 246, 0.4);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+        z-index: 100;
+    }
+    
+    .btn-create-new:hover {
+        transform: scale(1.1);
+        box-shadow: 0 6px 24px rgba(139, 92, 246, 0.5);
     }
     
     /* Кнопки */
@@ -718,159 +844,194 @@
     
     <!-- Контент -->
     <section class="broadcasts-section">
-        <div class="content-grid">
-            <!-- Список рассылок -->
-            <div class="card" style="grid-column: 1 / -1;">
-                <div class="card-header">
-                    <span class="card-title">📋 Рассылки</span>
-                    <span class="card-badge">{{ broadcasts|length }}</span>
-                </div>
-                <div class="broadcast-list">
-                    {% if broadcasts %}
-                        {% for b in broadcasts %}
-                        <div class="broadcast-item" id="broadcast-{{ b.id }}">
-                            <!-- Изображение сверху -->
+        <!-- Список рассылок -->
+        <div class="card" style="width: 100%;">
+            <div class="card-header">
+                <span class="card-title">📋 Рассылки</span>
+                <span class="card-badge">{{ broadcasts|length }}</span>
+            </div>
+            <div class="broadcast-list">
+                {% if broadcasts %}
+                    {% for b in broadcasts %}
+                    <div class="broadcast-card" id="broadcast-{{ b.id }}">
+                        <!-- Изображение -->
+                        <div class="card-image">
                             {% if b.message_photo_url %}
-                            <img src="{{ b.message_photo_url }}" alt="" class="broadcast-image">
+                            <img src="{{ b.message_photo_url }}" alt="">
                             {% else %}
-                            <div class="broadcast-image-placeholder">📢</div>
+                            <div class="card-image-placeholder">📢</div>
+                            {% endif %}
+                            <span class="card-status status-{{ b.status }}">
+                                {% if b.status == 'draft' %}черновик
+                                {% elif b.status == 'scheduled' %}запланирована
+                                {% elif b.status == 'sending' %}отправка
+                                {% elif b.status == 'sent' %}отправлено
+                                {% else %}ошибка{% endif %}
+                            </span>
+                        </div>
+                        
+                        <!-- Контент -->
+                        <div class="card-body">
+                            <h4 class="card-title">{{ b.title }}</h4>
+                            <div class="card-text collapsed" id="text-{{ b.id }}">{{ b.message_text|striptags }}</div>
+                            {% if b.message_text|length > 100 %}
+                            <button class="read-more-btn" onclick="toggleText('{{ b.id }}')">Читать далее</button>
                             {% endif %}
                             
-                            <!-- Контент -->
-                            <div class="broadcast-content">
-                                <!-- Заголовок + статус -->
-                                <div class="broadcast-header">
-                                    <h3 class="broadcast-title">{{ b.title }}</h3>
-                                    <span class="status-badge status-{{ b.status }}">
-                                        {% if b.status == 'draft' %}Черновик
-                                        {% elif b.status == 'scheduled' %}⏰
-                                        {% elif b.status == 'sending' %}🔄
-                                        {% elif b.status == 'sent' %}✓
-                                        {% else %}✗{% endif %}
-                                    </span>
+                            <div class="card-meta">
+                                <span>👥 {{ b.get_target_audience_display }}</span>
+                                <span>📅 {{ b.date_created|date:"d.m.Y" }}</span>
+                            </div>
+                            
+                            {% if b.total_recipients %}
+                            <div class="card-progress">
+                                <div class="progress-bar-sm">
+                                    <div class="progress-fill-sm" style="width: {% widthratio b.sent_count b.total_recipients 100 %}%"></div>
                                 </div>
-                                
-                                <!-- Текст сообщения -->
-                                <div class="broadcast-text">{{ b.message_text|striptags|truncatechars:120 }}</div>
-                                
-                                <!-- Мета -->
-                                <div class="broadcast-meta">
-                                    <span>👥 {{ b.get_target_audience_display }}</span>
-                                    <span>📅 {{ b.date_created|date:"d.m.Y" }}</span>
-                                </div>
-                                
-                                <!-- Прогресс если есть -->
-                                {% if b.total_recipients %}
-                                <div class="broadcast-progress">
-                                    <div class="progress-bar-mini">
-                                        <div class="progress-fill-mini" style="width: {% widthratio b.sent_count b.total_recipients 100 %}%"></div>
-                                    </div>
-                                    <div class="progress-text-mini">{{ b.sent_count }}/{{ b.total_recipients }} • {{ b.failed_count }} ошибок</div>
-                                </div>
+                                <div class="progress-label">{{ b.sent_count }}/{{ b.total_recipients }} • {{ b.failed_count }} ошибок</div>
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Футер -->
+                        <div class="card-footer">
+                            <div class="card-actions">
+                                {% if b.status == 'draft' or b.status == 'scheduled' or b.status == 'failed' %}
+                                <button class="btn-icon launch" onclick="launchBroadcast('{{ b.id }}')" title="Запустить">🚀</button>
                                 {% endif %}
-                                
-                                <!-- Футер с кнопками -->
-                                <div class="broadcast-footer">
-                                    <div class="broadcast-actions">
-                                        {% if b.status == 'draft' or b.status == 'scheduled' or b.status == 'failed' %}
-                                        <button class="btn btn-launch btn-sm" onclick="launchBroadcast('{{ b.id }}')">
-                                            🚀 Запустить
-                                        </button>
-                                        {% endif %}
-                                    </div>
-                                    {% if b.status != 'sending' %}
-                                    <button class="btn-delete-icon" onclick="deleteBroadcast('{{ b.id }}')" title="Удалить">🗑️</button>
-                                    {% endif %}
-                                </div>
                             </div>
+                            {% if b.status != 'sending' %}
+                            <button class="btn-icon delete" onclick="deleteBroadcast('{{ b.id }}')" title="Удалить">🗑️</button>
+                            {% endif %}
                         </div>
-                        {% endfor %}
-                    {% else %}
-                        <div class="empty-state" style="grid-column: 1 / -1;">
-                            <div class="empty-icon">📭</div>
-                            <div class="empty-text">Нет рассылок. Создайте первую!</div>
-                        </div>
-                    {% endif %}
-                </div>
-            </div>
-            
-            <!-- Форма создания -->
-            <div class="card">
-                <div class="card-header">
-                    <span class="card-title">✨ Новая рассылка</span>
-                </div>
-                <div class="card-body">
-                    <form id="create-form" onsubmit="createBroadcast(event)">
-                        <div class="form-group">
-                            <label class="form-label">Название *</label>
-                            <input type="text" name="title" class="form-input" placeholder="Новогодняя акция" required>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label class="form-label">Текст сообщения *</label>
-                            <input type="hidden" name="message_text" id="message-text-input">
-                            <div class="editor-container">
-                                <div class="editor-toolbar">
-                                    <button type="button" class="editor-btn editor-btn-bold" onclick="formatText('bold')" title="Жирный (Ctrl+B)">B</button>
-                                    <button type="button" class="editor-btn editor-btn-italic" onclick="formatText('italic')" title="Курсив (Ctrl+I)">I</button>
-                                    <button type="button" class="editor-btn editor-btn-strike" onclick="formatText('strikeThrough')" title="Зачёркнутый">S</button>
-                                    <button type="button" class="editor-btn editor-btn-code" onclick="formatText('code')" title="Код">&lt;/&gt;</button>
-                                    <div class="editor-divider"></div>
-                                    <button type="button" class="editor-btn" onclick="insertLink()" title="Ссылка">🔗</button>
-                                    <button type="button" class="editor-btn" onclick="insertEmoji('👋')" title="Эмодзи">😊</button>
-                                </div>
-                                <div class="editor-content" 
-                                     id="message-editor" 
-                                     contenteditable="true" 
-                                     data-placeholder="Напишите текст рассылки..."></div>
-                            </div>
-                            <div class="form-hint">Выделите текст и нажмите кнопку для форматирования</div>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label class="form-label">Изображение</label>
-                            <input type="hidden" name="message_photo_url" id="photo-url-input">
-                            <div class="image-upload-area" id="upload-area" onclick="document.getElementById('file-input').click()">
-                                <div id="upload-placeholder">
-                                    <div style="font-size: 32px; margin-bottom: 8px;">📷</div>
-                                    <div>Нажмите или перетащите изображение</div>
-                                    <div class="form-hint">JPG, PNG, GIF, WebP до 10 МБ</div>
-                                </div>
-                                <div id="image-preview" class="image-preview" style="display: none;">
-                                    <img id="preview-img" src="" alt="Preview">
-                                    <button type="button" class="remove-image" onclick="event.stopPropagation(); removeImage()">×</button>
-                                </div>
-                            </div>
-                            <input type="file" id="file-input" accept="image/*" style="display: none;" onchange="handleImageSelect(event)">
-                        </div>
-                        
-                        <div class="form-group">
-                            <label class="form-label">Аудитория</label>
-                            <select name="target_audience" class="form-select">
-                                <option value="all">👥 Все пользователи</option>
-                                <option value="premium">⭐ Premium</option>
-                                <option value="free">🆓 Бесплатные</option>
-                            </select>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label class="form-label">Запланировать на</label>
-                            <input type="datetime-local" name="scheduled_at" class="form-input">
-                            <div class="form-hint">Оставьте пустым для отправки вручную</div>
-                        </div>
-                        
-                        <button type="submit" class="btn btn-create" id="submit-btn">
-                            ✨ Создать рассылку
-                        </button>
-                    </form>
-                </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state" style="grid-column: 1 / -1;">
+                        <div class="empty-icon">📭</div>
+                        <div class="empty-text">Нет рассылок. Нажмите + чтобы создать!</div>
+                    </div>
+                {% endif %}
             </div>
         </div>
     </section>
 </div>
 
+<!-- Кнопка создания -->
+<button class="btn-create-new" onclick="openModal()" title="Создать рассылку">+</button>
+
+<!-- Модальное окно -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+    <div class="modal" onclick="event.stopPropagation()">
+        <div class="modal-header">
+            <h3 class="modal-title">✨ Новая рассылка</h3>
+            <button class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="create-form" onsubmit="createBroadcast(event)">
+                <div class="form-group">
+                    <label class="form-label">Название *</label>
+                    <input type="text" name="title" class="form-input" placeholder="Новогодняя акция" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Текст сообщения *</label>
+                    <input type="hidden" name="message_text" id="message-text-input">
+                    <div class="editor-container">
+                        <div class="editor-toolbar">
+                            <button type="button" class="editor-btn editor-btn-bold" onclick="formatText('bold')" title="Жирный (Ctrl+B)">B</button>
+                            <button type="button" class="editor-btn editor-btn-italic" onclick="formatText('italic')" title="Курсив (Ctrl+I)">I</button>
+                            <button type="button" class="editor-btn editor-btn-strike" onclick="formatText('strikeThrough')" title="Зачёркнутый">S</button>
+                            <button type="button" class="editor-btn editor-btn-code" onclick="formatText('code')" title="Код">&lt;/&gt;</button>
+                            <div class="editor-divider"></div>
+                            <button type="button" class="editor-btn" onclick="insertLink()" title="Ссылка">🔗</button>
+                        </div>
+                        <div class="editor-content" 
+                             id="message-editor" 
+                             contenteditable="true" 
+                             data-placeholder="Напишите текст рассылки..."></div>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Изображение</label>
+                    <input type="hidden" name="message_photo_url" id="photo-url-input">
+                    <div class="image-upload-area" id="upload-area" onclick="document.getElementById('file-input').click()">
+                        <div id="upload-placeholder">
+                            <div style="font-size: 24px; margin-bottom: 4px;">📷</div>
+                            <div style="font-size: 13px;">Нажмите для загрузки</div>
+                        </div>
+                        <div id="image-preview" class="image-preview" style="display: none;">
+                            <img id="preview-img" src="" alt="Preview">
+                            <button type="button" class="remove-image" onclick="event.stopPropagation(); removeImage()">×</button>
+                        </div>
+                    </div>
+                    <input type="file" id="file-input" accept="image/*" style="display: none;" onchange="handleImageSelect(event)">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Аудитория</label>
+                    <select name="target_audience" class="form-select">
+                        <option value="all">👥 Все пользователи</option>
+                        <option value="premium">⭐ Premium</option>
+                        <option value="free">🆓 Бесплатные</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Запланировать</label>
+                    <input type="datetime-local" name="scheduled_at" class="form-input">
+                </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn" style="background: #f3f4f6; color: #374151;" onclick="closeModal()">Отмена</button>
+            <button type="submit" class="btn btn-create" id="submit-btn" form="create-form">✨ Создать</button>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script>
 const csrfToken = '{{ csrf_token }}';
+
+// ============================================================================
+// MODAL
+// ============================================================================
+
+function openModal() {
+    document.getElementById('modal-overlay').classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeModal(event) {
+    if (event && event.target !== event.currentTarget) return;
+    document.getElementById('modal-overlay').classList.remove('active');
+    document.body.style.overflow = '';
+}
+
+// Close on Escape
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeModal();
+});
+
+// ============================================================================
+// TEXT EXPAND
+// ============================================================================
+
+function toggleText(id) {
+    const text = document.getElementById('text-' + id);
+    const btn = text.nextElementSibling;
+    
+    if (text.classList.contains('collapsed')) {
+        text.classList.remove('collapsed');
+        text.classList.add('expanded');
+        btn.textContent = 'Свернуть';
+    } else {
+        text.classList.remove('expanded');
+        text.classList.add('collapsed');
+        btn.textContent = 'Читать далее';
+    }
+}
 
 // ============================================================================
 // RICH TEXT EDITOR
@@ -881,21 +1042,17 @@ function formatText(command) {
     editor.focus();
     
     if (command === 'code') {
-        // Специальная обработка для code
         const selection = window.getSelection();
         if (selection.rangeCount > 0) {
             const range = selection.getRangeAt(0);
             const selectedText = range.toString();
             
             if (selectedText) {
-                // Проверяем, уже обёрнуто ли в code
                 const parentCode = selection.anchorNode.parentElement.closest('code');
                 if (parentCode) {
-                    // Удаляем code тег
                     const text = document.createTextNode(parentCode.textContent);
                     parentCode.parentNode.replaceChild(text, parentCode);
                 } else {
-                    // Создаём code элемент
                     const code = document.createElement('code');
                     range.surroundContents(code);
                 }
@@ -1020,7 +1177,9 @@ async function createBroadcast(e) {
             showAlert('✅ Рассылка создана!');
             form.reset();
             clearEditor();
-            setTimeout(() => location.reload(), 1000);
+            removeImage();
+            closeModal();
+            setTimeout(() => location.reload(), 800);
         } else {
             showAlert(data.error || 'Ошибка', 'error');
         }
@@ -1028,7 +1187,7 @@ async function createBroadcast(e) {
         showAlert('Ошибка сети', 'error');
     } finally {
         btn.disabled = false;
-        btn.textContent = '✨ Создать рассылку';
+        btn.textContent = '✨ Создать';
     }
 }
 
