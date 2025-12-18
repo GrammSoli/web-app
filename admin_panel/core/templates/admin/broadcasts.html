@@ -6,11 +6,22 @@
 {% block extrahead %}
 {{ block.super }}
 <style>
+    /* Force dark background */
+    body, html {
+        background: #0f172a !important;
+    }
+    
+    #content, .container-fluid, main {
+        background: #0f172a !important;
+    }
+    
     .broadcasts-page {
         padding: 32px;
         max-width: 1200px;
         margin: 0 auto;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: #0f172a;
+        min-height: 100vh;
     }
     
     /* Header */
