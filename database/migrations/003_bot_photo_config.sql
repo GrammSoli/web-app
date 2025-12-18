@@ -16,7 +16,7 @@ EXCEPTION
 END $$;
 
 -- Добавляем конфигурационные записи для фотографий бота
-INSERT INTO app.app_config (key, value, value_type, category, description, default_value, is_secret, is_active)
+INSERT INTO app.app_config (key, value, value_type, category, description, default_value)
 VALUES 
 -- Фото для приветствия новых пользователей
 ('bot.welcome_photo_url', '', 'string', 'bot', 'URL фото для приветствия новых пользователей (команда /start для пользователей без timezone)', ''),
