@@ -333,6 +333,11 @@
         color: #059669;
     }
     
+    .btn-icon.edit:hover {
+        background: #DBEAFE;
+        color: #2563EB;
+    }
+    
     .btn-icon.delete:hover {
         background: #FEE2E2;
         color: #DC2626;
@@ -902,6 +907,7 @@
                         <div class="card-footer">
                             <div class="card-actions">
                                 {% if b.status == 'draft' or b.status == 'scheduled' or b.status == 'failed' %}
+                                <button class="btn-icon edit" onclick="editBroadcast('{{ b.id }}')" title="Редактировать">✏️</button>
                                 <button class="btn-icon launch" onclick="launchBroadcast('{{ b.id }}')" title="Запустить">🚀</button>
                                 {% endif %}
                             </div>
@@ -933,7 +939,7 @@
             <button class="modal-close" onclick="closeModal()">&times;</button>
         </div>
         <div class="modal-body">
-            <form id="create-form" onsubmit="createBroadcast(event)">
+            <form id="create-form" onsubmit="saveBroadcast(event)">
                 <div class="form-group">
                     <label class="form-label">Название *</label>
                     <input type="text" name="title" class="form-input" placeholder="Новогодняя акция" required>
@@ -1012,6 +1018,8 @@ function closeModal(event) {
     if (event && event.target !== event.currentTarget) return;
     document.getElementById('modal-overlay').classList.remove('active');
     document.body.style.overflow = '';
+    // Сбрасываем форму при закрытии
+    if (typeof resetForm === 'function') resetForm();
 }
 
 // Close on Escape
@@ -1162,52 +1170,6 @@ function showAlert(message, type = 'success') {
     setTimeout(() => alert.remove(), 4000);
 }
 
-async function createBroadcast(e) {
-    e.preventDefault();
-    const form = document.getElementById('create-form');
-    const btn = document.getElementById('submit-btn');
-    
-    // Получаем HTML из редактора
-    const messageText = getEditorHTML();
-    if (!messageText.trim()) {
-        showAlert('Введите текст сообщения', 'error');
-        return;
-    }
-    
-    // Записываем в hidden input
-    document.getElementById('message-text-input').value = messageText;
-    
-    const formData = new FormData(form);
-    
-    btn.disabled = true;
-    btn.textContent = '⏳ Создание...';
-    
-    try {
-        const res = await fetch('/admin/broadcasts/api/create/', {
-            method: 'POST',
-            headers: { 'X-CSRFToken': csrfToken },
-            body: formData
-        });
-        const data = await res.json();
-        
-        if (data.success) {
-            showAlert('✅ Рассылка создана!');
-            form.reset();
-            clearEditor();
-            removeImage();
-            closeModal();
-            setTimeout(() => location.reload(), 800);
-        } else {
-            showAlert(data.error || 'Ошибка', 'error');
-        }
-    } catch (err) {
-        showAlert('Ошибка сети', 'error');
-    } finally {
-        btn.disabled = false;
-        btn.textContent = '✨ Создать';
-    }
-}
-
 async function launchBroadcast(id) {
     if (!confirm('Запустить рассылку?')) return;
     
@@ -1248,6 +1210,115 @@ async function deleteBroadcast(id) {
     } catch (err) {
         showAlert('Ошибка сети', 'error');
     }
+}
+
+// ============================================================================
+// EDIT BROADCAST
+// ============================================================================
+
+let editingBroadcastId = null;
+
+async function editBroadcast(id) {
+    try {
+        const res = await fetch(`/admin/broadcasts/api/${id}/get/`);
+        const data = await res.json();
+        
+        if (!data.success) {
+            showAlert(data.error || 'Ошибка загрузки', 'error');
+            return;
+        }
+        
+        const b = data.broadcast;
+        editingBroadcastId = id;
+        
+        // Заполняем форму
+        const form = document.getElementById('create-form');
+        form.querySelector('[name="title"]').value = b.title;
+        document.getElementById('message-editor').innerHTML = b.message_text;
+        form.querySelector('[name="target_audience"]').value = b.target_audience;
+        
+        // Дата
+        if (b.scheduled_at) {
+            const dt = new Date(b.scheduled_at);
+            const localDt = new Date(dt.getTime() - dt.getTimezoneOffset() * 60000);
+            form.querySelector('[name="scheduled_at"]').value = localDt.toISOString().slice(0, 16);
+        } else {
+            form.querySelector('[name="scheduled_at"]').value = '';
+        }
+        
+        // Изображение
+        if (b.message_photo_url) {
+            document.getElementById('photo-url-input').value = b.message_photo_url;
+            document.getElementById('preview-img').src = b.message_photo_url;
+            document.getElementById('upload-placeholder').style.display = 'none';
+            document.getElementById('image-preview').style.display = 'block';
+        } else {
+            removeImage();
+        }
+        
+        // Меняем текст кнопки и заголовок
+        document.getElementById('submit-btn').textContent = '💾 Сохранить';
+        document.querySelector('.modal-title').textContent = '✏️ Редактирование';
+        
+        openModal();
+    } catch (err) {
+        showAlert('Ошибка сети', 'error');
+    }
+}
+
+async function saveBroadcast(e) {
+    e.preventDefault();
+    const form = document.getElementById('create-form');
+    const btn = document.getElementById('submit-btn');
+    
+    const messageText = getEditorHTML();
+    if (!messageText.trim()) {
+        showAlert('Введите текст сообщения', 'error');
+        return;
+    }
+    
+    document.getElementById('message-text-input').value = messageText;
+    const formData = new FormData(form);
+    
+    btn.disabled = true;
+    btn.textContent = '⏳ Сохранение...';
+    
+    const url = editingBroadcastId 
+        ? `/admin/broadcasts/api/${editingBroadcastId}/update/`
+        : '/admin/broadcasts/api/create/';
+    
+    try {
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken },
+            body: formData
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            showAlert(editingBroadcastId ? '💾 Сохранено!' : '✅ Создано!');
+            resetForm();
+            closeModal();
+            setTimeout(() => location.reload(), 800);
+        } else {
+            showAlert(data.error || 'Ошибка', 'error');
+        }
+    } catch (err) {
+        showAlert('Ошибка сети', 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = editingBroadcastId ? '💾 Сохранить' : '✨ Создать';
+    }
+}
+
+function resetForm() {
+    const form = document.getElementById('create-form');
+    form.reset();
+    clearEditor();
+    removeImage();
+    editingBroadcastId = null;
+    document.getElementById('submit-btn').textContent = '✨ Создать';
+    document.querySelector('.modal-title').textContent = '✨ Новая рассылка';
 }
 
 // Image upload functions

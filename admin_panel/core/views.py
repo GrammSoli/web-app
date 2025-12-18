@@ -333,6 +333,72 @@ def broadcasts_api_delete(request, broadcast_id: str):
     except Broadcast.DoesNotExist:
         return JsonResponse({'error': 'Рассылка не найдена'}, status=404)
 
+@staff_member_required
+def broadcasts_api_get(request, broadcast_id: str):
+    """API: Получение данных рассылки."""
+    try:
+        broadcast = Broadcast.objects.get(id=broadcast_id)
+        return JsonResponse({
+            'success': True,
+            'broadcast': {
+                'id': str(broadcast.id),
+                'title': broadcast.title,
+                'message_text': broadcast.message_text,
+                'message_photo_url': broadcast.message_photo_url or '',
+                'target_audience': broadcast.target_audience,
+                'scheduled_at': broadcast.scheduled_at.isoformat() if broadcast.scheduled_at else '',
+                'status': broadcast.status,
+            }
+        })
+    except Broadcast.DoesNotExist:
+        return JsonResponse({'error': 'Рассылка не найдена'}, status=404)
+
+
+@staff_member_required
+def broadcasts_api_update(request, broadcast_id: str):
+    """API: Редактирование рассылки."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    
+    try:
+        broadcast = Broadcast.objects.get(id=broadcast_id)
+        
+        # Нельзя редактировать отправленные или в процессе
+        if broadcast.status in ('sending', 'sent'):
+            return JsonResponse({'error': 'Нельзя редактировать отправленную рассылку'}, status=400)
+        
+        title = request.POST.get('title', '').strip()
+        message_text = request.POST.get('message_text', '').strip()
+        message_photo_url = request.POST.get('message_photo_url', '').strip() or None
+        target_audience = request.POST.get('target_audience', 'all')
+        scheduled_at_str = request.POST.get('scheduled_at', '').strip()
+        
+        if not title or not message_text:
+            return JsonResponse({'error': 'Заполните название и текст'}, status=400)
+        
+        # Парсим дату
+        scheduled_at = None
+        status = 'draft'
+        if scheduled_at_str:
+            try:
+                from datetime import datetime
+                scheduled_at = timezone.make_aware(datetime.fromisoformat(scheduled_at_str))
+                status = 'scheduled'
+            except ValueError:
+                pass
+        
+        broadcast.title = title
+        broadcast.message_text = message_text
+        broadcast.message_photo_url = message_photo_url
+        broadcast.target_audience = target_audience
+        broadcast.scheduled_at = scheduled_at
+        broadcast.status = status
+        broadcast.save()
+        
+        return JsonResponse({'success': True})
+        
+    except Broadcast.DoesNotExist:
+        return JsonResponse({'error': 'Рассылка не найдена'}, status=404)
 
 @staff_member_required
 def broadcasts_api_upload_image(request):

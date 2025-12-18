@@ -17,6 +17,8 @@ from core.views import (
     broadcasts_api_launch,
     broadcasts_api_delete,
     broadcasts_api_upload_image,
+    broadcasts_api_get,
+    broadcasts_api_update,
 )
 
 urlpatterns = [
@@ -28,6 +30,8 @@ urlpatterns = [
     path('admin/broadcasts/', broadcasts_page, name='broadcasts'),
     path('admin/broadcasts/api/list/', broadcasts_api_list, name='broadcasts_api_list'),
     path('admin/broadcasts/api/create/', broadcasts_api_create, name='broadcasts_api_create'),
+    path('admin/broadcasts/api/<str:broadcast_id>/get/', broadcasts_api_get, name='broadcasts_api_get'),
+    path('admin/broadcasts/api/<str:broadcast_id>/update/', broadcasts_api_update, name='broadcasts_api_update'),
     path('admin/broadcasts/api/<str:broadcast_id>/launch/', broadcasts_api_launch, name='broadcasts_api_launch'),
     path('admin/broadcasts/api/<str:broadcast_id>/delete/', broadcasts_api_delete, name='broadcasts_api_delete'),
     path('admin/broadcasts/api/upload-image/', broadcasts_api_upload_image, name='broadcasts_api_upload_image'),
