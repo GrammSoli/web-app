@@ -229,6 +229,7 @@
         line-height: 1.5;
         margin-bottom: 8px;
         flex: 1;
+        white-space: pre-line;
     }
     
     .card-text.collapsed {
@@ -236,8 +237,12 @@
         -webkit-line-clamp: 3;
         -webkit-box-orient: vertical;
         overflow: hidden;
+        white-space: normal;
     }
     
+    .card-text.expanded {
+        white-space: pre-line;
+    }
     .card-text.expanded {
         display: block;
     }
