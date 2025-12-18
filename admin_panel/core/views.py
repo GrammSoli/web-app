@@ -261,16 +261,29 @@ def broadcasts_api_create(request):
     message_text = request.POST.get('message_text', '').strip()
     message_photo_url = request.POST.get('message_photo_url', '').strip() or None
     target_audience = request.POST.get('target_audience', 'all')
+    scheduled_at_str = request.POST.get('scheduled_at', '').strip()
     
     if not title or not message_text:
         return JsonResponse({'error': 'Заполните название и текст'}, status=400)
+    
+    # Парсим дату если указана
+    scheduled_at = None
+    status = 'draft'
+    if scheduled_at_str:
+        try:
+            from datetime import datetime
+            scheduled_at = timezone.make_aware(datetime.fromisoformat(scheduled_at_str))
+            status = 'scheduled'
+        except ValueError:
+            pass
     
     broadcast = Broadcast.objects.create(
         title=title,
         message_text=message_text,
         message_photo_url=message_photo_url,
         target_audience=target_audience,
-        status='draft',
+        scheduled_at=scheduled_at,
+        status=status,
     )
     
     return JsonResponse({
