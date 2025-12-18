@@ -11,6 +11,12 @@
         padding: 0;
     }
     
+    /* Кнопка назад */
+    .back-btn:hover {
+        background: var(--color-bg-secondary, #f3f4f6) !important;
+        transform: translateX(-2px);
+    }
+    
     /* Фильтр периода */
     .period-filter {
         background: var(--color-bg-primary, #fff);
@@ -283,6 +289,14 @@
 
 {% block content %}
 <div class="dashboard-container">
+    
+    <!-- Шапка с кнопкой назад -->
+    <div class="dashboard-header" style="display: flex; align-items: center; gap: 16px; margin-bottom: 24px;">
+        <a href="/admin/" class="back-btn" style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; background: var(--color-bg-primary, #fff); border-radius: 10px; text-decoration: none; color: var(--color-text-primary, #374151); font-weight: 500; box-shadow: 0 1px 3px rgba(0,0,0,0.1); transition: all 0.2s;">
+            <span style="font-size: 18px;">←</span> Назад в админку
+        </a>
+        <h1 style="margin: 0; font-size: 24px; font-weight: 700; color: var(--color-text-primary, #1f2937);">📊 Аналитика</h1>
+    </div>
     
     <!-- Фильтр периода -->
     <div class="period-filter">
