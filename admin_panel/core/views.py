@@ -262,6 +262,8 @@ def broadcasts_api_create(request):
     message_photo_url = request.POST.get('message_photo_url', '').strip() or None
     target_audience = request.POST.get('target_audience', 'all')
     scheduled_at_str = request.POST.get('scheduled_at', '').strip()
+    button_text = request.POST.get('button_text', '').strip() or None
+    button_url = request.POST.get('button_url', '').strip() or None
     
     if not title or not message_text:
         return JsonResponse({'error': 'Заполните название и текст'}, status=400)
@@ -287,6 +289,8 @@ def broadcasts_api_create(request):
         target_audience=target_audience,
         scheduled_at=scheduled_at,
         status=status,
+        button_text=button_text,
+        button_url=button_url,
     )
     
     return JsonResponse({
@@ -351,6 +355,8 @@ def broadcasts_api_get(request, broadcast_id: str):
                 'target_audience': broadcast.target_audience,
                 'scheduled_at': broadcast.scheduled_at.isoformat() if broadcast.scheduled_at else '',
                 'status': broadcast.status,
+                'button_text': broadcast.button_text or '',
+                'button_url': broadcast.button_url or '',
             }
         })
     except Broadcast.DoesNotExist:
@@ -375,6 +381,8 @@ def broadcasts_api_update(request, broadcast_id: str):
         message_photo_url = request.POST.get('message_photo_url', '').strip() or None
         target_audience = request.POST.get('target_audience', 'all')
         scheduled_at_str = request.POST.get('scheduled_at', '').strip()
+        button_text = request.POST.get('button_text', '').strip() or None
+        button_url = request.POST.get('button_url', '').strip() or None
         
         if not title or not message_text:
             return JsonResponse({'error': 'Заполните название и текст'}, status=400)
@@ -399,6 +407,8 @@ def broadcasts_api_update(request, broadcast_id: str):
         broadcast.target_audience = target_audience
         broadcast.scheduled_at = scheduled_at
         broadcast.status = status
+        broadcast.button_text = button_text
+        broadcast.button_url = button_url
         broadcast.save()
         
         return JsonResponse({'success': True})

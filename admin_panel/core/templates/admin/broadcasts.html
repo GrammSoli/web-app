@@ -1003,6 +1003,21 @@
                     <label class="form-label">Запланировать</label>
                     <input type="datetime-local" name="scheduled_at" class="form-input">
                 </div>
+                
+                <!-- Inline кнопка -->
+                <div class="form-group">
+                    <label class="form-label" style="display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" id="button-toggle" onchange="toggleButtonFields()">
+                        <span>🔘 Добавить кнопку</span>
+                    </label>
+                    <div id="button-fields" style="display: none; margin-top: 12px;">
+                        <div style="display: flex; gap: 8px;">
+                            <input type="text" name="button_text" class="form-input" placeholder="Текст кнопки" style="flex: 1;">
+                            <input type="url" name="button_url" class="form-input" placeholder="https://..." style="flex: 2;">
+                        </div>
+                        <div class="form-hint">Кнопка появится под сообщением в Telegram</div>
+                    </div>
+                </div>
         </div>
         <div class="modal-footer">
             <button type="button" class="btn" style="background: #f3f4f6; color: #374151;" onclick="closeModal()">Отмена</button>
@@ -1065,6 +1080,22 @@ function toggleText(id) {
         text.classList.remove('expanded');
         text.classList.add('collapsed');
         btn.textContent = 'Читать далее';
+    }
+}
+
+// ============================================================================
+// BUTTON TOGGLE
+// ============================================================================
+
+function toggleButtonFields() {
+    const toggle = document.getElementById('button-toggle');
+    const fields = document.getElementById('button-fields');
+    fields.style.display = toggle.checked ? 'block' : 'none';
+    
+    if (!toggle.checked) {
+        // Очищаем поля при отключении
+        document.querySelector('[name="button_text"]').value = '';
+        document.querySelector('[name="button_url"]').value = '';
     }
 }
 
@@ -1266,6 +1297,20 @@ async function editBroadcast(id) {
             removeImage();
         }
         
+        // Кнопка
+        const buttonToggle = document.getElementById('button-toggle');
+        if (b.button_text && b.button_url) {
+            buttonToggle.checked = true;
+            document.getElementById('button-fields').style.display = 'block';
+            form.querySelector('[name="button_text"]').value = b.button_text;
+            form.querySelector('[name="button_url"]').value = b.button_url;
+        } else {
+            buttonToggle.checked = false;
+            document.getElementById('button-fields').style.display = 'none';
+            form.querySelector('[name="button_text"]').value = '';
+            form.querySelector('[name="button_url"]').value = '';
+        }
+        
         // Меняем текст кнопки и заголовок
         document.getElementById('submit-btn').textContent = '💾 Сохранить';
         document.querySelector('.modal-title').textContent = '✏️ Редактирование';
@@ -1329,6 +1374,9 @@ function resetForm() {
     editingBroadcastId = null;
     document.getElementById('submit-btn').textContent = '✨ Создать';
     document.querySelector('.modal-title').textContent = '✨ Новая рассылка';
+    // Сбросить кнопку
+    document.getElementById('button-toggle').checked = false;
+    document.getElementById('button-fields').style.display = 'none';
 }
 
 // Image upload functions

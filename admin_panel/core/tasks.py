@@ -204,7 +204,9 @@ async def send_telegram_message_async(
     chat_id: int,
     text: str,
     photo_url: Optional[str] = None,
-    parse_mode: str = 'HTML'
+    parse_mode: str = 'HTML',
+    button_text: Optional[str] = None,
+    button_url: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Асинхронная отправка сообщения через Telegram Bot API.
@@ -214,6 +216,15 @@ async def send_telegram_message_async(
         {success: bool, error: str | None, blocked: bool}
     """
     base_url = f"https://api.telegram.org/bot{bot_token}"
+    
+    # Формируем inline-клавиатуру если есть кнопка
+    reply_markup = None
+    if button_text and button_url:
+        reply_markup = {
+            "inline_keyboard": [[
+                {"text": button_text, "url": button_url}
+            ]]
+        }
     
     try:
         if photo_url:
@@ -231,6 +242,9 @@ async def send_telegram_message_async(
                 "text": text,
                 "parse_mode": 'HTML',
             }
+        
+        if reply_markup:
+            payload["reply_markup"] = reply_markup
         
         response = await client.post(url, json=payload, timeout=30.0)
         data = response.json()
@@ -275,7 +289,9 @@ def send_telegram_message_sync(
     chat_id: int,
     text: str,
     photo_url: Optional[str] = None,
-    parse_mode: Optional[str] = 'HTML'
+    parse_mode: Optional[str] = 'HTML',
+    button_text: Optional[str] = None,
+    button_url: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Синхронная отправка сообщения через Telegram Bot API.
@@ -283,6 +299,15 @@ def send_telegram_message_sync(
     При ошибке парсинга - отправляет как plain text.
     """
     base_url = f"https://api.telegram.org/bot{bot_token}"
+    
+    # Формируем inline-клавиатуру если есть кнопка
+    reply_markup = None
+    if button_text and button_url:
+        reply_markup = {
+            "inline_keyboard": [[
+                {"text": button_text, "url": button_url}
+            ]]
+        }
     
     def make_request(msg_text: str, use_parse_mode: bool = True):
         if photo_url:
@@ -302,6 +327,9 @@ def send_telegram_message_sync(
             }
             if use_parse_mode:
                 payload["parse_mode"] = 'HTML'
+        
+        if reply_markup:
+            payload["reply_markup"] = reply_markup
         
         with httpx.Client(timeout=30.0) as client:
             return client.post(url, json=payload)
@@ -462,7 +490,9 @@ def execute_broadcast(self, broadcast_id: str) -> Dict[str, Any]:
             bot_token=bot_token,
             chat_id=telegram_id,
             text=broadcast.message_text,
-            photo_url=broadcast.message_photo_url
+            photo_url=broadcast.message_photo_url,
+            button_text=broadcast.button_text,
+            button_url=broadcast.button_url
         )
         
         if result['success']:

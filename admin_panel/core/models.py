@@ -247,6 +247,10 @@ class Broadcast(models.Model):
     started_at = models.DateTimeField(blank=True, null=True, verbose_name='Начало')
     completed_at = models.DateTimeField(blank=True, null=True, verbose_name='Завершено')
     
+    # Inline кнопка под сообщением
+    button_text = models.CharField(max_length=64, blank=True, null=True, verbose_name='Текст кнопки')
+    button_url = models.URLField(max_length=512, blank=True, null=True, verbose_name='URL кнопки')
+    
     total_recipients = models.IntegerField(default=0, blank=True, null=True, verbose_name='Всего получателей')
     sent_count = models.IntegerField(default=0, blank=True, null=True, verbose_name='Отправлено')
     failed_count = models.IntegerField(default=0, blank=True, null=True, verbose_name='Ошибок')
