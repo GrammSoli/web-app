@@ -266,15 +266,18 @@ def broadcasts_api_create(request):
     if not title or not message_text:
         return JsonResponse({'error': 'Заполните название и текст'}, status=400)
     
-    # Парсим дату если указана
+    # Парсим дату если указана (время в форме - московское)
     scheduled_at = None
     status = 'draft'
     if scheduled_at_str:
         try:
             from datetime import datetime
-            scheduled_at = timezone.make_aware(datetime.fromisoformat(scheduled_at_str))
+            import pytz
+            moscow_tz = pytz.timezone('Europe/Moscow')
+            naive_dt = datetime.fromisoformat(scheduled_at_str)
+            scheduled_at = moscow_tz.localize(naive_dt)
             status = 'scheduled'
-        except ValueError:
+        except (ValueError, Exception):
             pass
     
     broadcast = Broadcast.objects.create(
@@ -376,15 +379,18 @@ def broadcasts_api_update(request, broadcast_id: str):
         if not title or not message_text:
             return JsonResponse({'error': 'Заполните название и текст'}, status=400)
         
-        # Парсим дату
+        # Парсим дату (время в форме - московское)
         scheduled_at = None
         status = 'draft'
         if scheduled_at_str:
             try:
                 from datetime import datetime
-                scheduled_at = timezone.make_aware(datetime.fromisoformat(scheduled_at_str))
+                import pytz
+                moscow_tz = pytz.timezone('Europe/Moscow')
+                naive_dt = datetime.fromisoformat(scheduled_at_str)
+                scheduled_at = moscow_tz.localize(naive_dt)
                 status = 'scheduled'
-            except ValueError:
+            except (ValueError, Exception):
                 pass
         
         broadcast.title = title
