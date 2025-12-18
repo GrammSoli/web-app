@@ -325,7 +325,6 @@ class BroadcastAdmin(ModelAdmin):
     
     readonly_fields = [
         'id',
-        'status',
         'started_at',
         'completed_at',
         'sent_count',
@@ -348,18 +347,14 @@ class BroadcastAdmin(ModelAdmin):
             'description': 'Текст поддерживает HTML-теги: <b>, <i>, <a href="...">'
         }),
         ('Настройки', {
-            'fields': ('target_audience', 'scheduled_at'),
-        }),
-        ('Статус', {
-            'fields': ('status', 'started_at', 'completed_at'),
-            'classes': ('collapse',),
+            'fields': ('target_audience', 'status', 'scheduled_at'),
         }),
         ('Статистика', {
             'fields': ('total_recipients', 'sent_count', 'failed_count', 'last_error'),
             'classes': ('collapse',),
         }),
         ('Метаданные', {
-            'fields': ('date_created', 'date_updated'),
+            'fields': ('started_at', 'completed_at', 'date_created', 'date_updated'),
             'classes': ('collapse',),
         }),
     )
