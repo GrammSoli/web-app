@@ -7,5 +7,9 @@ import django
 django.setup()
 from django.db import connection
 c = connection.cursor()
-c.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'app'")
-print('Tables in app schema:', c.fetchall())
+
+# Check broadcasts table structure
+c.execute("SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_schema = 'app' AND table_name = 'broadcasts' ORDER BY ordinal_position")
+print('Broadcasts table columns:')
+for row in c.fetchall():
+    print(f'  {row[0]}: {row[1]} (nullable: {row[2]})')
