@@ -7,7 +7,7 @@
 - Какие действия (actions) доступны
 """
 
-from django.contrib import admin
+from django.contrib import admin, messages
 from unfold.admin import ModelAdmin
 from unfold.decorators import display
 
