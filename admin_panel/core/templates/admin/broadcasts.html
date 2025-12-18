@@ -460,6 +460,94 @@
         font-family: inherit;
     }
     
+    /* Rich Text Editor */
+    .editor-container {
+        border: 1px solid var(--color-border, #e5e7eb);
+        border-radius: 8px;
+        overflow: hidden;
+        background: var(--color-bg-primary, #fff);
+    }
+    
+    .editor-toolbar {
+        display: flex;
+        gap: 4px;
+        padding: 8px 12px;
+        background: var(--color-bg-secondary, #f9fafb);
+        border-bottom: 1px solid var(--color-border, #e5e7eb);
+        flex-wrap: wrap;
+    }
+    
+    .editor-btn {
+        width: 32px;
+        height: 32px;
+        border: none;
+        background: transparent;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--color-text-secondary, #6b7280);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.15s;
+    }
+    
+    .editor-btn:hover {
+        background: var(--color-bg-primary, #fff);
+        color: var(--color-text-primary, #1f2937);
+    }
+    
+    .editor-btn.active {
+        background: #8B5CF6;
+        color: white;
+    }
+    
+    .editor-btn-bold { font-weight: 700; }
+    .editor-btn-italic { font-style: italic; }
+    .editor-btn-strike { text-decoration: line-through; }
+    .editor-btn-code { font-family: monospace; font-size: 13px; }
+    
+    .editor-divider {
+        width: 1px;
+        background: var(--color-border, #e5e7eb);
+        margin: 4px 6px;
+    }
+    
+    .editor-content {
+        min-height: 120px;
+        padding: 12px 14px;
+        outline: none;
+        font-size: 14px;
+        line-height: 1.6;
+        color: var(--color-text-primary, #1f2937);
+    }
+    
+    .editor-content:focus {
+        box-shadow: inset 0 0 0 2px rgba(139, 92, 246, 0.2);
+    }
+    
+    .editor-content:empty::before {
+        content: attr(data-placeholder);
+        color: var(--color-text-secondary, #9ca3af);
+        pointer-events: none;
+    }
+    
+    .editor-content b, .editor-content strong { font-weight: 600; }
+    .editor-content i, .editor-content em { font-style: italic; }
+    .editor-content s { text-decoration: line-through; }
+    .editor-content code {
+        background: #f3f4f6;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-family: monospace;
+        font-size: 13px;
+    }
+    .editor-content a {
+        color: #8B5CF6;
+        text-decoration: underline;
+    }
+    
     .form-hint {
         font-size: 12px;
         color: var(--color-text-secondary, #9ca3af);
@@ -667,8 +755,23 @@
                         
                         <div class="form-group">
                             <label class="form-label">Текст сообщения *</label>
-                            <textarea name="message_text" class="form-textarea" placeholder="Текст рассылки..." required></textarea>
-                            <div class="form-hint">Форматирование: &lt;b&gt;жирный&lt;/b&gt;, &lt;i&gt;курсив&lt;/i&gt;, &lt;code&gt;код&lt;/code&gt;, &lt;s&gt;зачёркнуто&lt;/s&gt;</div>
+                            <input type="hidden" name="message_text" id="message-text-input">
+                            <div class="editor-container">
+                                <div class="editor-toolbar">
+                                    <button type="button" class="editor-btn editor-btn-bold" onclick="formatText('bold')" title="Жирный (Ctrl+B)">B</button>
+                                    <button type="button" class="editor-btn editor-btn-italic" onclick="formatText('italic')" title="Курсив (Ctrl+I)">I</button>
+                                    <button type="button" class="editor-btn editor-btn-strike" onclick="formatText('strikeThrough')" title="Зачёркнутый">S</button>
+                                    <button type="button" class="editor-btn editor-btn-code" onclick="formatText('code')" title="Код">&lt;/&gt;</button>
+                                    <div class="editor-divider"></div>
+                                    <button type="button" class="editor-btn" onclick="insertLink()" title="Ссылка">🔗</button>
+                                    <button type="button" class="editor-btn" onclick="insertEmoji('👋')" title="Эмодзи">😊</button>
+                                </div>
+                                <div class="editor-content" 
+                                     id="message-editor" 
+                                     contenteditable="true" 
+                                     data-placeholder="Напишите текст рассылки..."></div>
+                            </div>
+                            <div class="form-hint">Выделите текст и нажмите кнопку для форматирования</div>
                         </div>
                         
                         <div class="form-group">
@@ -716,6 +819,113 @@
 <script>
 const csrfToken = '{{ csrf_token }}';
 
+// ============================================================================
+// RICH TEXT EDITOR
+// ============================================================================
+
+function formatText(command) {
+    const editor = document.getElementById('message-editor');
+    editor.focus();
+    
+    if (command === 'code') {
+        // Специальная обработка для code
+        const selection = window.getSelection();
+        if (selection.rangeCount > 0) {
+            const range = selection.getRangeAt(0);
+            const selectedText = range.toString();
+            
+            if (selectedText) {
+                // Проверяем, уже обёрнуто ли в code
+                const parentCode = selection.anchorNode.parentElement.closest('code');
+                if (parentCode) {
+                    // Удаляем code тег
+                    const text = document.createTextNode(parentCode.textContent);
+                    parentCode.parentNode.replaceChild(text, parentCode);
+                } else {
+                    // Создаём code элемент
+                    const code = document.createElement('code');
+                    range.surroundContents(code);
+                }
+            }
+        }
+    } else {
+        document.execCommand(command, false, null);
+    }
+}
+
+function insertLink() {
+    const url = prompt('Введите URL ссылки:', 'https://');
+    if (url && url !== 'https://') {
+        const selection = window.getSelection();
+        const selectedText = selection.toString() || 'ссылка';
+        
+        document.execCommand('insertHTML', false, `<a href="${url}">${selectedText}</a>`);
+    }
+}
+
+function insertEmoji(emoji) {
+    const editor = document.getElementById('message-editor');
+    editor.focus();
+    document.execCommand('insertText', false, emoji);
+}
+
+function getEditorHTML() {
+    const editor = document.getElementById('message-editor');
+    let html = editor.innerHTML;
+    
+    // Очищаем HTML от лишних атрибутов браузера
+    html = html.replace(/<div>/gi, '\n');
+    html = html.replace(/<\/div>/gi, '');
+    html = html.replace(/<br\s*\/?>/gi, '\n');
+    html = html.replace(/&nbsp;/gi, ' ');
+    
+    // Конвертируем strong/em в b/i для Telegram
+    html = html.replace(/<strong>/gi, '<b>');
+    html = html.replace(/<\/strong>/gi, '</b>');
+    html = html.replace(/<em>/gi, '<i>');
+    html = html.replace(/<\/em>/gi, '</i>');
+    html = html.replace(/<strike>/gi, '<s>');
+    html = html.replace(/<\/strike>/gi, '</s>');
+    
+    // Убираем span и другие неподдерживаемые теги, оставляя содержимое
+    html = html.replace(/<span[^>]*>/gi, '');
+    html = html.replace(/<\/span>/gi, '');
+    html = html.replace(/<font[^>]*>/gi, '');
+    html = html.replace(/<\/font>/gi, '');
+    
+    // Нормализуем переносы строк
+    html = html.replace(/\n\n+/g, '\n\n');
+    html = html.trim();
+    
+    return html;
+}
+
+function clearEditor() {
+    document.getElementById('message-editor').innerHTML = '';
+}
+
+// Keyboard shortcuts
+document.addEventListener('DOMContentLoaded', function() {
+    const editor = document.getElementById('message-editor');
+    if (editor) {
+        editor.addEventListener('keydown', function(e) {
+            if (e.ctrlKey || e.metaKey) {
+                if (e.key === 'b') {
+                    e.preventDefault();
+                    formatText('bold');
+                } else if (e.key === 'i') {
+                    e.preventDefault();
+                    formatText('italic');
+                }
+            }
+        });
+    }
+});
+
+// ============================================================================
+// ALERTS & FORMS
+// ============================================================================
+
 function showAlert(message, type = 'success') {
     const container = document.getElementById('alerts');
     const alert = document.createElement('div');
@@ -729,6 +939,17 @@ async function createBroadcast(e) {
     e.preventDefault();
     const form = document.getElementById('create-form');
     const btn = document.getElementById('submit-btn');
+    
+    // Получаем HTML из редактора
+    const messageText = getEditorHTML();
+    if (!messageText.trim()) {
+        showAlert('Введите текст сообщения', 'error');
+        return;
+    }
+    
+    // Записываем в hidden input
+    document.getElementById('message-text-input').value = messageText;
+    
     const formData = new FormData(form);
     
     btn.disabled = true;
@@ -745,6 +966,7 @@ async function createBroadcast(e) {
         if (data.success) {
             showAlert('✅ Рассылка создана!');
             form.reset();
+            clearEditor();
             setTimeout(() => location.reload(), 1000);
         } else {
             showAlert(data.error || 'Ошибка', 'error');

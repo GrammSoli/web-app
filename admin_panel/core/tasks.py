@@ -204,36 +204,32 @@ async def send_telegram_message_async(
     chat_id: int,
     text: str,
     photo_url: Optional[str] = None,
-    parse_mode: str = 'MarkdownV2'
+    parse_mode: str = 'HTML'
 ) -> Dict[str, Any]:
     """
     Асинхронная отправка сообщения через Telegram Bot API.
+    Использует HTML parse_mode.
     
     Returns:
         {success: bool, error: str | None, blocked: bool}
     """
     base_url = f"https://api.telegram.org/bot{bot_token}"
     
-    # Подготавливаем текст для MarkdownV2
-    prepared_text, actual_parse_mode = prepare_message_text(text)
-    
     try:
         if photo_url:
-            # Отправка фото с подписью
             url = f"{base_url}/sendPhoto"
             payload = {
                 "chat_id": chat_id,
                 "photo": photo_url,
-                "caption": prepared_text,
-                "parse_mode": actual_parse_mode,
+                "caption": text,
+                "parse_mode": 'HTML',
             }
         else:
-            # Отправка текста
             url = f"{base_url}/sendMessage"
             payload = {
                 "chat_id": chat_id,
-                "text": prepared_text,
-                "parse_mode": actual_parse_mode,
+                "text": text,
+                "parse_mode": 'HTML',
             }
         
         response = await client.post(url, json=payload, timeout=30.0)
@@ -279,18 +275,16 @@ def send_telegram_message_sync(
     chat_id: int,
     text: str,
     photo_url: Optional[str] = None,
-    parse_mode: Optional[str] = 'MarkdownV2'
+    parse_mode: Optional[str] = 'HTML'
 ) -> Dict[str, Any]:
     """
     Синхронная отправка сообщения через Telegram Bot API.
-    Автоматически конвертирует HTML в MarkdownV2.
+    Использует HTML parse_mode (нативная поддержка Telegram).
+    При ошибке парсинга - отправляет как plain text.
     """
     base_url = f"https://api.telegram.org/bot{bot_token}"
     
-    # Подготавливаем текст для MarkdownV2
-    prepared_text, actual_parse_mode = prepare_message_text(text)
-    
-    def make_request(use_parse_mode: bool = True, msg_text: str = prepared_text):
+    def make_request(msg_text: str, use_parse_mode: bool = True):
         if photo_url:
             url = f"{base_url}/sendPhoto"
             payload = {
@@ -298,30 +292,33 @@ def send_telegram_message_sync(
                 "photo": photo_url,
                 "caption": msg_text,
             }
-            if use_parse_mode and actual_parse_mode:
-                payload["parse_mode"] = actual_parse_mode
+            if use_parse_mode:
+                payload["parse_mode"] = 'HTML'
         else:
             url = f"{base_url}/sendMessage"
             payload = {
                 "chat_id": chat_id,
                 "text": msg_text,
             }
-            if use_parse_mode and actual_parse_mode:
-                payload["parse_mode"] = actual_parse_mode
+            if use_parse_mode:
+                payload["parse_mode"] = 'HTML'
         
         with httpx.Client(timeout=30.0) as client:
             return client.post(url, json=payload)
     
     try:
-        response = make_request(use_parse_mode=True)
+        response = make_request(text, use_parse_mode=True)
         data = response.json()
         
-        # Если ошибка парсинга MarkdownV2 - пробуем plain text (оригинальный)
+        # Если ошибка парсинга HTML - пробуем plain text
         if not data.get('ok'):
             error_desc = data.get('description', '').lower()
             if 'parse' in error_desc or 'entities' in error_desc or "can't" in error_desc:
-                logger.warning(f"MarkdownV2 parse error, retrying as plain text: {error_desc}")
-                response = make_request(use_parse_mode=False, msg_text=text)
+                logger.warning(f"HTML parse error, retrying as plain text: {error_desc}")
+                # Убираем HTML теги для plain text
+                import re
+                plain_text = re.sub(r'<[^>]+>', '', text)
+                response = make_request(plain_text, use_parse_mode=False)
                 data = response.json()
         
         if response.status_code == 200 and data.get('ok'):
