@@ -12,7 +12,7 @@ from unfold.admin import ModelAdmin
 from unfold.decorators import display
 
 from .models import User, JournalEntry, Transaction, Subscription, Broadcast, UsageLog, AppConfig
-from .actions import send_broadcast, send_welcome_message
+from .actions import send_broadcast_action, send_welcome_message
 
 
 @admin.register(User)
@@ -68,7 +68,7 @@ class UserAdmin(ModelAdmin):
     list_per_page = 50
     
     # Кастомные действия
-    actions = [send_broadcast, send_welcome_message]
+    actions = [send_broadcast_action, send_welcome_message]
     
     # Группировка полей при редактировании
     fieldsets = (
@@ -293,7 +293,14 @@ class SubscriptionAdmin(ModelAdmin):
 
 @admin.register(Broadcast)
 class BroadcastAdmin(ModelAdmin):
-    """Админ-класс для рассылок."""
+    """
+    Админ-класс для рассылок с интеграцией Celery.
+    
+    Профессиональная система рассылок:
+    - Rate limiting (25 msg/sec)
+    - Прогресс в реальном времени
+    - Retry механизм
+    """
     
     list_display = [
         'id',
@@ -318,6 +325,7 @@ class BroadcastAdmin(ModelAdmin):
     
     readonly_fields = [
         'id',
+        'status',
         'started_at',
         'completed_at',
         'sent_count',
@@ -330,6 +338,31 @@ class BroadcastAdmin(ModelAdmin):
     
     ordering = ['-date_created']
     list_per_page = 50
+    
+    # Кастомные действия для рассылок
+    actions = ['start_broadcast_action', 'cancel_broadcast_action']
+    
+    fieldsets = (
+        ('Содержание', {
+            'fields': ('title', 'message_text', 'message_photo_url'),
+            'description': 'Текст поддерживает HTML-теги: <b>, <i>, <a href="...">'
+        }),
+        ('Настройки', {
+            'fields': ('target_audience', 'scheduled_at'),
+        }),
+        ('Статус', {
+            'fields': ('status', 'started_at', 'completed_at'),
+            'classes': ('collapse',),
+        }),
+        ('Статистика', {
+            'fields': ('total_recipients', 'sent_count', 'failed_count', 'last_error'),
+            'classes': ('collapse',),
+        }),
+        ('Метаданные', {
+            'fields': ('date_created', 'date_updated'),
+            'classes': ('collapse',),
+        }),
+    )
     
     @display(description="Статус")
     def display_status(self, obj):
@@ -345,8 +378,51 @@ class BroadcastAdmin(ModelAdmin):
     @display(description="Статистика")
     def display_stats(self, obj):
         if obj.total_recipients:
-            return f"✉️ {obj.sent_count}/{obj.total_recipients} (❌ {obj.failed_count})"
+            percent = round(obj.sent_count / obj.total_recipients * 100, 1) if obj.total_recipients > 0 else 0
+            return f"✉️ {obj.sent_count}/{obj.total_recipients} ({percent}%) • ❌ {obj.failed_count}"
         return '—'
+    
+    @admin.action(description="🚀 Запустить рассылку")
+    def start_broadcast_action(self, request, queryset):
+        """Запускает выбранные рассылки через Celery."""
+        from .tasks import execute_broadcast
+        
+        started = 0
+        skipped = 0
+        
+        for broadcast in queryset:
+            if broadcast.status in ('draft', 'scheduled', 'failed'):
+                # Обновляем статус
+                Broadcast.objects.filter(id=broadcast.id).update(status='scheduled')
+                # Запускаем задачу Celery
+                execute_broadcast.delay(str(broadcast.id))
+                started += 1
+            else:
+                skipped += 1
+        
+        if started > 0:
+            self.message_user(
+                request,
+                f"🚀 Запущено рассылок: {started}. Прогресс можно отслеживать в списке.",
+                messages.SUCCESS
+            )
+        
+        if skipped > 0:
+            self.message_user(
+                request,
+                f"⚠️ Пропущено: {skipped} (уже выполняются или завершены)",
+                messages.WARNING
+            )
+    
+    @admin.action(description="⏹️ Отменить рассылку")
+    def cancel_broadcast_action(self, request, queryset):
+        """Отменяет запланированные рассылки."""
+        cancelled = queryset.filter(status__in=('draft', 'scheduled')).update(status='draft')
+        self.message_user(
+            request,
+            f"⏹️ Отменено рассылок: {cancelled}",
+            messages.SUCCESS
+        )
 
 
 @admin.register(UsageLog)

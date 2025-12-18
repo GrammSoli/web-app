@@ -1,145 +1,92 @@
 """
 Кастомные действия (actions) для Django Admin.
-Включает функционал рассылки сообщений через Telegram Bot API.
+
+Включает:
+- Массовая рассылка через Celery с rate limiting
+- Приветственные сообщения через очередь
+- Действия для пользователей
 """
 
-import requests
-from django.conf import settings
 from django.contrib import admin, messages
 
 
-def send_telegram_message(telegram_id: int, text: str, bot_token: str) -> bool:
-    """
-    Отправляет сообщение пользователю через Telegram Bot API.
-    
-    Args:
-        telegram_id: ID пользователя в Telegram
-        text: Текст сообщения
-        bot_token: Токен бота
-        
-    Returns:
-        True если сообщение отправлено, False если ошибка
-    """
-    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-    
-    payload = {
-        "chat_id": telegram_id,
-        "text": text,
-        "parse_mode": "HTML",
-    }
-    
-    try:
-        response = requests.post(url, json=payload, timeout=10)
-        response.raise_for_status()
-        return True
-    except requests.exceptions.RequestException:
-        return False
-
-
 @admin.action(description="📢 Отправить рассылку выбранным пользователям")
-def send_broadcast(modeladmin, request, queryset):
+def send_broadcast_action(modeladmin, request, queryset):
     """
-    Django Admin Action для массовой рассылки сообщений через Telegram.
+    Django Admin Action для создания рассылки выбранным пользователям.
     
-    Выбранные пользователи получат сообщение "Привет! 👋"
-    через Telegram Bot API.
+    Создаёт новую рассылку в таблице broadcasts и запускает через Celery.
+    Rate limiting: 25 сообщений/сек (лимит Telegram: 30/сек).
     
     Использование:
         1. Выберите пользователей в списке
         2. В выпадающем меню "Действия" выберите "Отправить рассылку"
         3. Нажмите "Выполнить"
     """
-    # Получаем токен бота из настроек
-    bot_token = getattr(settings, 'TELEGRAM_BOT_TOKEN', '')
+    from .models import Broadcast
+    from .tasks import execute_broadcast
     
-    if not bot_token:
+    # Получаем telegram_id выбранных пользователей
+    telegram_ids = list(queryset.values_list('telegram_id', flat=True))
+    
+    if not telegram_ids:
         modeladmin.message_user(
             request,
-            "❌ Ошибка: TELEGRAM_BOT_TOKEN не настроен в settings.py!",
+            "❌ Выберите хотя бы одного пользователя",
             messages.ERROR
         )
         return
     
-    # Текст сообщения для рассылки
-    broadcast_text = """Привет! 👋
+    # Создаём рассылку
+    broadcast = Broadcast.objects.create(
+        title=f"Рассылка из админки ({len(telegram_ids)} получателей)",
+        message_text="""Привет! 👋
 
-Это тестовое сообщение из админ-панели.
+Это сообщение из админ-панели.
 
-<i>Отправлено через Django Admin</i>"""
+<i>Отправлено через Django Admin + Celery</i>""",
+        target_audience='all',
+        status='scheduled',
+        total_recipients=len(telegram_ids),
+    )
     
-    sent_count = 0
-    failed_count = 0
-    blocked_users = []
+    # Запускаем через Celery с rate limiting
+    execute_broadcast.delay(str(broadcast.id))
     
-    for user in queryset:
-        # Пропускаем заблокированных пользователей
-        if hasattr(user, 'is_blocked') and user.is_blocked:
-            failed_count += 1
-            continue
-            
-        try:
-            success = send_telegram_message(
-                telegram_id=user.telegram_id,
-                text=broadcast_text,
-                bot_token=bot_token
-            )
-            
-            if success:
-                sent_count += 1
-            else:
-                failed_count += 1
-                blocked_users.append(user.telegram_id)
-                
-        except Exception as e:
-            failed_count += 1
-            # Логируем ошибку, но продолжаем рассылку
-            print(f"Ошибка отправки для {user.telegram_id}: {e}")
-    
-    # Формируем сообщение для администратора
-    if sent_count > 0:
-        modeladmin.message_user(
-            request,
-            f"✅ Успешно отправлено: {sent_count} пользователям",
-            messages.SUCCESS
-        )
-    
-    if failed_count > 0:
-        modeladmin.message_user(
-            request,
-            f"⚠️ Не удалось отправить: {failed_count} (возможно, бот заблокирован)",
-            messages.WARNING
-        )
+    modeladmin.message_user(
+        request,
+        f"🚀 Рассылка создана и запущена! ID: {broadcast.id}. "
+        f"Отслеживайте прогресс в разделе 'Рассылки'.",
+        messages.SUCCESS
+    )
 
 
 @admin.action(description="📨 Отправить приветственное сообщение")
 def send_welcome_message(modeladmin, request, queryset):
     """
-    Отправляет приветственное сообщение новым пользователям.
+    Отправляет приветственное сообщение выбранным пользователям через Celery.
+    Сообщения добавляются в очередь и отправляются с rate limiting.
     """
-    bot_token = getattr(settings, 'TELEGRAM_BOT_TOKEN', '')
+    from .tasks import send_single_message
     
-    if not bot_token:
-        modeladmin.message_user(
-            request,
-            "❌ Ошибка: TELEGRAM_BOT_TOKEN не настроен!",
-            messages.ERROR
-        )
-        return
+    queued = 0
     
-    welcome_text = """🎉 Добро пожаловать!
+    for user in queryset:
+        welcome_text = f"""🎉 Привет{', ' + user.first_name if user.first_name else ''}!
 
 Спасибо, что выбрали наше приложение.
 
 Если у вас есть вопросы — напишите нам!"""
-    
-    sent_count = 0
-    
-    for user in queryset:
-        if send_telegram_message(user.telegram_id, welcome_text, bot_token):
-            sent_count += 1
+        
+        # Отправляем через очередь Celery
+        send_single_message.delay(
+            telegram_id=user.telegram_id,
+            text=welcome_text
+        )
+        queued += 1
     
     modeladmin.message_user(
         request,
-        f"✅ Приветствие отправлено: {sent_count} пользователям",
+        f"✅ Приветствие добавлено в очередь: {queued} пользователям",
         messages.SUCCESS
     )

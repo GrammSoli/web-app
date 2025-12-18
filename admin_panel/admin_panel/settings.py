@@ -41,6 +41,10 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     
+    # Celery
+    'django_celery_results',
+    'django_celery_beat',
+    
     # Наше приложение
     'core',
 ]
@@ -118,6 +122,41 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # TELEGRAM BOT CONFIGURATION
 # ============================================================================
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '')
+
+# ============================================================================
+# REDIS CONFIGURATION
+# ============================================================================
+REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
+
+# ============================================================================
+# CELERY CONFIGURATION
+# Асинхронные задачи и рассылки
+# ============================================================================
+CELERY_BROKER_URL = REDIS_URL
+CELERY_RESULT_BACKEND = 'django-db'  # Хранение результатов в PostgreSQL
+CELERY_CACHE_BACKEND = 'default'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 60 * 60  # 1 час максимум на задачу
+
+# Rate limiting для Telegram API
+# Telegram: 30 сообщений в секунду для ботов
+# Используем 25/сек для безопасности
+TELEGRAM_RATE_LIMIT = int(os.getenv('TELEGRAM_RATE_LIMIT', '25'))
+TELEGRAM_RATE_LIMIT_PERIOD = 1  # секунда
+
+# ============================================================================
+# DJANGO CACHE (Redis)
+# ============================================================================
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'LOCATION': REDIS_URL,
+    }
+}
 
 # ============================================================================
 # UNFOLD CONFIGURATION

@@ -82,3 +82,44 @@ def dashboard_api(request):
     
     data = get_dashboard_data(period, parsed_start, parsed_end)
     return JsonResponse(data)
+
+
+@staff_member_required
+def broadcast_progress_api(request, broadcast_id: str):
+    """
+    API endpoint для получения прогресса рассылки в реальном времени.
+    Данные кэшируются в Redis для быстрого доступа.
+    
+    Returns:
+        {
+            sent: int,
+            failed: int,
+            total: int,
+            percent: float,
+            status: str,
+            updated_at: str
+        }
+    """
+    from .tasks import get_broadcast_progress
+    from .models import Broadcast
+    
+    # Сначала пробуем получить из Redis (быстро)
+    progress = get_broadcast_progress(broadcast_id)
+    
+    if progress:
+        return JsonResponse(progress)
+    
+    # Если нет в кэше, берём из БД
+    try:
+        broadcast = Broadcast.objects.get(id=broadcast_id)
+        total = broadcast.total_recipients or 1
+        return JsonResponse({
+            'sent': broadcast.sent_count,
+            'failed': broadcast.failed_count,
+            'total': broadcast.total_recipients,
+            'percent': round(broadcast.sent_count / total * 100, 1) if total > 0 else 0,
+            'status': broadcast.status,
+            'updated_at': broadcast.date_updated.isoformat() if broadcast.date_updated else None,
+        })
+    except Broadcast.DoesNotExist:
+        return JsonResponse({'error': 'Broadcast not found'}, status=404)

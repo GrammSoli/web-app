@@ -1,0 +1,38 @@
+[Unit]
+Description=Celery Worker for Django Admin Panel
+After=network.target redis.target
+
+[Service]
+Type=forking
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/mindful-journal/admin_panel
+
+# Виртуальное окружение
+Environment="PATH=/var/www/mindful-journal/admin_panel/venv/bin"
+Environment="DJANGO_SETTINGS_MODULE=admin_panel.settings"
+
+# Загружаем переменные из .env
+EnvironmentFile=/var/www/mindful-journal/admin_panel/.env
+
+# Запуск Celery Worker
+ExecStart=/var/www/mindful-journal/admin_panel/venv/bin/celery \
+    -A admin_panel worker \
+    --loglevel=info \
+    --concurrency=2 \
+    --pidfile=/var/run/celery/worker.pid \
+    --logfile=/var/log/celery/worker.log \
+    --detach
+
+ExecStop=/bin/kill -s TERM $MAINPID
+
+# Перезапуск при падении
+Restart=on-failure
+RestartSec=10
+
+# Создаём директории для PID и логов
+RuntimeDirectory=celery
+LogsDirectory=celery
+
+[Install]
+WantedBy=multi-user.target
