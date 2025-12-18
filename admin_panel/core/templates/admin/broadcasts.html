@@ -880,7 +880,7 @@
                         <!-- Контент -->
                         <div class="card-body">
                             <h4 class="card-title">{{ b.title }}</h4>
-                            <div class="card-text collapsed" id="text-{{ b.id }}">{{ b.message_text|striptags }}</div>
+                            <div class="card-text collapsed" id="text-{{ b.id }}">{{ b.message_text|safe }}</div>
                             <button class="read-more-btn" id="btn-{{ b.id }}" onclick="toggleText('{{ b.id }}')">Читать далее</button>
                             
                             <div class="card-meta">
