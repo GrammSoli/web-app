@@ -381,6 +381,21 @@ class BroadcastAdmin(ModelAdmin):
         if obj is None:
             return []
         return self.readonly_fields
+
+    def add_view(self, request, form_url='', extra_context=None):
+        """Переопределяем add_view для корректной работы с UUID."""
+        return super().add_view(request, form_url, extra_context)
+
+    def response_add(self, request, obj, post_url_continue=None):
+        """После создания редиректим на список, а не на change view."""
+        from django.http import HttpResponseRedirect
+        from django.urls import reverse
+        
+        # Всегда редирект на список после создания
+        if "_continue" not in request.POST and "_addanother" not in request.POST:
+            return HttpResponseRedirect(reverse('admin:core_broadcast_changelist'))
+        
+        return super().response_add(request, obj, post_url_continue)
     
     @display(description="Статус")
     def display_status(self, obj):
