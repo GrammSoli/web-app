@@ -14,7 +14,7 @@ import {
 } from '../services/user.js';
 import { analyzeMood, processVoiceMessage } from '../services/openai.js';
 import { checkLimitsAsync, getSubscriptionPricing } from '../utils/pricing.js';
-import { getMessage } from '../services/config.js';
+import { getMessage, configService } from '../services/config.js';
 
 // ============================================
 // ТИПЫ
@@ -82,16 +82,28 @@ export function createBot(token: string): Bot<MyContext> {
       keyboard.push([{ text: '⭐ Premium подписка', callback_data: 'show_premium' }]);
       
       const welcomeMessage = await getMessage('msg.welcome', { name: user.first_name });
+      const welcomePhotoUrl = await configService.getString('bot.welcome_photo_url', '');
       
-      await ctx.reply(
-        welcomeMessage,
-        {
+      // Отправляем фото если есть URL, иначе просто текст
+      if (welcomePhotoUrl) {
+        await ctx.replyWithPhoto(welcomePhotoUrl, {
+          caption: welcomeMessage,
           parse_mode: 'Markdown',
           reply_markup: {
             inline_keyboard: keyboard as any,
           },
-        }
-      );
+        });
+      } else {
+        await ctx.reply(
+          welcomeMessage,
+          {
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: keyboard as any,
+            },
+          }
+        );
+      }
     } else {
       // Сценарий 2: Активный пользователь (уже заходил)
       const keyboard = [];
@@ -104,21 +116,39 @@ export function createBot(token: string): Bot<MyContext> {
         ]);
       }
       
-      await ctx.reply(
-        `Рад тебя видеть! 🌿\n\n` +
-        `Можешь писать мысли или отправлять голосовые прямо сюда. Я всё сохраню. Или открой приложение, чтобы увидеть аналитику.`,
-        {
+      const welcomeBackMessage = `Рад тебя видеть! 🌿\n\n` +
+        `Можешь писать мысли или отправлять голосовые прямо сюда. Я всё сохраню. Или открой приложение, чтобы увидеть аналитику.`;
+      const startPhotoUrl = await configService.getString('bot.start_photo_url', '');
+      
+      if (startPhotoUrl) {
+        await ctx.replyWithPhoto(startPhotoUrl, {
+          caption: welcomeBackMessage,
           reply_markup: {
             inline_keyboard: keyboard as any,
           },
-        }
-      );
+        });
+      } else {
+        await ctx.reply(
+          welcomeBackMessage,
+          {
+            reply_markup: {
+              inline_keyboard: keyboard as any,
+            },
+          }
+        );
+      }
     }
   });
 
   bot.command('help', async (ctx) => {
     const helpMessage = await getMessage('msg.help');
-    await ctx.reply(helpMessage, { parse_mode: 'Markdown' });
+    const helpPhotoUrl = await configService.getString('bot.help_photo_url', '');
+    
+    if (helpPhotoUrl) {
+      await ctx.replyWithPhoto(helpPhotoUrl, { caption: helpMessage, parse_mode: 'Markdown' });
+    } else {
+      await ctx.reply(helpMessage, { parse_mode: 'Markdown' });
+    }
   });
 
   // ============================================
@@ -128,7 +158,13 @@ export function createBot(token: string): Bot<MyContext> {
   bot.callbackQuery('show_help', async (ctx) => {
     await ctx.answerCallbackQuery();
     const helpMessage = await getMessage('msg.help');
-    await ctx.reply(helpMessage, { parse_mode: 'Markdown' });
+    const helpPhotoUrl = await configService.getString('bot.help_photo_url', '');
+    
+    if (helpPhotoUrl) {
+      await ctx.replyWithPhoto(helpPhotoUrl, { caption: helpMessage, parse_mode: 'Markdown' });
+    } else {
+      await ctx.reply(helpMessage, { parse_mode: 'Markdown' });
+    }
   });
 
   bot.callbackQuery('show_premium', async (ctx) => {
