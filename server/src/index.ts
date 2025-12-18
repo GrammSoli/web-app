@@ -68,17 +68,7 @@ async function main() {
         const webhookUrl = `${process.env.WEBHOOK_URL}/webhook`;
         await bot.api.setWebhook(webhookUrl);
         logger.info({ webhookUrl }, '✅ Bot webhook set');
-        
-        // Добавляем route для webhook
-        app.post('/webhook', async (req, res) => {
-          try {
-            await bot.handleUpdate(req.body);
-            res.sendStatus(200);
-          } catch (error) {
-            logger.error({ error }, 'Webhook error');
-            res.sendStatus(500);
-          }
-        });
+        // Webhook handler уже зарегистрирован в api/index.ts
       } else {
         // Polling для разработки
         await bot.api.deleteWebhook();

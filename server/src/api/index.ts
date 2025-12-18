@@ -8,6 +8,7 @@ import { apiLogger } from '../utils/logger.js';
 import { cryptoPayService } from '../services/cryptopay.js';
 import { activateSubscription } from '../services/user.js';
 import prisma from '../services/database.js';
+import { getBot } from '../bot/index.js';
 
 export function createApp() {
   const app = express();
@@ -188,6 +189,23 @@ export function createApp() {
     
     const statusCode = health.status === 'ok' ? 200 : 503;
     res.status(statusCode).json(health);
+  });
+  
+  // Telegram Bot Webhook handler
+  app.post('/webhook', async (req, res) => {
+    const bot = getBot();
+    if (!bot) {
+      apiLogger.warn('Webhook received but bot not initialized');
+      return res.status(503).json({ error: 'Bot not ready' });
+    }
+    
+    try {
+      await bot.handleUpdate(req.body);
+      res.sendStatus(200);
+    } catch (error) {
+      apiLogger.error({ error }, 'Webhook error');
+      res.sendStatus(500);
+    }
   });
   
   // 404 handler
