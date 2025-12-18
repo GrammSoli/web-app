@@ -65,6 +65,9 @@ async function main() {
     try {
       // В production используем webhook, в dev — polling
       if (NODE_ENV === 'production' && process.env.WEBHOOK_URL) {
+        // Инициализируем бота (получаем botInfo от Telegram)
+        await bot.init();
+        
         const webhookUrl = `${process.env.WEBHOOK_URL}/webhook`;
         await bot.api.setWebhook(webhookUrl);
         logger.info({ webhookUrl }, '✅ Bot webhook set');
