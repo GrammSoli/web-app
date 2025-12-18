@@ -1,0 +1,153 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}Создать рассылку{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+    .broadcast-form {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 24px;
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-group label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: var(--color-text-primary, #1f2937);
+    }
+    
+    .form-group input[type="text"],
+    .form-group textarea,
+    .form-group select {
+        width: 100%;
+        padding: 12px;
+        border: 1px solid var(--color-border, #e5e7eb);
+        border-radius: 8px;
+        font-size: 14px;
+        background: var(--color-bg-primary, #fff);
+    }
+    
+    .form-group textarea {
+        min-height: 200px;
+        resize: vertical;
+    }
+    
+    .form-group input:focus,
+    .form-group textarea:focus,
+    .form-group select:focus {
+        outline: none;
+        border-color: #8B5CF6;
+        box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+    }
+    
+    .form-help {
+        font-size: 12px;
+        color: #6b7280;
+        margin-top: 4px;
+    }
+    
+    .form-actions {
+        display: flex;
+        gap: 12px;
+        margin-top: 24px;
+    }
+    
+    .btn {
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+        border: none;
+    }
+    
+    .btn-primary {
+        background: #8B5CF6;
+        color: white;
+    }
+    
+    .btn-primary:hover {
+        background: #7C3AED;
+    }
+    
+    .btn-secondary {
+        background: var(--color-bg-secondary, #f3f4f6);
+        color: var(--color-text-primary, #374151);
+    }
+    
+    .header-bar {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 24px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid var(--color-border, #e5e7eb);
+    }
+    
+    .header-bar h1 {
+        margin: 0;
+        font-size: 24px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="broadcast-form">
+    <div class="header-bar">
+        <a href="/admin/core/broadcast/" class="btn btn-secondary">← Назад</a>
+        <h1>📢 Создать рассылку</h1>
+    </div>
+    
+    <form method="post">
+        {% csrf_token %}
+        
+        <div class="form-group">
+            <label for="title">Название рассылки *</label>
+            <input type="text" id="title" name="title" value="{{ title|default:'' }}" required placeholder="Например: Новогодняя акция">
+        </div>
+        
+        <div class="form-group">
+            <label for="message_text">Текст сообщения *</label>
+            <textarea id="message_text" name="message_text" required placeholder="Текст сообщения для рассылки...">{{ message_text|default:'' }}</textarea>
+            <div class="form-help">Поддерживает HTML: &lt;b&gt;жирный&lt;/b&gt;, &lt;i&gt;курсив&lt;/i&gt;, &lt;a href="..."&gt;ссылка&lt;/a&gt;</div>
+        </div>
+        
+        <div class="form-group">
+            <label for="message_photo_url">URL фото (опционально)</label>
+            <input type="text" id="message_photo_url" name="message_photo_url" value="{{ message_photo_url|default:'' }}" placeholder="https://example.com/image.jpg">
+            <div class="form-help">Если указать, сообщение будет отправлено как фото с подписью</div>
+        </div>
+        
+        <div class="form-group">
+            <label for="target_audience">Аудитория</label>
+            <select id="target_audience" name="target_audience">
+                <option value="all" {% if target_audience == 'all' %}selected{% endif %}>Все пользователи</option>
+                <option value="premium" {% if target_audience == 'premium' %}selected{% endif %}>Только Premium</option>
+                <option value="free" {% if target_audience == 'free' %}selected{% endif %}>Только бесплатные</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="status">Статус</label>
+            <select id="status" name="status">
+                <option value="draft">📝 Черновик</option>
+                <option value="scheduled">⏰ Запланирована</option>
+            </select>
+            <div class="form-help">Черновик можно запустить позже через действие "Запустить рассылку"</div>
+        </div>
+        
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">💾 Сохранить рассылку</button>
+            <a href="/admin/core/broadcast/" class="btn btn-secondary">Отмена</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -123,3 +123,47 @@ def broadcast_progress_api(request, broadcast_id: str):
         })
     except Broadcast.DoesNotExist:
         return JsonResponse({'error': 'Broadcast not found'}, status=404)
+
+
+@staff_member_required
+def broadcast_create(request):
+    """
+    Кастомная страница создания рассылки.
+    Обходит баг Unfold с UUID.
+    """
+    from django.shortcuts import render, redirect
+    from django.contrib import messages
+    from .models import Broadcast
+    
+    if request.method == 'POST':
+        title = request.POST.get('title', '').strip()
+        message_text = request.POST.get('message_text', '').strip()
+        message_photo_url = request.POST.get('message_photo_url', '').strip() or None
+        target_audience = request.POST.get('target_audience', 'all')
+        status = request.POST.get('status', 'draft')
+        
+        if not title or not message_text:
+            messages.error(request, 'Заполните название и текст сообщения!')
+            return render(request, 'admin/broadcast_create.html', {
+                'title': title,
+                'message_text': message_text,
+                'message_photo_url': message_photo_url,
+                'target_audience': target_audience,
+            })
+        
+        # Создаём рассылку
+        broadcast = Broadcast(
+            title=title,
+            message_text=message_text,
+            message_photo_url=message_photo_url,
+            target_audience=target_audience,
+            status=status,
+        )
+        broadcast.save()
+        
+        messages.success(request, f'Рассылка "{title}" создана!')
+        return redirect('/admin/core/broadcast/')
+    
+    return render(request, 'admin/broadcast_create.html', {
+        'title': 'Создать рассылку',
+    })
