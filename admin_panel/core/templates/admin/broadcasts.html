@@ -1,150 +1,83 @@
 {% extends "admin/base_site.html" %}
 {% load i18n %}
 
-{% block title %}Рассылки{% endblock %}
+{% block title %}Рассылки | {{ site_title }}{% endblock %}
 
 {% block extrahead %}
 {{ block.super }}
 <style>
-    /* Force dark background everywhere */
-    body, html {
-        background: #0f172a !important;
-        margin: 0 !important;
-        padding: 0 !important;
+    .broadcasts-container {
+        padding: 0;
     }
     
-    #content, .container-fluid, main, .main, #container, .content {
-        background: #0f172a !important;
-        padding: 0 !important;
-        margin: 0 !important;
-    }
-    
-    /* Hide sidebar and header for full-page experience */
-    aside, .sidebar, nav:not(.page-header) {
-        display: none !important;
-    }
-    
-    .broadcasts-page {
-        padding: 32px;
-        max-width: 1400px;
-        margin: 0 auto;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        background: #0f172a;
-        min-height: 100vh;
-        width: 100%;
-        box-sizing: border-box;
-    }
-    
-    /* Header */
-    .page-header {
-        display: flex;
-        align-items: center;
-        gap: 16px;
-        margin-bottom: 32px;
-    }
-    
-    .back-btn {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 40px;
-        height: 40px;
-        background: rgba(255,255,255,0.1);
-        border: 1px solid rgba(255,255,255,0.2);
-        border-radius: 10px;
-        color: #94a3b8;
-        text-decoration: none;
-        transition: all 0.2s;
-    }
-    
+    /* Кнопка назад */
     .back-btn:hover {
-        background: rgba(255,255,255,0.15);
-        color: white;
+        background: var(--color-bg-secondary, #f3f4f6) !important;
+        transform: translateX(-2px);
     }
     
-    .page-title {
-        font-size: 24px;
-        font-weight: 600;
-        color: white;
-        margin: 0;
-    }
-    
-    .header-actions {
-        margin-left: auto;
-        display: flex;
-        gap: 12px;
-    }
-    
-    .refresh-btn {
-        padding: 10px 16px;
-        background: rgba(255,255,255,0.1);
-        border: 1px solid rgba(255,255,255,0.2);
-        border-radius: 8px;
-        color: #94a3b8;
-        cursor: pointer;
-        font-size: 14px;
-        transition: all 0.2s;
-    }
-    
-    .refresh-btn:hover {
-        background: rgba(255,255,255,0.15);
-        color: white;
-    }
-    
-    /* Stats */
-    .stats-row {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 16px;
+    /* Секции */
+    .broadcasts-section {
         margin-bottom: 32px;
     }
     
-    @media (max-width: 768px) {
-        .stats-row {
-            grid-template-columns: repeat(2, 1fr);
-        }
+    .section-title {
+        font-size: 20px;
+        font-weight: 700;
+        color: var(--color-text-primary, #1f2937);
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
     }
     
-    .stat-card {
-        background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.05) 100%);
-        border: 1px solid rgba(99, 102, 241, 0.2);
-        border-radius: 16px;
-        padding: 20px;
+    /* KPI карточки */
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
     }
     
-    .stat-card.success {
-        background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(34, 197, 94, 0.05) 100%);
-        border-color: rgba(34, 197, 94, 0.2);
+    .kpi-card {
+        background: var(--color-bg-primary, #fff);
+        border-radius: 12px;
+        padding: 20px 24px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        position: relative;
+        overflow: hidden;
     }
     
-    .stat-card.warning {
-        background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(245, 158, 11, 0.05) 100%);
-        border-color: rgba(245, 158, 11, 0.2);
+    .kpi-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
     }
     
-    .stat-card.danger {
-        background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(239, 68, 68, 0.05) 100%);
-        border-color: rgba(239, 68, 68, 0.2);
-    }
+    .kpi-card.primary::before { background: linear-gradient(90deg, #8B5CF6, #A78BFA); }
+    .kpi-card.success::before { background: linear-gradient(90deg, #10B981, #34D399); }
+    .kpi-card.warning::before { background: linear-gradient(90deg, #F59E0B, #FBBF24); }
+    .kpi-card.danger::before { background: linear-gradient(90deg, #EF4444, #F87171); }
     
-    .stat-label {
+    .kpi-label {
         font-size: 13px;
-        color: #94a3b8;
-        margin-bottom: 8px;
+        color: var(--color-text-secondary, #6b7280);
         font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 8px;
     }
     
-    .stat-value {
+    .kpi-value {
         font-size: 32px;
         font-weight: 700;
-        color: white;
+        color: var(--color-text-primary, #1f2937);
+        line-height: 1.2;
     }
     
-    .stat-card.success .stat-value { color: #4ade80; }
-    .stat-card.warning .stat-value { color: #fbbf24; }
-    .stat-card.danger .stat-value { color: #f87171; }
-    
-    /* Layout */
+    /* Контент грид */
     .content-grid {
         display: grid;
         grid-template-columns: 1fr 380px;
@@ -157,17 +90,17 @@
         }
     }
     
-    /* Card */
+    /* Карточки */
     .card {
-        background: rgba(30, 41, 59, 0.5);
-        border: 1px solid rgba(255,255,255,0.1);
-        border-radius: 16px;
+        background: var(--color-bg-primary, #fff);
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         overflow: hidden;
     }
     
     .card-header {
-        padding: 16px 20px;
-        border-bottom: 1px solid rgba(255,255,255,0.1);
+        padding: 16px 24px;
+        border-bottom: 1px solid var(--color-border, #e5e7eb);
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -176,12 +109,15 @@
     .card-title {
         font-size: 16px;
         font-weight: 600;
-        color: white;
+        color: var(--color-text-primary, #1f2937);
+        display: flex;
+        align-items: center;
+        gap: 8px;
     }
     
     .card-badge {
-        background: rgba(99, 102, 241, 0.2);
-        color: #a5b4fc;
+        background: #8B5CF6;
+        color: white;
         padding: 4px 10px;
         border-radius: 20px;
         font-size: 12px;
@@ -189,18 +125,18 @@
     }
     
     .card-body {
-        padding: 20px;
+        padding: 24px;
     }
     
-    /* Broadcasts List */
+    /* Список рассылок */
     .broadcast-list {
-        max-height: 500px;
+        max-height: 600px;
         overflow-y: auto;
     }
     
     .broadcast-item {
-        padding: 16px;
-        border-bottom: 1px solid rgba(255,255,255,0.05);
+        padding: 16px 24px;
+        border-bottom: 1px solid var(--color-border, #e5e7eb);
         transition: background 0.2s;
     }
     
@@ -209,7 +145,7 @@
     }
     
     .broadcast-item:hover {
-        background: rgba(255,255,255,0.03);
+        background: var(--color-bg-secondary, #f9fafb);
     }
     
     .broadcast-top {
@@ -221,37 +157,35 @@
     
     .broadcast-title {
         font-weight: 600;
-        color: white;
+        color: var(--color-text-primary, #1f2937);
         font-size: 15px;
         margin: 0;
     }
     
     .status-badge {
-        padding: 4px 10px;
-        border-radius: 6px;
-        font-size: 11px;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 12px;
         font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
     }
     
-    .status-draft { background: #374151; color: #9ca3af; }
-    .status-scheduled { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
-    .status-sending { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
-    .status-sent { background: rgba(34, 197, 94, 0.2); color: #4ade80; }
-    .status-failed { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+    .status-draft { background: #F3F4F6; color: #6B7280; }
+    .status-scheduled { background: #DBEAFE; color: #2563EB; }
+    .status-sending { background: #FEF3C7; color: #D97706; }
+    .status-sent { background: #D1FAE5; color: #059669; }
+    .status-failed { background: #FEE2E2; color: #DC2626; }
     
     .broadcast-meta {
         display: flex;
         gap: 16px;
-        font-size: 12px;
-        color: #64748b;
+        font-size: 13px;
+        color: var(--color-text-secondary, #6b7280);
         margin-bottom: 8px;
     }
     
     .broadcast-text {
-        font-size: 13px;
-        color: #94a3b8;
+        font-size: 14px;
+        color: var(--color-text-secondary, #6b7280);
         line-height: 1.5;
         margin-bottom: 12px;
         display: -webkit-box;
@@ -265,7 +199,7 @@
         gap: 8px;
     }
     
-    /* Buttons */
+    /* Кнопки */
     .btn {
         padding: 8px 16px;
         border-radius: 8px;
@@ -281,63 +215,60 @@
     }
     
     .btn-launch {
-        background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+        background: #10B981;
         color: white;
-        box-shadow: 0 2px 8px rgba(34, 197, 94, 0.3);
     }
     
     .btn-launch:hover {
+        background: #059669;
         transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(34, 197, 94, 0.4);
     }
     
     .btn-delete {
-        background: rgba(239, 68, 68, 0.1);
-        color: #f87171;
-        border: 1px solid rgba(239, 68, 68, 0.2);
+        background: #FEE2E2;
+        color: #DC2626;
     }
     
     .btn-delete:hover {
-        background: rgba(239, 68, 68, 0.2);
+        background: #FECACA;
     }
     
     .btn-create {
         width: 100%;
         padding: 14px 20px;
-        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+        background: linear-gradient(90deg, #8B5CF6, #A78BFA);
         color: white;
         font-size: 15px;
-        box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
     }
     
     .btn-create:hover {
+        opacity: 0.9;
         transform: translateY(-1px);
-        box-shadow: 0 6px 16px rgba(99, 102, 241, 0.4);
     }
     
-    /* Progress */
+    /* Прогресс */
     .progress-bar {
-        height: 4px;
-        background: rgba(255,255,255,0.1);
-        border-radius: 2px;
+        height: 6px;
+        background: var(--color-border, #e5e7eb);
+        border-radius: 3px;
         overflow: hidden;
         margin-bottom: 6px;
     }
     
     .progress-fill {
         height: 100%;
-        background: linear-gradient(90deg, #22c55e 0%, #4ade80 100%);
+        background: linear-gradient(90deg, #10B981, #34D399);
         transition: width 0.3s;
     }
     
     .progress-text {
         display: flex;
         justify-content: space-between;
-        font-size: 11px;
-        color: #64748b;
+        font-size: 12px;
+        color: var(--color-text-secondary, #6b7280);
     }
     
-    /* Form */
+    /* Форма */
     .form-group {
         margin-bottom: 16px;
     }
@@ -345,7 +276,7 @@
     .form-label {
         display: block;
         font-size: 13px;
-        color: #94a3b8;
+        color: var(--color-text-secondary, #6b7280);
         margin-bottom: 6px;
         font-weight: 500;
     }
@@ -354,11 +285,11 @@
     .form-textarea,
     .form-select {
         width: 100%;
-        padding: 12px 14px;
-        background: rgba(15, 23, 42, 0.5);
-        border: 1px solid rgba(255,255,255,0.1);
-        border-radius: 10px;
-        color: white;
+        padding: 10px 14px;
+        background: var(--color-bg-primary, #fff);
+        border: 1px solid var(--color-border, #e5e7eb);
+        border-radius: 8px;
+        color: var(--color-text-primary, #1f2937);
         font-size: 14px;
         transition: border-color 0.2s;
         box-sizing: border-box;
@@ -368,7 +299,8 @@
     .form-textarea:focus,
     .form-select:focus {
         outline: none;
-        border-color: #6366f1;
+        border-color: #8B5CF6;
+        box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
     }
     
     .form-textarea {
@@ -378,30 +310,29 @@
     }
     
     .form-hint {
-        font-size: 11px;
-        color: #64748b;
+        font-size: 12px;
+        color: var(--color-text-secondary, #9ca3af);
         margin-top: 4px;
     }
     
     /* Empty State */
     .empty-state {
-        padding: 48px 20px;
+        padding: 48px 24px;
         text-align: center;
     }
     
     .empty-icon {
         font-size: 48px;
         margin-bottom: 16px;
-        opacity: 0.5;
     }
     
     .empty-text {
-        color: #64748b;
+        color: var(--color-text-secondary, #6b7280);
         font-size: 14px;
     }
     
     /* Alerts */
-    .alerts {
+    .alerts-container {
         position: fixed;
         top: 20px;
         right: 20px;
@@ -412,13 +343,14 @@
     }
     
     .alert {
-        padding: 12px 16px;
-        border-radius: 10px;
+        padding: 12px 20px;
+        border-radius: 8px;
         display: flex;
         align-items: center;
         gap: 10px;
         animation: slideIn 0.3s ease;
         min-width: 280px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     }
     
     @keyframes slideIn {
@@ -427,182 +359,172 @@
     }
     
     .alert-success {
-        background: rgba(34, 197, 94, 0.15);
-        border: 1px solid rgba(34, 197, 94, 0.3);
-        color: #4ade80;
+        background: #D1FAE5;
+        color: #065F46;
     }
     
     .alert-error {
-        background: rgba(239, 68, 68, 0.15);
-        border: 1px solid rgba(239, 68, 68, 0.3);
-        color: #f87171;
+        background: #FEE2E2;
+        color: #991B1B;
     }
     
-    /* Loading */
-    .spinner {
-        width: 16px;
-        height: 16px;
-        border: 2px solid rgba(255,255,255,0.3);
-        border-radius: 50%;
-        border-top-color: white;
-        animation: spin 0.8s linear infinite;
-    }
-    
-    @keyframes spin {
-        to { transform: rotate(360deg); }
+    /* Responsive */
+    @media (max-width: 768px) {
+        .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+        .content-grid { grid-template-columns: 1fr; }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="broadcasts-page">
-    <!-- Header -->
-    <div class="page-header">
-        <a href="/admin/" class="back-btn" title="Назад">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M19 12H5M12 19l-7-7 7-7"/>
-            </svg>
+<div class="broadcasts-container">
+    
+    <!-- Шапка с кнопкой назад -->
+    <div class="broadcasts-header" style="display: flex; align-items: center; gap: 16px; margin-bottom: 24px;">
+        <a href="/admin/" class="back-btn" style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; background: var(--color-bg-primary, #fff); border-radius: 10px; text-decoration: none; color: var(--color-text-primary, #374151); font-weight: 500; box-shadow: 0 1px 3px rgba(0,0,0,0.1); transition: all 0.2s;">
+            <span style="font-size: 18px;">←</span> Назад в админку
         </a>
-        <h1 class="page-title">📢 Рассылки</h1>
-        <div class="header-actions">
-            <button class="refresh-btn" onclick="location.reload()">
-                🔄 Обновить
-            </button>
-        </div>
+        <h1 style="margin: 0; font-size: 24px; font-weight: 700; color: var(--color-text-primary, #1f2937);">📢 Рассылки</h1>
+        <button onclick="location.reload()" style="margin-left: auto; padding: 10px 16px; background: var(--color-bg-primary, #fff); border: 1px solid var(--color-border, #e5e7eb); border-radius: 8px; cursor: pointer; font-size: 14px; color: var(--color-text-primary, #374151);">🔄 Обновить</button>
     </div>
     
     <!-- Alerts Container -->
-    <div class="alerts" id="alerts"></div>
+    <div class="alerts-container" id="alerts"></div>
     
-    <!-- Stats -->
-    <div class="stats-row">
-        <div class="stat-card">
-            <div class="stat-label">Всего рассылок</div>
-            <div class="stat-value">{{ stats.total }}</div>
+    <!-- KPI -->
+    <section class="broadcasts-section">
+        <h2 class="section-title">📊 Статистика</h2>
+        <div class="kpi-grid">
+            <div class="kpi-card primary">
+                <div class="kpi-label">Всего рассылок</div>
+                <div class="kpi-value">{{ stats.total }}</div>
+            </div>
+            <div class="kpi-card success">
+                <div class="kpi-label">Отправлено сообщений</div>
+                <div class="kpi-value">{{ stats.total_sent }}</div>
+            </div>
+            <div class="kpi-card warning">
+                <div class="kpi-label">В процессе</div>
+                <div class="kpi-value">{{ stats.in_progress }}</div>
+            </div>
+            <div class="kpi-card danger">
+                <div class="kpi-label">Ошибок доставки</div>
+                <div class="kpi-value">{{ stats.total_failed }}</div>
+            </div>
         </div>
-        <div class="stat-card success">
-            <div class="stat-label">Отправлено сообщений</div>
-            <div class="stat-value">{{ stats.total_sent }}</div>
-        </div>
-        <div class="stat-card warning">
-            <div class="stat-label">В процессе</div>
-            <div class="stat-value">{{ stats.in_progress }}</div>
-        </div>
-        <div class="stat-card danger">
-            <div class="stat-label">Ошибок доставки</div>
-            <div class="stat-value">{{ stats.total_failed }}</div>
-        </div>
-    </div>
+    </section>
     
-    <!-- Content -->
-    <div class="content-grid">
-        <!-- List -->
-        <div class="card">
-            <div class="card-header">
-                <span class="card-title">📋 Список рассылок</span>
-                <span class="card-badge">{{ broadcasts|length }}</span>
+    <!-- Контент -->
+    <section class="broadcasts-section">
+        <div class="content-grid">
+            <!-- Список рассылок -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">📋 Список рассылок</span>
+                    <span class="card-badge">{{ broadcasts|length }}</span>
+                </div>
+                <div class="broadcast-list">
+                    {% if broadcasts %}
+                        {% for b in broadcasts %}
+                        <div class="broadcast-item" id="broadcast-{{ b.id }}">
+                            <div class="broadcast-top">
+                                <h3 class="broadcast-title">{{ b.title }}</h3>
+                                <span class="status-badge status-{{ b.status }}">
+                                    {% if b.status == 'draft' %}📝 Черновик
+                                    {% elif b.status == 'scheduled' %}⏰ Запланирована
+                                    {% elif b.status == 'sending' %}🚀 Отправка
+                                    {% elif b.status == 'sent' %}✅ Отправлено
+                                    {% else %}❌ Ошибка{% endif %}
+                                </span>
+                            </div>
+                            <div class="broadcast-meta">
+                                <span>👥 {{ b.get_target_audience_display }}</span>
+                                <span>📅 {{ b.date_created|date:"d.m.Y H:i" }}</span>
+                                {% if b.scheduled_at %}
+                                <span>⏰ {{ b.scheduled_at|date:"d.m.Y H:i" }}</span>
+                                {% endif %}
+                            </div>
+                            <div class="broadcast-text">{{ b.message_text|truncatechars:100 }}</div>
+                            
+                            {% if b.total_recipients %}
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: {% widthratio b.sent_count b.total_recipients 100 %}%"></div>
+                            </div>
+                            <div class="progress-text">
+                                <span>{{ b.sent_count }} / {{ b.total_recipients }} отправлено</span>
+                                <span>{{ b.failed_count }} ошибок</span>
+                            </div>
+                            {% endif %}
+                            
+                            <div class="broadcast-actions">
+                                {% if b.status == 'draft' or b.status == 'scheduled' or b.status == 'failed' %}
+                                <button class="btn btn-launch" onclick="launchBroadcast('{{ b.id }}')">
+                                    🚀 Запустить
+                                </button>
+                                {% endif %}
+                                {% if b.status == 'draft' %}
+                                <button class="btn btn-delete" onclick="deleteBroadcast('{{ b.id }}')">
+                                    🗑️ Удалить
+                                </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="empty-state">
+                            <div class="empty-icon">📭</div>
+                            <div class="empty-text">Нет рассылок. Создайте первую!</div>
+                        </div>
+                    {% endif %}
+                </div>
             </div>
-            <div class="broadcast-list">
-                {% if broadcasts %}
-                    {% for b in broadcasts %}
-                    <div class="broadcast-item" id="broadcast-{{ b.id }}">
-                        <div class="broadcast-top">
-                            <h3 class="broadcast-title">{{ b.title }}</h3>
-                            <span class="status-badge status-{{ b.status }}">
-                                {% if b.status == 'draft' %}Черновик
-                                {% elif b.status == 'scheduled' %}Запланирована
-                                {% elif b.status == 'sending' %}Отправка...
-                                {% elif b.status == 'sent' %}Отправлено
-                                {% else %}Ошибка{% endif %}
-                            </span>
+            
+            <!-- Форма создания -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">✨ Новая рассылка</span>
+                </div>
+                <div class="card-body">
+                    <form id="create-form" onsubmit="createBroadcast(event)">
+                        <div class="form-group">
+                            <label class="form-label">Название *</label>
+                            <input type="text" name="title" class="form-input" placeholder="Новогодняя акция" required>
                         </div>
-                        <div class="broadcast-meta">
-                            <span>👥 {{ b.get_target_audience_display }}</span>
-                            <span>📅 {{ b.date_created|date:"d.m.Y H:i" }}</span>
-                            {% if b.scheduled_at %}
-                            <span>⏰ {{ b.scheduled_at|date:"d.m.Y H:i" }}</span>
-                            {% endif %}
-                        </div>
-                        <div class="broadcast-text">{{ b.message_text|truncatechars:120 }}</div>
                         
-                        {% if b.total_recipients %}
-                        <div class="progress-bar">
-                            <div class="progress-fill" style="width: {% widthratio b.sent_count b.total_recipients 100 %}%"></div>
+                        <div class="form-group">
+                            <label class="form-label">Текст сообщения *</label>
+                            <textarea name="message_text" class="form-textarea" placeholder="Текст рассылки..." required></textarea>
+                            <div class="form-hint">Поддержка HTML: &lt;b&gt;, &lt;i&gt;, &lt;a href=""&gt;</div>
                         </div>
-                        <div class="progress-text">
-                            <span>{{ b.sent_count }} / {{ b.total_recipients }} отправлено</span>
-                            <span>{{ b.failed_count }} ошибок</span>
-                        </div>
-                        {% endif %}
                         
-                        <div class="broadcast-actions">
-                            {% if b.status == 'draft' or b.status == 'scheduled' or b.status == 'failed' %}
-                            <button class="btn btn-launch" onclick="launchBroadcast('{{ b.id }}')">
-                                🚀 Запустить
-                            </button>
-                            {% endif %}
-                            {% if b.status == 'draft' %}
-                            <button class="btn btn-delete" onclick="deleteBroadcast('{{ b.id }}')">
-                                🗑️
-                            </button>
-                            {% endif %}
+                        <div class="form-group">
+                            <label class="form-label">Изображение (URL)</label>
+                            <input type="url" name="message_photo_url" class="form-input" placeholder="https://example.com/image.jpg">
                         </div>
-                    </div>
-                    {% endfor %}
-                {% else %}
-                    <div class="empty-state">
-                        <div class="empty-icon">📭</div>
-                        <div class="empty-text">Нет рассылок. Создайте первую!</div>
-                    </div>
-                {% endif %}
+                        
+                        <div class="form-group">
+                            <label class="form-label">Аудитория</label>
+                            <select name="target_audience" class="form-select">
+                                <option value="all">👥 Все пользователи</option>
+                                <option value="premium">⭐ Premium</option>
+                                <option value="free">🆓 Бесплатные</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Запланировать на</label>
+                            <input type="datetime-local" name="scheduled_at" class="form-input">
+                            <div class="form-hint">Оставьте пустым для отправки вручную</div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-create" id="submit-btn">
+                            ✨ Создать рассылку
+                        </button>
+                    </form>
+                </div>
             </div>
         </div>
-        
-        <!-- Create Form -->
-        <div class="card">
-            <div class="card-header">
-                <span class="card-title">✨ Новая рассылка</span>
-            </div>
-            <div class="card-body">
-                <form id="create-form" onsubmit="createBroadcast(event)">
-                    <div class="form-group">
-                        <label class="form-label">Название *</label>
-                        <input type="text" name="title" class="form-input" placeholder="Новогодняя акция" required>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">Текст сообщения *</label>
-                        <textarea name="message_text" class="form-textarea" placeholder="Текст рассылки..." required></textarea>
-                        <div class="form-hint">HTML: &lt;b&gt;, &lt;i&gt;, &lt;a href=""&gt;</div>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">Изображение (URL)</label>
-                        <input type="url" name="message_photo_url" class="form-input" placeholder="https://...">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">Аудитория</label>
-                        <select name="target_audience" class="form-select">
-                            <option value="all">👥 Все пользователи</option>
-                            <option value="premium">⭐ Premium</option>
-                            <option value="free">🆓 Бесплатные</option>
-                        </select>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">Запланировать на</label>
-                        <input type="datetime-local" name="scheduled_at" class="form-input">
-                        <div class="form-hint">Оставьте пустым для отправки вручную</div>
-                    </div>
-                    
-                    <button type="submit" class="btn btn-create" id="submit-btn">
-                        ✨ Создать рассылку
-                    </button>
-                </form>
-            </div>
-        </div>
-    </div>
+    </section>
 </div>
 
 <script>
@@ -624,7 +546,7 @@ async function createBroadcast(e) {
     const formData = new FormData(form);
     
     btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Создание...';
+    btn.textContent = '⏳ Создание...';
     
     try {
         const res = await fetch('/admin/broadcasts/api/create/', {
@@ -645,7 +567,7 @@ async function createBroadcast(e) {
         showAlert('Ошибка сети', 'error');
     } finally {
         btn.disabled = false;
-        btn.innerHTML = '✨ Создать рассылку';
+        btn.textContent = '✨ Создать рассылку';
     }
 }
 
