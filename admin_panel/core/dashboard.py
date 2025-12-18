@@ -30,7 +30,10 @@ def get_date_range(period: str = 'today', start_date=None, end_date=None):
         month_ago = today - timedelta(days=30)
         return month_ago, now
     elif period == 'custom' and start_date and end_date:
-        return start_date, end_date
+        # Добавляем +1 день к end_date, чтобы включить весь конечный день
+        # start_date = 2025-12-15 00:00:00, end_date = 2025-12-16 00:00:00
+        end_date_inclusive = end_date + timedelta(days=1)
+        return start_date, end_date_inclusive
     else:
         return today, now
 
