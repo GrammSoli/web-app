@@ -895,7 +895,7 @@
                             
                             <div class="card-meta">
                                 <span>👥 {{ b.get_target_audience_display }}</span>
-                                <span>📅 {{ b.date_created|date:"d.m.Y" }}</span>
+                                <span>📅 {{ b.date_created|date:"d.m.Y H:i" }}</span>
                             </div>
                             
                             {% if b.total_recipients %}
@@ -903,7 +903,12 @@
                                 <div class="progress-bar-sm">
                                     <div class="progress-fill-sm" style="width: {% widthratio b.sent_count b.total_recipients 100 %}%"></div>
                                 </div>
-                                <div class="progress-label">{{ b.sent_count }}/{{ b.total_recipients }} • {{ b.failed_count }} ошибок</div>
+                                <div class="progress-label">
+                                    ✅ {{ b.sent_count }}/{{ b.total_recipients }}
+                                    {% if b.failed_count > 0 %}
+                                    • ❌ {{ b.failed_count }} ошиб{% if b.failed_count == 1 %}ка{% elif b.failed_count < 5 %}ки{% else %}ок{% endif %}
+                                    {% endif %}
+                                </div>
                             </div>
                             {% endif %}
                         </div>
