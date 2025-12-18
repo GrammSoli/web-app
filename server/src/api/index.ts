@@ -203,7 +203,12 @@ export function createApp() {
       await bot.handleUpdate(req.body);
       res.sendStatus(200);
     } catch (error) {
-      apiLogger.error({ error }, 'Webhook error');
+      const err = error as Error;
+      apiLogger.error({ 
+        error: err.message, 
+        stack: err.stack,
+        body: req.body 
+      }, 'Webhook error');
       res.sendStatus(500);
     }
   });
