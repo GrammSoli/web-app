@@ -9,9 +9,12 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.utils.decorators import method_decorator
 from django.http import JsonResponse
 from django.utils import timezone
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from django.db.models import Sum
 
 from .dashboard import get_dashboard_data, get_date_range
-from .models import Transaction, User
+from .models import Transaction, User, Broadcast
 
 
 @method_decorator(staff_member_required, name='dispatch')
@@ -174,9 +177,6 @@ def broadcast_launch(request, broadcast_id: str):
     """
     Запускает рассылку через Celery.
     """
-    from django.shortcuts import redirect
-    from django.contrib import messages
-    from .models import Broadcast
     from .tasks import execute_broadcast
     
     try:
@@ -195,4 +195,126 @@ def broadcast_launch(request, broadcast_id: str):
     except Broadcast.DoesNotExist:
         messages.error(request, 'Рассылка не найдена!')
     
-    return redirect('/admin/core/broadcast/')
+    return redirect('/admin/broadcasts/')
+
+
+# ============================================
+# BROADCASTS PAGE - Полноценная страница рассылок
+# ============================================
+
+@staff_member_required
+def broadcasts_page(request):
+    """Главная страница рассылок."""
+    broadcasts = Broadcast.objects.all().order_by('-date_created')
+    
+    # Статистика
+    stats = {
+        'total': broadcasts.count(),
+        'total_sent': broadcasts.aggregate(s=Sum('sent_count'))['s'] or 0,
+        'total_failed': broadcasts.aggregate(f=Sum('failed_count'))['f'] or 0,
+        'in_progress': broadcasts.filter(status='in_progress').count(),
+    }
+    
+    return render(request, 'admin/broadcasts.html', {
+        'broadcasts': broadcasts,
+        'stats': stats,
+        'title': 'Рассылки',
+    })
+
+
+@staff_member_required
+def broadcasts_api_list(request):
+    """API: Список рассылок."""
+    broadcasts = Broadcast.objects.all().order_by('-date_created')
+    
+    stats = {
+        'total': broadcasts.count(),
+        'total_sent': broadcasts.aggregate(s=Sum('sent_count'))['s'] or 0,
+        'total_failed': broadcasts.aggregate(f=Sum('failed_count'))['f'] or 0,
+        'in_progress': broadcasts.filter(status='in_progress').count(),
+    }
+    
+    broadcasts_data = [{
+        'id': str(b.id),
+        'title': b.title,
+        'status': b.status,
+        'target_audience': b.target_audience,
+        'sent_count': b.sent_count,
+        'failed_count': b.failed_count,
+        'total_recipients': b.total_recipients,
+        'date_created': b.date_created.isoformat() if b.date_created else None,
+    } for b in broadcasts]
+    
+    return JsonResponse({
+        'broadcasts': broadcasts_data,
+        'stats': stats,
+    })
+
+
+@staff_member_required
+def broadcasts_api_create(request):
+    """API: Создание рассылки."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    
+    title = request.POST.get('title', '').strip()
+    message_text = request.POST.get('message_text', '').strip()
+    message_photo_url = request.POST.get('message_photo_url', '').strip() or None
+    target_audience = request.POST.get('target_audience', 'all')
+    
+    if not title or not message_text:
+        return JsonResponse({'error': 'Заполните название и текст'}, status=400)
+    
+    broadcast = Broadcast.objects.create(
+        title=title,
+        message_text=message_text,
+        message_photo_url=message_photo_url,
+        target_audience=target_audience,
+        status='draft',
+    )
+    
+    return JsonResponse({
+        'success': True,
+        'id': str(broadcast.id),
+    })
+
+
+@staff_member_required
+def broadcasts_api_launch(request, broadcast_id: str):
+    """API: Запуск рассылки."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    
+    from .tasks import execute_broadcast
+    
+    try:
+        broadcast = Broadcast.objects.get(id=broadcast_id)
+        
+        if broadcast.status in ('draft', 'scheduled', 'failed'):
+            Broadcast.objects.filter(id=broadcast.id).update(status='scheduled')
+            execute_broadcast.delay(str(broadcast.id))
+            return JsonResponse({'success': True})
+        else:
+            return JsonResponse({'error': 'Рассылка уже запущена или завершена'}, status=400)
+            
+    except Broadcast.DoesNotExist:
+        return JsonResponse({'error': 'Рассылка не найдена'}, status=404)
+
+
+@staff_member_required
+def broadcasts_api_delete(request, broadcast_id: str):
+    """API: Удаление рассылки."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    
+    try:
+        broadcast = Broadcast.objects.get(id=broadcast_id)
+        
+        if broadcast.status in ('draft', 'failed'):
+            broadcast.delete()
+            return JsonResponse({'success': True})
+        else:
+            return JsonResponse({'error': 'Можно удалить только черновики'}, status=400)
+            
+    except Broadcast.DoesNotExist:
+        return JsonResponse({'error': 'Рассылка не найдена'}, status=404)
