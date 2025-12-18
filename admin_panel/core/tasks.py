@@ -73,13 +73,138 @@ class TelegramRateLimiter:
         return 0
 
 
+# ============================================================================
+# MARKDOWN V2 HELPERS
+# ============================================================================
+
+def escape_markdown_v2(text: str) -> str:
+    """
+    Экранирует специальные символы для MarkdownV2.
+    
+    Символы которые нужно экранировать:
+    _ * [ ] ( ) ~ ` > # + - = | { } . !
+    """
+    escape_chars = r'_*[]()~`>#+-=|{}.!'
+    result = []
+    for char in text:
+        if char in escape_chars:
+            result.append('\\')
+        result.append(char)
+    return ''.join(result)
+
+
+def convert_html_to_markdown_v2(text: str) -> str:
+    """
+    Конвертирует простой HTML в MarkdownV2 формат.
+    
+    Поддерживаемые теги:
+    - <b>text</b> → *text*
+    - <i>text</i> → _text_
+    - <code>text</code> → `text`
+    - <s>text</s> → ~text~
+    """
+    import re
+    
+    # Сначала обрабатываем ссылки (до экранирования)
+    link_pattern = r'<a\s+href=["\']([^"\']+)["\']>([^<]+)</a>'
+    links = re.findall(link_pattern, text, re.IGNORECASE)
+    link_placeholders = {}
+    
+    for i, (url, link_text) in enumerate(links):
+        placeholder = f"__LINK_PLACEHOLDER_{i}__"
+        text = re.sub(
+            rf'<a\s+href=["\']' + re.escape(url) + rf'["\']>' + re.escape(link_text) + r'</a>',
+            placeholder,
+            text,
+            flags=re.IGNORECASE
+        )
+        # Экранируем текст ссылки и URL
+        escaped_text = escape_markdown_v2(link_text)
+        escaped_url = url.replace(')', '\\)')
+        link_placeholders[placeholder] = f"[{escaped_text}]({escaped_url})"
+    
+    # Сохраняем форматирование
+    formatting_items = []
+    
+    # Находим все теги форматирования
+    for tag, md_char in [
+        ('b', '*'),
+        ('strong', '*'),
+        ('i', '_'),
+        ('em', '_'),
+        ('code', '`'),
+        ('s', '~'),
+        ('strike', '~'),
+    ]:
+        pattern = rf'<{tag}>([^<]*)</{tag}>'
+        for j, match in enumerate(re.finditer(pattern, text, re.IGNORECASE)):
+            content = match.group(1)
+            placeholder = f"__FORMAT_{tag}_{j}__"
+            formatting_items.append((placeholder, content, md_char))
+        text = re.sub(pattern, lambda m: f"__FORMAT_{tag}_{re.finditer(pattern, text, re.IGNORECASE).__next__}__", text, flags=re.IGNORECASE)
+    
+    # Проще - замена напрямую с экранированием
+    for tag, md_char in [
+        ('b', '*'),
+        ('strong', '*'),
+        ('i', '_'),
+        ('em', '_'),
+        ('code', '`'),
+        ('s', '~'),
+        ('strike', '~'),
+    ]:
+        pattern = rf'<{tag}>([^<]*)</{tag}>'
+        
+        def replace_tag(m, char=md_char):
+            content = escape_markdown_v2(m.group(1))
+            return f"{char}{content}{char}"
+        
+        text = re.sub(pattern, replace_tag, text, flags=re.IGNORECASE)
+    
+    # Экранируем оставшийся текст (вне тегов)
+    # Для простоты - просто удаляем необработанные теги
+    text = re.sub(r'<[^>]+>', '', text)
+    
+    # Восстанавливаем ссылки
+    for placeholder, link in link_placeholders.items():
+        text = text.replace(placeholder, link)
+    
+    return text
+
+
+def prepare_message_text(text: str) -> tuple:
+    """
+    Подготавливает текст сообщения для отправки в MarkdownV2.
+    
+    Если текст содержит HTML теги - конвертирует в MarkdownV2.
+    Иначе просто экранирует специальные символы.
+    
+    Returns:
+        (prepared_text, parse_mode)
+    """
+    import re
+    
+    # Проверяем есть ли HTML теги
+    html_pattern = r'<(b|i|u|s|code|a|strong|em|strike)\b[^>]*>'
+    has_html = bool(re.search(html_pattern, text, re.IGNORECASE))
+    
+    if has_html:
+        # Конвертируем HTML в MarkdownV2
+        prepared = convert_html_to_markdown_v2(text)
+    else:
+        # Просто экранируем
+        prepared = escape_markdown_v2(text)
+    
+    return prepared, 'MarkdownV2'
+
+
 async def send_telegram_message_async(
     client: httpx.AsyncClient,
     bot_token: str,
     chat_id: int,
     text: str,
     photo_url: Optional[str] = None,
-    parse_mode: str = 'HTML'
+    parse_mode: str = 'MarkdownV2'
 ) -> Dict[str, Any]:
     """
     Асинхронная отправка сообщения через Telegram Bot API.
@@ -89,6 +214,9 @@ async def send_telegram_message_async(
     """
     base_url = f"https://api.telegram.org/bot{bot_token}"
     
+    # Подготавливаем текст для MarkdownV2
+    prepared_text, actual_parse_mode = prepare_message_text(text)
+    
     try:
         if photo_url:
             # Отправка фото с подписью
@@ -96,16 +224,16 @@ async def send_telegram_message_async(
             payload = {
                 "chat_id": chat_id,
                 "photo": photo_url,
-                "caption": text,
-                "parse_mode": parse_mode,
+                "caption": prepared_text,
+                "parse_mode": actual_parse_mode,
             }
         else:
             # Отправка текста
             url = f"{base_url}/sendMessage"
             payload = {
                 "chat_id": chat_id,
-                "text": text,
-                "parse_mode": parse_mode,
+                "text": prepared_text,
+                "parse_mode": actual_parse_mode,
             }
         
         response = await client.post(url, json=payload, timeout=30.0)
@@ -151,33 +279,50 @@ def send_telegram_message_sync(
     chat_id: int,
     text: str,
     photo_url: Optional[str] = None,
-    parse_mode: str = 'HTML'
+    parse_mode: Optional[str] = 'MarkdownV2'
 ) -> Dict[str, Any]:
     """
     Синхронная отправка сообщения через Telegram Bot API.
+    Автоматически конвертирует HTML в MarkdownV2.
     """
     base_url = f"https://api.telegram.org/bot{bot_token}"
     
-    try:
+    # Подготавливаем текст для MarkdownV2
+    prepared_text, actual_parse_mode = prepare_message_text(text)
+    
+    def make_request(use_parse_mode: bool = True, msg_text: str = prepared_text):
         if photo_url:
             url = f"{base_url}/sendPhoto"
             payload = {
                 "chat_id": chat_id,
                 "photo": photo_url,
-                "caption": text,
-                "parse_mode": parse_mode,
+                "caption": msg_text,
             }
+            if use_parse_mode and actual_parse_mode:
+                payload["parse_mode"] = actual_parse_mode
         else:
             url = f"{base_url}/sendMessage"
             payload = {
                 "chat_id": chat_id,
-                "text": text,
-                "parse_mode": parse_mode,
+                "text": msg_text,
             }
+            if use_parse_mode and actual_parse_mode:
+                payload["parse_mode"] = actual_parse_mode
         
         with httpx.Client(timeout=30.0) as client:
-            response = client.post(url, json=payload)
-            data = response.json()
+            return client.post(url, json=payload)
+    
+    try:
+        response = make_request(use_parse_mode=True)
+        data = response.json()
+        
+        # Если ошибка парсинга MarkdownV2 - пробуем plain text (оригинальный)
+        if not data.get('ok'):
+            error_desc = data.get('description', '').lower()
+            if 'parse' in error_desc or 'entities' in error_desc or "can't" in error_desc:
+                logger.warning(f"MarkdownV2 parse error, retrying as plain text: {error_desc}")
+                response = make_request(use_parse_mode=False, msg_text=text)
+                data = response.json()
         
         if response.status_code == 200 and data.get('ok'):
             return {'success': True, 'error': None, 'blocked': False}

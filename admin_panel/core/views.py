@@ -323,11 +323,59 @@ def broadcasts_api_delete(request, broadcast_id: str):
     try:
         broadcast = Broadcast.objects.get(id=broadcast_id)
         
-        if broadcast.status in ('draft', 'failed'):
+        # Можно удалить любую кроме той что сейчас отправляется
+        if broadcast.status != 'sending':
             broadcast.delete()
             return JsonResponse({'success': True})
         else:
-            return JsonResponse({'error': 'Можно удалить только черновики'}, status=400)
+            return JsonResponse({'error': 'Нельзя удалить рассылку в процессе отправки'}, status=400)
             
     except Broadcast.DoesNotExist:
         return JsonResponse({'error': 'Рассылка не найдена'}, status=404)
+
+
+@staff_member_required
+def broadcasts_api_upload_image(request):
+    """API: Загрузка изображения для рассылки."""
+    import os
+    import uuid
+    from django.conf import settings
+    
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    
+    if 'image' not in request.FILES:
+        return JsonResponse({'error': 'Файл не найден'}, status=400)
+    
+    image = request.FILES['image']
+    
+    # Проверяем тип файла
+    allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+    if image.content_type not in allowed_types:
+        return JsonResponse({'error': 'Неподдерживаемый формат. Используйте JPG, PNG, GIF или WebP'}, status=400)
+    
+    # Проверяем размер (макс 10MB)
+    if image.size > 10 * 1024 * 1024:
+        return JsonResponse({'error': 'Файл слишком большой (макс. 10MB)'}, status=400)
+    
+    # Генерируем уникальное имя
+    ext = os.path.splitext(image.name)[1].lower()
+    filename = f"broadcasts/{uuid.uuid4()}{ext}"
+    
+    # Создаём директорию если нет
+    upload_dir = settings.MEDIA_ROOT / 'broadcasts'
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Сохраняем файл
+    filepath = settings.MEDIA_ROOT / filename
+    with open(filepath, 'wb+') as f:
+        for chunk in image.chunks():
+            f.write(chunk)
+    
+    # Возвращаем URL
+    image_url = f"{settings.MEDIA_URL}{filename}"
+    
+    return JsonResponse({
+        'success': True,
+        'url': image_url,
+    })

@@ -4,6 +4,8 @@ URL configuration for admin_panel project.
 from django.contrib import admin
 from django.urls import path
 from django.shortcuts import redirect
+from django.conf import settings
+from django.conf.urls.static import static
 
 from core.views import (
     DashboardView, 
@@ -14,6 +16,7 @@ from core.views import (
     broadcasts_api_create,
     broadcasts_api_launch,
     broadcasts_api_delete,
+    broadcasts_api_upload_image,
 )
 
 urlpatterns = [
@@ -27,9 +30,17 @@ urlpatterns = [
     path('admin/broadcasts/api/create/', broadcasts_api_create, name='broadcasts_api_create'),
     path('admin/broadcasts/api/<str:broadcast_id>/launch/', broadcasts_api_launch, name='broadcasts_api_launch'),
     path('admin/broadcasts/api/<str:broadcast_id>/delete/', broadcasts_api_delete, name='broadcasts_api_delete'),
+    path('admin/broadcasts/api/upload-image/', broadcasts_api_upload_image, name='broadcasts_api_upload_image'),
     path('api/broadcast/<str:broadcast_id>/progress/', broadcast_progress_api, name='broadcast_progress'),
     
     # Admin
     path('admin/', admin.site.urls),
     path('', lambda r: redirect('/admin/')),
 ]
+
+# Serve media files in development
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+else:
+    # In production, also serve (nginx should handle this, but fallback)
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
