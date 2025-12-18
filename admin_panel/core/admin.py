@@ -341,6 +341,17 @@ class BroadcastAdmin(ModelAdmin):
     # Кастомные действия для рассылок
     actions = ['start_broadcast_action', 'cancel_broadcast_action']
     
+    # Для создания новой рассылки показываем только основные поля
+    add_fieldsets = (
+        ('Содержание', {
+            'fields': ('title', 'message_text', 'message_photo_url'),
+            'description': 'Текст поддерживает HTML-теги: <b>, <i>, <a href="...">'
+        }),
+        ('Настройки', {
+            'fields': ('target_audience', 'status', 'scheduled_at'),
+        }),
+    )
+    
     fieldsets = (
         ('Содержание', {
             'fields': ('title', 'message_text', 'message_photo_url'),
@@ -358,6 +369,18 @@ class BroadcastAdmin(ModelAdmin):
             'classes': ('collapse',),
         }),
     )
+    
+    def get_fieldsets(self, request, obj=None):
+        """Разные fieldsets для создания и редактирования."""
+        if obj is None:
+            return self.add_fieldsets
+        return super().get_fieldsets(request, obj)
+    
+    def get_readonly_fields(self, request, obj=None):
+        """При создании нет readonly полей."""
+        if obj is None:
+            return []
+        return self.readonly_fields
     
     @display(description="Статус")
     def display_status(self, obj):

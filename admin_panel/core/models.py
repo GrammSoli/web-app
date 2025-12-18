@@ -251,8 +251,8 @@ class Broadcast(models.Model):
     failed_count = models.IntegerField(default=0, blank=True, null=True, verbose_name='Ошибок')
     last_error = models.TextField(blank=True, null=True, verbose_name='Последняя ошибка')
     
-    date_created = models.DateTimeField(auto_now_add=True, blank=True, null=True, verbose_name='Создана')
-    date_updated = models.DateTimeField(auto_now=True, blank=True, null=True, verbose_name='Обновлена')
+    date_created = models.DateTimeField(blank=True, null=True, verbose_name='Создана')
+    date_updated = models.DateTimeField(blank=True, null=True, verbose_name='Обновлена')
 
     class Meta:
         managed = False
@@ -260,6 +260,16 @@ class Broadcast(models.Model):
         verbose_name = 'Рассылка'
         verbose_name_plural = 'Рассылки'
         ordering = ['-date_created']
+
+    def save(self, *args, **kwargs):
+        """Генерируем UUID если не задан и устанавливаем даты."""
+        from django.utils import timezone
+        if not self.id:
+            self.id = uuid.uuid4()
+        if not self.date_created:
+            self.date_created = timezone.now()
+        self.date_updated = timezone.now()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.title} ({self.status})"
