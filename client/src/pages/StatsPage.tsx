@@ -215,9 +215,9 @@ export default function StatsPage() {
             </div>
             <div className="flex-1">
               <div className="font-bold text-lg flex items-center gap-2">
-                {stats.moodTrend === 'up' && 'Настроение улучшается'}
-                {stats.moodTrend === 'down' && 'Настроение снижается'}
-                {stats.moodTrend === 'stable' && 'Стабильное настроение'}
+                {stats.moodTrend === 'up' && 'Ты расцветаешь! 🌿'}
+                {stats.moodTrend === 'down' && 'Время позаботиться о себе'}
+                {stats.moodTrend === 'stable' && 'Стабильное настроение ⚓️'}
                 {stats.trendPercentage !== undefined && stats.trendPercentage !== 0 && (
                   <span className={`text-sm px-2 py-0.5 rounded-full ${
                     stats.trendPercentage > 0 ? 'bg-green-400/30' : 'bg-red-400/30'
@@ -227,9 +227,9 @@ export default function StatsPage() {
                 )}
               </div>
               <p className="text-sm text-white/80 mt-1">
-                {stats.moodTrend === 'up' && 'По сравнению с прошлой неделей 💪'}
-                {stats.moodTrend === 'down' && 'Уделяй время тому, что радует'}
-                {stats.moodTrend === 'stable' && 'Постоянство — это тоже хорошо!'}
+                {stats.moodTrend === 'up' && 'Графики идут вверх. Запомни, что именно радовало тебя на этой неделе.'}
+                {stats.moodTrend === 'down' && 'Неделя выдалась непростой. Позволь себе отдохнуть и восстановить ресурс.'}
+                {stats.moodTrend === 'stable' && 'Постоянство — это тоже хорошо! Ты находишься в равновесии.'}
               </p>
             </div>
           </div>
