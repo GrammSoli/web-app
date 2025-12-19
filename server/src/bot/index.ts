@@ -115,7 +115,7 @@ export function createBot(token: string): Bot<MyContext> {
         ]);
       }
       
-      const welcomeBackMessage = await getMessage('msg.welcome_back');
+      const welcomeBackMessage = await getMessage('msg.welcome_back', { name: user.first_name });
       const startPhotoUrl = await configService.getString('bot.start_photo_url', '');
       
       if (startPhotoUrl) {
@@ -189,7 +189,8 @@ export function createBot(token: string): Bot<MyContext> {
     }
     
     const startPhotoUrl = await configService.getString('bot.start_photo_url', '');
-    const welcomeBackMessage = await getMessage('msg.welcome_back');
+    const user = ctx.from!;
+    const welcomeBackMessage = await getMessage('msg.welcome_back', { name: user.first_name });
     
     if (startPhotoUrl) {
       await ctx.replyWithPhoto(startPhotoUrl, {
