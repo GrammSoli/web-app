@@ -143,10 +143,14 @@ export function createBot(token: string): Bot<MyContext> {
     const helpMessage = await getMessage('msg.help');
     const helpPhotoUrl = await configService.getString('bot.help_photo_url', '');
     
+    const helpKeyboard = {
+      inline_keyboard: [[{ text: '◀️ Назад', callback_data: 'back_to_start' }]]
+    };
+    
     if (helpPhotoUrl) {
-      await ctx.replyWithPhoto(helpPhotoUrl, { caption: helpMessage, parse_mode: 'Markdown' });
+      await ctx.replyWithPhoto(helpPhotoUrl, { caption: helpMessage, parse_mode: 'Markdown', reply_markup: helpKeyboard });
     } else {
-      await ctx.reply(helpMessage, { parse_mode: 'Markdown' });
+      await ctx.reply(helpMessage, { parse_mode: 'Markdown', reply_markup: helpKeyboard });
     }
   });
 
@@ -159,10 +163,44 @@ export function createBot(token: string): Bot<MyContext> {
     const helpMessage = await getMessage('msg.help');
     const helpPhotoUrl = await configService.getString('bot.help_photo_url', '');
     
+    const helpKeyboard = {
+      inline_keyboard: [[{ text: '◀️ Назад', callback_data: 'back_to_start' }]]
+    };
+    
     if (helpPhotoUrl) {
-      await ctx.replyWithPhoto(helpPhotoUrl, { caption: helpMessage, parse_mode: 'Markdown' });
+      await ctx.replyWithPhoto(helpPhotoUrl, { caption: helpMessage, parse_mode: 'Markdown', reply_markup: helpKeyboard });
     } else {
-      await ctx.reply(helpMessage, { parse_mode: 'Markdown' });
+      await ctx.reply(helpMessage, { parse_mode: 'Markdown', reply_markup: helpKeyboard });
+    }
+  });
+
+  // Обработчик кнопки "Назад" - возвращает к главному меню
+  bot.callbackQuery('back_to_start', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    
+    const webAppUrl = process.env.WEBAPP_URL || '';
+    const keyboard = [];
+    
+    if (webAppUrl && webAppUrl.startsWith('https://')) {
+      keyboard.push([{ text: '📱 Открыть Дневник', web_app: { url: webAppUrl } }]);
+      keyboard.push([
+        { text: '💎 Premium', web_app: { url: `${webAppUrl}/premium` } },
+        { text: '❓ Помощь', callback_data: 'show_help' }
+      ]);
+    }
+    
+    const startPhotoUrl = await configService.getString('bot.start_photo_url', '');
+    const welcomeBackMessage = `Рад тебя видеть! 🌿\n\nМожешь писать мысли или отправлять голосовые прямо сюда. Я всё сохраню. Или открой приложение, чтобы увидеть аналитику.`;
+    
+    if (startPhotoUrl) {
+      await ctx.replyWithPhoto(startPhotoUrl, {
+        caption: welcomeBackMessage,
+        reply_markup: { inline_keyboard: keyboard as any },
+      });
+    } else {
+      await ctx.reply(welcomeBackMessage, {
+        reply_markup: { inline_keyboard: keyboard as any },
+      });
     }
   });
 
