@@ -77,6 +77,27 @@ async function apiFetch<T>(
 }
 
 // ============================================
+// PUBLIC CONFIG API (no auth required)
+// ============================================
+
+export interface PublicConfig {
+  supportLink: string;
+}
+
+export async function getPublicConfig(): Promise<PublicConfig> {
+  try {
+    const response = await fetch(`${API_BASE}/config/public`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch config');
+    }
+    return response.json();
+  } catch {
+    // Fallback to default
+    return { supportLink: 'https://t.me/mindful_support' };
+  }
+}
+
+// ============================================
 // USER API
 // ============================================
 

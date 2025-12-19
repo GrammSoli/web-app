@@ -9,6 +9,7 @@ import { cryptoPayService } from '../services/cryptopay.js';
 import { activateSubscription } from '../services/user.js';
 import prisma from '../services/database.js';
 import { getBot } from '../bot/index.js';
+import { configService } from '../services/config.js';
 
 export function createApp() {
   const app = express();
@@ -189,6 +190,22 @@ export function createApp() {
     
     const statusCode = health.status === 'ok' ? 200 : 503;
     res.status(statusCode).json(health);
+  });
+  
+  // Public config endpoint (no auth required)
+  app.get('/api/config/public', async (_req, res) => {
+    try {
+      const supportLink = await configService.getString('app.support_link', 'https://t.me/mindful_support');
+      
+      res.json({
+        supportLink,
+      });
+    } catch (error) {
+      apiLogger.error({ error }, 'Failed to get public config');
+      res.json({
+        supportLink: 'https://t.me/mindful_support',
+      });
+    }
   });
   
   // Telegram Bot Webhook handler

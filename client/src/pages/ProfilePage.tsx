@@ -1,12 +1,11 @@
-import { useEffect, ReactNode, useReducer } from 'react';
+import { useEffect, ReactNode, useReducer, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Gem, Bell, Download, MessageCircle, RefreshCw, ChevronRight, Star, Crown, Gift, User, Clock, Settings, Globe, Shield, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useTelegram } from '@/hooks/useTelegram';
 import { useAppStore } from '@/store/useAppStore';
-import { exportData } from '@/lib/api';
-import { SUPPORT_LINK } from '@/config/constants';
+import { exportData, getPublicConfig } from '@/lib/api';
 import type { UserSettings } from '@/types/api';
 
 // Bottom Sheet Component
@@ -133,6 +132,7 @@ export default function ProfilePage() {
   const { user, haptic } = useTelegram();
   const { user: appUser, loadUser, userLoading, updateSettings, settingsUpdating } = useAppStore();
   const [state, dispatch] = useReducer(profileReducer, initialProfileState);
+  const [supportLink, setSupportLink] = useState('https://t.me/mindful_support');
 
   const currentTier = (appUser?.subscriptionTier || 'free') as keyof typeof tierConfig;
   const tierInfo = tierConfig[currentTier];
@@ -141,6 +141,11 @@ export default function ProfilePage() {
   
   // Get settings from global store
   const settings = appUser?.settings;
+
+  // Load public config on mount
+  useEffect(() => {
+    getPublicConfig().then(config => setSupportLink(config.supportLink));
+  }, []);
 
   const handleRefresh = async () => {
     dispatch({ type: 'SET_REFRESHING', payload: true });
@@ -190,8 +195,8 @@ export default function ProfilePage() {
 
   const handleContactSupport = () => {
     haptic.light();
-    window.Telegram?.WebApp?.openTelegramLink?.(SUPPORT_LINK) ||
-    window.open(SUPPORT_LINK, '_blank');
+    window.Telegram?.WebApp?.openTelegramLink?.(supportLink) ||
+    window.open(supportLink, '_blank');
   };
 
   return (
