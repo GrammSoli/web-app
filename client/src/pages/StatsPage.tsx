@@ -207,8 +207,8 @@ export default function StatsPage() {
         <div className="bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-3xl p-5 text-white shadow-xl shadow-indigo-500/25 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10 blur-2xl" />
           
-          <div className="flex items-start gap-3 relative z-10">
-            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm flex-shrink-0 mt-0.5">
+          <div className="flex items-center gap-3 relative z-10">
+            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm flex-shrink-0">
               {stats.moodTrend === 'up' && <Sprout className="w-5 h-5 text-white" />}
               {stats.moodTrend === 'down' && <Heart className="w-5 h-5 text-white" />}
               {stats.moodTrend === 'stable' && <Anchor className="w-5 h-5 text-white" />}
