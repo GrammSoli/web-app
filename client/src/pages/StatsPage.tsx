@@ -11,7 +11,7 @@ import {
 } from 'recharts';
 import { format, subDays } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { FileText, Smile, Flame, Trophy, TrendingUp, TrendingDown, ArrowRight, BarChart3, Mic, Crown, Tag, Calendar, Sprout, Heart, Anchor } from 'lucide-react';
+import { FileText, Smile, Flame, Trophy, TrendingUp, BarChart3, Mic, Crown, Tag, Calendar, Sprout, Heart, Anchor } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import { useTelegram } from '@/hooks/useTelegram';
 
