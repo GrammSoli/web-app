@@ -207,17 +207,17 @@ export default function StatsPage() {
         <div className="bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-3xl p-5 text-white shadow-xl shadow-indigo-500/25 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10 blur-2xl" />
           
-          <div className="flex items-center gap-4 relative z-10">
-            <div className="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center backdrop-blur-sm">
-              {stats.moodTrend === 'up' && <TrendingUp className="w-8 h-8 text-white" />}
-              {stats.moodTrend === 'down' && <TrendingDown className="w-8 h-8 text-white" />}
-              {stats.moodTrend === 'stable' && <ArrowRight className="w-8 h-8 text-white" />}
+          <div className="flex items-start gap-3 relative z-10">
+            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm flex-shrink-0 mt-0.5">
+              {stats.moodTrend === 'up' && <TrendingUp className="w-5 h-5 text-white" />}
+              {stats.moodTrend === 'down' && <TrendingDown className="w-5 h-5 text-white" />}
+              {stats.moodTrend === 'stable' && <ArrowRight className="w-5 h-5 text-white" />}
             </div>
-            <div className="flex-1">
-              <div className="font-bold text-lg flex items-center gap-2">
-                {stats.moodTrend === 'up' && <><Sprout className="w-5 h-5" /> Ты расцветаешь!</>}
-                {stats.moodTrend === 'down' && <><Heart className="w-5 h-5" /> Время позаботиться о себе</>}
-                {stats.moodTrend === 'stable' && <><Anchor className="w-5 h-5" /> Стабильное настроение</>}
+            <div className="flex-1 min-w-0">
+              <div className="font-semibold text-base flex items-center gap-2 flex-wrap">
+                {stats.moodTrend === 'up' && 'Ты расцветаешь!'}
+                {stats.moodTrend === 'down' && 'Время позаботиться о себе'}
+                {stats.moodTrend === 'stable' && 'Стабильное настроение'}
                 {stats.trendPercentage !== undefined && stats.trendPercentage !== 0 && (
                   <span className={`text-sm px-2 py-0.5 rounded-full ${
                     stats.trendPercentage > 0 ? 'bg-green-400/30' : 'bg-red-400/30'
