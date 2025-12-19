@@ -209,9 +209,9 @@ export default function StatsPage() {
           
           <div className="flex items-start gap-3 relative z-10">
             <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm flex-shrink-0 mt-0.5">
-              {stats.moodTrend === 'up' && <TrendingUp className="w-5 h-5 text-white" />}
-              {stats.moodTrend === 'down' && <TrendingDown className="w-5 h-5 text-white" />}
-              {stats.moodTrend === 'stable' && <ArrowRight className="w-5 h-5 text-white" />}
+              {stats.moodTrend === 'up' && <Sprout className="w-5 h-5 text-white" />}
+              {stats.moodTrend === 'down' && <Heart className="w-5 h-5 text-white" />}
+              {stats.moodTrend === 'stable' && <Anchor className="w-5 h-5 text-white" />}
             </div>
             <div className="flex-1 min-w-0">
               <div className="font-semibold text-base flex items-center gap-2 flex-wrap">
