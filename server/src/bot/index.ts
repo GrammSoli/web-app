@@ -79,7 +79,6 @@ export function createBot(token: string): Bot<MyContext> {
       if (webAppUrl && webAppUrl.startsWith('https://')) {
         keyboard.push([{ text: '🚀 Активировать Дневник', web_app: { url: webAppUrl } }]);
       }
-      keyboard.push([{ text: '⭐ Premium подписка', callback_data: 'show_premium' }]);
       
       const welcomeMessage = await getMessage('msg.welcome', { name: user.first_name });
       const welcomePhotoUrl = await configService.getString('bot.welcome_photo_url', '');
