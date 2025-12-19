@@ -115,8 +115,7 @@ export function createBot(token: string): Bot<MyContext> {
         ]);
       }
       
-      const welcomeBackMessage = `Рад тебя видеть! 🌿\n\n` +
-        `Можешь писать мысли или отправлять голосовые прямо сюда. Я всё сохраню. Или открой приложение, чтобы увидеть аналитику.`;
+      const welcomeBackMessage = await getMessage('msg.welcome_back');
       const startPhotoUrl = await configService.getString('bot.start_photo_url', '');
       
       if (startPhotoUrl) {
@@ -190,7 +189,7 @@ export function createBot(token: string): Bot<MyContext> {
     }
     
     const startPhotoUrl = await configService.getString('bot.start_photo_url', '');
-    const welcomeBackMessage = `Рад тебя видеть! 🌿\n\nМожешь писать мысли или отправлять голосовые прямо сюда. Я всё сохраню. Или открой приложение, чтобы увидеть аналитику.`;
+    const welcomeBackMessage = await getMessage('msg.welcome_back');
     
     if (startPhotoUrl) {
       await ctx.replyWithPhoto(startPhotoUrl, {
