@@ -121,6 +121,7 @@ export function createBot(token: string): Bot<MyContext> {
       if (startPhotoUrl) {
         await ctx.replyWithPhoto(startPhotoUrl, {
           caption: welcomeBackMessage,
+          parse_mode: 'Markdown',
           reply_markup: {
             inline_keyboard: keyboard as any,
           },
@@ -129,6 +130,7 @@ export function createBot(token: string): Bot<MyContext> {
         await ctx.reply(
           welcomeBackMessage,
           {
+            parse_mode: 'Markdown',
             reply_markup: {
               inline_keyboard: keyboard as any,
             },
@@ -195,10 +197,12 @@ export function createBot(token: string): Bot<MyContext> {
     if (startPhotoUrl) {
       await ctx.replyWithPhoto(startPhotoUrl, {
         caption: welcomeBackMessage,
+        parse_mode: 'Markdown',
         reply_markup: { inline_keyboard: keyboard as any },
       });
     } else {
       await ctx.reply(welcomeBackMessage, {
+        parse_mode: 'Markdown',
         reply_markup: { inline_keyboard: keyboard as any },
       });
     }
