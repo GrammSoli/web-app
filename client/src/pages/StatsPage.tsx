@@ -11,7 +11,7 @@ import {
 } from 'recharts';
 import { format, subDays } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { FileText, Smile, Flame, Trophy, TrendingUp, TrendingDown, ArrowRight, BarChart3, Mic, Crown, Tag, Calendar } from 'lucide-react';
+import { FileText, Smile, Flame, Trophy, TrendingUp, TrendingDown, ArrowRight, BarChart3, Mic, Crown, Tag, Calendar, Sprout, Heart, Anchor } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import { useTelegram } from '@/hooks/useTelegram';
 
@@ -215,9 +215,9 @@ export default function StatsPage() {
             </div>
             <div className="flex-1">
               <div className="font-bold text-lg flex items-center gap-2">
-                {stats.moodTrend === 'up' && 'Ты расцветаешь! 🌿'}
-                {stats.moodTrend === 'down' && 'Время позаботиться о себе'}
-                {stats.moodTrend === 'stable' && 'Стабильное настроение ⚓️'}
+                {stats.moodTrend === 'up' && <><Sprout className="w-5 h-5" /> Ты расцветаешь!</>}
+                {stats.moodTrend === 'down' && <><Heart className="w-5 h-5" /> Время позаботиться о себе</>}
+                {stats.moodTrend === 'stable' && <><Anchor className="w-5 h-5" /> Стабильное настроение</>}
                 {stats.trendPercentage !== undefined && stats.trendPercentage !== 0 && (
                   <span className={`text-sm px-2 py-0.5 rounded-full ${
                     stats.trendPercentage > 0 ? 'bg-green-400/30' : 'bg-red-400/30'
