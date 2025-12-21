@@ -196,14 +196,17 @@ export function createApp() {
   app.get('/api/config/public', async (_req, res) => {
     try {
       const supportLink = await configService.getString('app.support_link', 'https://t.me/mindful_support');
+      const channelLink = await configService.getString('app.channel_link', 'https://t.me/mindful_journal_channel');
       
       res.json({
         supportLink,
+        channelLink,
       });
     } catch (error) {
       apiLogger.error({ error }, 'Failed to get public config');
       res.json({
         supportLink: 'https://t.me/mindful_support',
+        channelLink: 'https://t.me/mindful_journal_channel',
       });
     }
   });

@@ -82,6 +82,7 @@ async function apiFetch<T>(
 
 export interface PublicConfig {
   supportLink: string;
+  channelLink: string;
 }
 
 export async function getPublicConfig(): Promise<PublicConfig> {
@@ -93,7 +94,10 @@ export async function getPublicConfig(): Promise<PublicConfig> {
     return response.json();
   } catch {
     // Fallback to default
-    return { supportLink: 'https://t.me/mindful_support' };
+    return { 
+      supportLink: 'https://t.me/mindful_support',
+      channelLink: 'https://t.me/mindful_journal_channel',
+    };
   }
 }
 

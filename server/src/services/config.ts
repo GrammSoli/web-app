@@ -127,6 +127,7 @@ const DEFAULTS: Record<string, unknown> = {
   
   // App settings
   'app.support_link': 'https://t.me/mindful_support',
+  'app.channel_link': 'https://t.me/mindful_journal_channel',
   
   // Bot messages
   'msg.welcome_back': `Рад тебя видеть! 🌿

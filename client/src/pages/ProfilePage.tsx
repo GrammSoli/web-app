@@ -1,6 +1,6 @@
 import { useEffect, ReactNode, useReducer, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Gem, Bell, Download, MessageCircle, RefreshCw, ChevronRight, Star, Crown, Gift, User, Clock, Settings, Globe, Shield, X } from 'lucide-react';
+import { Gem, Bell, Download, MessageCircle, RefreshCw, ChevronRight, Star, Crown, Gift, User, Clock, Settings, Globe, Shield, X, Send } from 'lucide-react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useTelegram } from '@/hooks/useTelegram';
@@ -142,9 +142,15 @@ export default function ProfilePage() {
   // Get settings from global store
   const settings = appUser?.settings;
 
+  // Channel link state
+  const [channelLink, setChannelLink] = useState('https://t.me/mindful_journal_channel');
+  
   // Load public config on mount
   useEffect(() => {
-    getPublicConfig().then(config => setSupportLink(config.supportLink));
+    getPublicConfig().then(config => {
+      setSupportLink(config.supportLink);
+      setChannelLink(config.channelLink);
+    });
   }, []);
 
   const handleRefresh = async () => {
@@ -288,6 +294,15 @@ export default function ProfilePage() {
                 haptic.light();
                 dispatch({ type: 'TOGGLE_EXPORT' });
               }
+            }} 
+          />
+          <MenuItem 
+            icon={<Send className="w-6 h-6 text-indigo-500" />} 
+            title="Канал" 
+            subtitle="Новости и обновления" 
+            onClick={() => {
+              haptic.light();
+              window.Telegram?.WebApp?.openTelegramLink(channelLink);
             }} 
           />
           <MenuItem 
