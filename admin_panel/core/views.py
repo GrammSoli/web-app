@@ -455,7 +455,7 @@ def broadcasts_api_upload_image(request):
             f.write(chunk)
     
     # Возвращаем полный URL (для Telegram нужен абсолютный URL)
-    site_url = getattr(settings, 'SITE_URL', 'https://dj.grammvpn.ru')
+    site_url = getattr(settings, 'SITE_URL', 'https://dj.mindful-journal.com')
     image_url = f"{site_url}{settings.MEDIA_URL}{filename}"
     
     return JsonResponse({

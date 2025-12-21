@@ -120,7 +120,7 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 # Site URL for absolute URLs (needed for Telegram API)
-SITE_URL = os.environ.get('SITE_URL', 'https://dj.grammvpn.ru')
+SITE_URL = os.environ.get('SITE_URL', 'https://dj.mindful-journal.com')
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

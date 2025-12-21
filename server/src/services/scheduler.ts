@@ -61,7 +61,7 @@ async function sendReminder(telegramId: bigint, message: string): Promise<boolea
       return false;
     }
 
-    const webAppUrl = await configService.getString('bot.webapp_url') || 'https://grammvpn.ru';
+    const webAppUrl = await configService.getString('bot.webapp_url') || 'https://mindful-journal.com';
     
     const keyboard = new InlineKeyboard()
       .webApp('📝 Открыть дневник', webAppUrl);
