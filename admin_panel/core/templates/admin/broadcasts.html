@@ -894,7 +894,7 @@
                             <button class="read-more-btn" id="btn-{{ b.id }}" onclick="toggleText('{{ b.id }}')">Читать далее</button>
                             
                             <div class="card-meta">
-                                <span>👥 {{ b.get_target_audience_display }}</span>
+                                <span>👥 {% if b.segment %}{{ b.segment.name }}{% else %}{{ b.get_target_audience_display }}{% endif %}</span>
                                 <span>📅 Создано: {{ b.date_created|date:"d.m.Y H:i" }}</span>
                             </div>
                             
