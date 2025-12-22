@@ -61,6 +61,78 @@ def send_broadcast_action(modeladmin, request, queryset):
     )
 
 
+@admin.action(description="⭐ Установить подписку: Premium")
+def set_subscription_premium(modeladmin, request, queryset):
+    """Массово установить Premium подписку выбранным пользователям."""
+    from datetime import datetime, timedelta
+    from django.utils import timezone
+    
+    expires_at = timezone.now() + timedelta(days=30)
+    updated = queryset.update(
+        subscription_tier='premium',
+        subscription_expires_at=expires_at
+    )
+    modeladmin.message_user(
+        request,
+        f"⭐ Premium подписка установлена для {updated} пользователей (на 30 дней)",
+        messages.SUCCESS
+    )
+
+
+@admin.action(description="💎 Установить подписку: Pro")
+def set_subscription_pro(modeladmin, request, queryset):
+    """Массово установить Pro подписку выбранным пользователям."""
+    from datetime import datetime, timedelta
+    from django.utils import timezone
+    
+    expires_at = timezone.now() + timedelta(days=30)
+    updated = queryset.update(
+        subscription_tier='pro',
+        subscription_expires_at=expires_at
+    )
+    modeladmin.message_user(
+        request,
+        f"💎 Pro подписка установлена для {updated} пользователей (на 30 дней)",
+        messages.SUCCESS
+    )
+
+
+@admin.action(description="🆓 Сбросить на Free")
+def set_subscription_free(modeladmin, request, queryset):
+    """Массово сбросить подписку на Free."""
+    updated = queryset.update(
+        subscription_tier='free',
+        subscription_expires_at=None
+    )
+    modeladmin.message_user(
+        request,
+        f"🆓 Подписка сброшена на Free для {updated} пользователей",
+        messages.SUCCESS
+    )
+
+
+@admin.action(description="🚫 Заблокировать пользователей")
+def block_users(modeladmin, request, queryset):
+    """Массово заблокировать пользователей."""
+    updated = queryset.update(status='blocked')
+    modeladmin.message_user(
+        request,
+        f"🚫 Заблокировано {updated} пользователей",
+        messages.WARNING
+    )
+
+
+@admin.action(description="✅ Разблокировать пользователей")
+def unblock_users(modeladmin, request, queryset):
+    """Массово разблокировать пользователей."""
+    updated = queryset.update(status='active')
+    modeladmin.message_user(
+        request,
+        f"✅ Разблокировано {updated} пользователей",
+        messages.SUCCESS
+    )
+
+
 @admin.action(description="📨 Отправить приветственное сообщение")
 def send_welcome_message(modeladmin, request, queryset):
     """

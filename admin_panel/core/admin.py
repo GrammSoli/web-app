@@ -12,7 +12,15 @@ from unfold.admin import ModelAdmin
 from unfold.decorators import display
 
 from .models import User, JournalEntry, Transaction, Subscription, Broadcast, UsageLog, AppConfig, UserSegment
-from .actions import send_broadcast_action, send_welcome_message
+from .actions import (
+    send_broadcast_action, 
+    send_welcome_message,
+    set_subscription_premium,
+    set_subscription_pro,
+    set_subscription_free,
+    block_users,
+    unblock_users,
+)
 
 
 @admin.register(User)
@@ -68,7 +76,15 @@ class UserAdmin(ModelAdmin):
     list_per_page = 50
     
     # Кастомные действия
-    actions = [send_broadcast_action, send_welcome_message]
+    actions = [
+        set_subscription_premium,
+        set_subscription_pro,
+        set_subscription_free,
+        block_users,
+        unblock_users,
+        send_broadcast_action, 
+        send_welcome_message,
+    ]
     
     # Группировка полей при редактировании
     fieldsets = (
