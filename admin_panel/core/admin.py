@@ -652,6 +652,22 @@ class UserSegmentAdmin(ModelAdmin):
     ordering = ['-is_system', 'name']
     list_per_page = 50
     
+    actions = ['recalculate_user_count']
+    
+    @admin.action(description="🔄 Пересчитать количество пользователей")
+    def recalculate_user_count(self, request, queryset):
+        """Пересчитывает cached_user_count для выбранных сегментов."""
+        from .tasks import update_segment_user_counts
+        
+        # Запускаем через Celery
+        update_segment_user_counts.delay()
+        
+        self.message_user(
+            request,
+            f"🔄 Пересчёт запущен для всех сегментов. Обновите страницу через несколько секунд.",
+            messages.SUCCESS
+        )
+    
     fieldsets = (
         ('Основное', {
             'fields': ('name', 'slug', 'description', 'segment_type', 'is_system')

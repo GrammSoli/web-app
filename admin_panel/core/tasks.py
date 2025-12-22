@@ -693,3 +693,45 @@ def scheduled_broadcast_check():
     for broadcast in due_broadcasts:
         logger.info(f"Starting scheduled broadcast: {broadcast.id}")
         execute_broadcast.delay(str(broadcast.id))
+
+
+@shared_task
+def update_segment_user_counts():
+    """
+    Пересчитывает количество пользователей в каждом сегменте.
+    Запускается периодически через Celery Beat или вручную.
+    """
+    from core.models import UserSegment, User
+    
+    segments = UserSegment.objects.all()
+    updated = 0
+    
+    for segment in segments:
+        try:
+            users_query = User.objects.filter(status='active')
+            
+            if segment.filter_rules:
+                users_query = apply_segment_filter(users_query, segment.filter_rules)
+                count = users_query.count()
+            elif segment.static_user_ids:
+                count = User.objects.filter(id__in=segment.static_user_ids, status='active').count()
+            elif segment.slug == 'all':
+                count = users_query.count()
+            elif segment.slug == 'premium':
+                count = users_query.filter(subscription_tier__in=['premium', 'basic']).count()
+            elif segment.slug == 'free':
+                count = users_query.filter(subscription_tier__in=['free', None, '']).count()
+            else:
+                count = 0
+            
+            UserSegment.objects.filter(id=segment.id).update(
+                cached_user_count=count,
+                cache_updated_at=timezone.now()
+            )
+            updated += 1
+            logger.info(f"Segment {segment.slug}: {count} users")
+            
+        except Exception as e:
+            logger.error(f"Error updating segment {segment.slug}: {e}")
+    
+    return {'updated': updated}
