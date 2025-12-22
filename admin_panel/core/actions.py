@@ -79,15 +79,15 @@ def set_subscription_premium(modeladmin, request, queryset):
     )
 
 
-@admin.action(description="💎 Установить подписку: Pro")
-def set_subscription_pro(modeladmin, request, queryset):
-    """Массово установить Pro подписку выбранным пользователям."""
+@admin.action(description="💎 Установить подписку: Basic")
+def set_subscription_basic(modeladmin, request, queryset):
+    """Массово установить Basic подписку выбранным пользователям."""
     from datetime import datetime, timedelta
     from django.utils import timezone
     
     expires_at = timezone.now() + timedelta(days=30)
     updated = queryset.update(
-        subscription_tier='pro',
+        subscription_tier='basic',
         subscription_expires_at=expires_at
     )
     modeladmin.message_user(

@@ -205,7 +205,10 @@ def broadcast_launch(request, broadcast_id: str):
 @staff_member_required
 def broadcasts_page(request):
     """Главная страница рассылок."""
+    from .models import UserSegment
+    
     broadcasts = Broadcast.objects.all().order_by('-date_created')
+    segments = UserSegment.objects.all().order_by('-is_system', 'name')
     
     # Статистика (sending = в процессе в enum PostgreSQL)
     stats = {
@@ -217,6 +220,7 @@ def broadcasts_page(request):
     
     return render(request, 'admin/broadcasts.html', {
         'broadcasts': broadcasts,
+        'segments': segments,
         'stats': stats,
         'title': 'Рассылки',
     })
@@ -254,19 +258,33 @@ def broadcasts_api_list(request):
 @staff_member_required
 def broadcasts_api_create(request):
     """API: Создание рассылки."""
+    from .models import UserSegment
+    
     if request.method != 'POST':
         return JsonResponse({'error': 'POST required'}, status=405)
     
     title = request.POST.get('title', '').strip()
     message_text = request.POST.get('message_text', '').strip()
     message_photo_url = request.POST.get('message_photo_url', '').strip() or None
-    target_audience = request.POST.get('target_audience', 'all')
+    segment_id = request.POST.get('segment_id', '').strip() or None
     scheduled_at_str = request.POST.get('scheduled_at', '').strip()
     button_text = request.POST.get('button_text', '').strip() or None
     button_url = request.POST.get('button_url', '').strip() or None
     
     if not title or not message_text:
         return JsonResponse({'error': 'Заполните название и текст'}, status=400)
+    
+    # Проверяем сегмент
+    segment = None
+    target_audience = 'all'  # fallback
+    if segment_id:
+        try:
+            segment = UserSegment.objects.get(id=segment_id)
+            # Маппинг для backward compatibility
+            slug_to_audience = {'all': 'all', 'premium': 'premium', 'free': 'free'}
+            target_audience = slug_to_audience.get(segment.slug, 'all')
+        except UserSegment.DoesNotExist:
+            return JsonResponse({'error': 'Сегмент не найден'}, status=400)
     
     # Парсим дату если указана (время в форме - московское)
     scheduled_at = None
@@ -286,6 +304,7 @@ def broadcasts_api_create(request):
         title=title,
         message_text=message_text,
         message_photo_url=message_photo_url,
+        segment=segment,
         target_audience=target_audience,
         scheduled_at=scheduled_at,
         status=status,
@@ -352,6 +371,7 @@ def broadcasts_api_get(request, broadcast_id: str):
                 'title': broadcast.title,
                 'message_text': broadcast.message_text,
                 'message_photo_url': broadcast.message_photo_url or '',
+                'segment_id': str(broadcast.segment_id) if broadcast.segment_id else '',
                 'target_audience': broadcast.target_audience,
                 'scheduled_at': broadcast.scheduled_at.isoformat() if broadcast.scheduled_at else '',
                 'status': broadcast.status,
@@ -366,6 +386,8 @@ def broadcasts_api_get(request, broadcast_id: str):
 @staff_member_required
 def broadcasts_api_update(request, broadcast_id: str):
     """API: Редактирование рассылки."""
+    from .models import UserSegment
+    
     if request.method != 'POST':
         return JsonResponse({'error': 'POST required'}, status=405)
     
@@ -379,13 +401,24 @@ def broadcasts_api_update(request, broadcast_id: str):
         title = request.POST.get('title', '').strip()
         message_text = request.POST.get('message_text', '').strip()
         message_photo_url = request.POST.get('message_photo_url', '').strip() or None
-        target_audience = request.POST.get('target_audience', 'all')
+        segment_id = request.POST.get('segment_id', '').strip() or None
         scheduled_at_str = request.POST.get('scheduled_at', '').strip()
         button_text = request.POST.get('button_text', '').strip() or None
         button_url = request.POST.get('button_url', '').strip() or None
         
         if not title or not message_text:
             return JsonResponse({'error': 'Заполните название и текст'}, status=400)
+        
+        # Проверяем сегмент
+        segment = None
+        target_audience = 'all'
+        if segment_id:
+            try:
+                segment = UserSegment.objects.get(id=segment_id)
+                slug_to_audience = {'all': 'all', 'premium': 'premium', 'free': 'free'}
+                target_audience = slug_to_audience.get(segment.slug, 'all')
+            except UserSegment.DoesNotExist:
+                return JsonResponse({'error': 'Сегмент не найден'}, status=400)
         
         # Парсим дату (время в форме - московское)
         scheduled_at = None
@@ -404,6 +437,7 @@ def broadcasts_api_update(request, broadcast_id: str):
         broadcast.title = title
         broadcast.message_text = message_text
         broadcast.message_photo_url = message_photo_url
+        broadcast.segment = segment
         broadcast.target_audience = target_audience
         broadcast.scheduled_at = scheduled_at
         broadcast.status = status

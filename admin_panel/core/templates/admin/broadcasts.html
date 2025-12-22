@@ -991,11 +991,14 @@
                 </div>
                 
                 <div class="form-group">
-                    <label class="form-label">Аудитория</label>
-                    <select name="target_audience" class="form-select">
-                        <option value="all">👥 Все пользователи</option>
-                        <option value="premium">⭐ Premium</option>
-                        <option value="free">🆓 Бесплатные</option>
+                    <label class="form-label">Сегмент аудитории</label>
+                    <select name="segment_id" class="form-select">
+                        {% for segment in segments %}
+                        <option value="{{ segment.id }}">
+                            {% if segment.slug == 'all' %}👥{% elif segment.slug == 'premium' %}⭐{% elif segment.slug == 'free' %}🆓{% elif 'new' in segment.slug %}🆕{% elif 'inactive' in segment.slug %}😴{% elif 'voice' in segment.slug %}🎙{% elif 'active' in segment.slug %}📝{% else %}📊{% endif %}
+                            {{ segment.name }} ({{ segment.cached_user_count }})
+                        </option>
+                        {% endfor %}
                     </select>
                 </div>
                 
@@ -1276,7 +1279,11 @@ async function editBroadcast(id) {
         const form = document.getElementById('create-form');
         form.querySelector('[name="title"]').value = b.title;
         document.getElementById('message-editor').innerHTML = b.message_text;
-        form.querySelector('[name="target_audience"]').value = b.target_audience;
+        
+        // Сегмент
+        if (b.segment_id) {
+            form.querySelector('[name="segment_id"]').value = b.segment_id;
+        }
         
         // Дата
         if (b.scheduled_at) {
