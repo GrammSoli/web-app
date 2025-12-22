@@ -11,7 +11,7 @@ from django.contrib import admin, messages
 from unfold.admin import ModelAdmin
 from unfold.decorators import display
 
-from .models import User, JournalEntry, Transaction, Subscription, Broadcast, UsageLog, AppConfig
+from .models import User, JournalEntry, Transaction, Subscription, Broadcast, UsageLog, AppConfig, UserSegment
 from .actions import send_broadcast_action, send_welcome_message
 
 
@@ -308,7 +308,7 @@ class BroadcastAdmin(DjangoModelAdmin):
     list_display = [
         'id',
         'title',
-        'target_audience',
+        'display_segment',
         'display_status',
         'display_stats',
         'scheduled_at',
@@ -323,6 +323,7 @@ class BroadcastAdmin(DjangoModelAdmin):
     
     list_filter = [
         'status',
+        'segment',
         'target_audience',
         'date_created',
     ]
@@ -351,8 +352,12 @@ class BroadcastAdmin(DjangoModelAdmin):
             'fields': ('title', 'message_text', 'message_photo_url'),
             'description': 'Текст поддерживает HTML-теги: <b>, <i>, <a href="...">'
         }),
+        ('Таргетинг', {
+            'fields': ('segment', 'target_audience'),
+            'description': '🎯 Выберите сегмент ИЛИ используйте аудиторию (legacy)'
+        }),
         ('Настройки', {
-            'fields': ('target_audience', 'status', 'scheduled_at'),
+            'fields': ('status', 'scheduled_at'),
         }),
     )
     
@@ -361,8 +366,12 @@ class BroadcastAdmin(DjangoModelAdmin):
             'fields': ('title', 'message_text', 'message_photo_url'),
             'description': 'Текст поддерживает HTML-теги: <b>, <i>, <a href="...">'
         }),
+        ('Таргетинг', {
+            'fields': ('segment', 'target_audience'),
+            'description': '🎯 Если выбран сегмент, он имеет приоритет над аудиторией'
+        }),
         ('Настройки', {
-            'fields': ('target_audience', 'status', 'scheduled_at'),
+            'fields': ('status', 'scheduled_at'),
         }),
         ('Статистика', {
             'fields': ('total_recipients', 'sent_count', 'failed_count', 'last_error'),
@@ -373,6 +382,13 @@ class BroadcastAdmin(DjangoModelAdmin):
             'classes': ('collapse',),
         }),
     )
+    
+    def display_segment(self, obj):
+        """Отображение сегмента или legacy аудитории."""
+        if obj.segment:
+            return f"🎯 {obj.segment.name}"
+        return f"📢 {obj.get_target_audience_display()}"
+    display_segment.short_description = 'Сегмент'
     
     def get_fieldsets(self, request, obj=None):
         """Разные fieldsets для создания и редактирования."""
@@ -581,3 +597,85 @@ class AppConfigAdmin(ModelAdmin):
             return "🔒 [скрыто]"
         value = str(obj.value)
         return value[:50] + '...' if len(value) > 50 else value
+
+
+@admin.register(UserSegment)
+class UserSegmentAdmin(ModelAdmin):
+    """
+    Админ-класс для управления сегментами пользователей.
+    """
+    
+    list_display = [
+        'name',
+        'slug',
+        'display_type',
+        'cached_user_count',
+        'is_system',
+        'cache_updated_at',
+    ]
+    
+    search_fields = [
+        'name',
+        'slug',
+        'description',
+    ]
+    
+    list_filter = [
+        'segment_type',
+        'is_system',
+    ]
+    
+    readonly_fields = [
+        'id',
+        'cached_user_count',
+        'cache_updated_at',
+        'date_created',
+        'date_updated',
+    ]
+    
+    ordering = ['-is_system', 'name']
+    list_per_page = 50
+    
+    fieldsets = (
+        ('Основное', {
+            'fields': ('name', 'slug', 'description', 'segment_type', 'is_system')
+        }),
+        ('Правила (для динамических)', {
+            'fields': ('filter_rules',),
+            'description': 'JSON-правила фильтрации. Примеры: {"subscription_tier": ["premium"]}, {"date_created": {"gte": "-7 days"}}'
+        }),
+        ('Статический список (для static)', {
+            'fields': ('static_user_ids',),
+            'description': 'Список UUID пользователей для статических сегментов'
+        }),
+        ('Статистика', {
+            'fields': ('cached_user_count', 'cache_updated_at'),
+            'classes': ('collapse',),
+        }),
+        ('Метаданные', {
+            'fields': ('date_created', 'date_updated'),
+            'classes': ('collapse',),
+        }),
+    )
+    
+    @display(description="Тип")
+    def display_type(self, obj):
+        type_icons = {
+            'system': '⚙️ Системный',
+            'dynamic': '🔄 Динамический',
+            'static': '📌 Статический',
+        }
+        return type_icons.get(obj.segment_type, obj.segment_type)
+    
+    def has_delete_permission(self, request, obj=None):
+        """Системные сегменты нельзя удалять."""
+        if obj and obj.is_system:
+            return False
+        return super().has_delete_permission(request, obj)
+    
+    def get_readonly_fields(self, request, obj=None):
+        """Для системных сегментов больше полей readonly."""
+        readonly = list(self.readonly_fields)
+        if obj and obj.is_system:
+            readonly.extend(['slug', 'segment_type', 'is_system', 'filter_rules'])
+        return readonly

@@ -232,8 +232,20 @@ class Broadcast(models.Model):
         default='all', 
         blank=True,
         null=True,
-        verbose_name='Аудитория'
+        verbose_name='Аудитория (legacy)'
     )
+    
+    # New: Segment-based targeting
+    segment = models.ForeignKey(
+        'UserSegment',
+        on_delete=models.SET_NULL,
+        db_column='segment_id',
+        blank=True,
+        null=True,
+        related_name='broadcasts',
+        verbose_name='Сегмент'
+    )
+    
     status = models.CharField(
         max_length=20, 
         choices=STATUS_CHOICES,
@@ -278,6 +290,50 @@ class Broadcast(models.Model):
 
     def __str__(self):
         return f"{self.title} ({self.status})"
+
+
+class UserSegment(models.Model):
+    """
+    Модель сегмента пользователей.
+    Соответствует таблице app.user_segments.
+    """
+    SEGMENT_TYPE_CHOICES = [
+        ('system', 'Системный'),
+        ('dynamic', 'Динамический'),
+        ('static', 'Статический'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=100, verbose_name='Название')
+    description = models.TextField(blank=True, null=True, verbose_name='Описание')
+    slug = models.CharField(max_length=50, unique=True, verbose_name='Slug')
+    
+    segment_type = models.CharField(
+        max_length=20,
+        choices=SEGMENT_TYPE_CHOICES,
+        default='dynamic',
+        verbose_name='Тип'
+    )
+    is_system = models.BooleanField(default=False, verbose_name='Системный')
+    
+    filter_rules = models.JSONField(blank=True, null=True, verbose_name='Правила фильтрации')
+    static_user_ids = models.JSONField(blank=True, null=True, verbose_name='Статический список UUID')
+    
+    cached_user_count = models.IntegerField(default=0, verbose_name='Юзеров в сегменте')
+    cache_updated_at = models.DateTimeField(blank=True, null=True, verbose_name='Кэш обновлён')
+    
+    date_created = models.DateTimeField(auto_now_add=True, verbose_name='Создан')
+    date_updated = models.DateTimeField(auto_now=True, verbose_name='Обновлён')
+
+    class Meta:
+        managed = False
+        db_table = 'user_segments'
+        verbose_name = 'Сегмент'
+        verbose_name_plural = 'Сегменты пользователей'
+        ordering = ['-is_system', 'name']
+
+    def __str__(self):
+        return f"{self.name} ({self.cached_user_count} юзеров)"
 
 
 class UsageLog(models.Model):
