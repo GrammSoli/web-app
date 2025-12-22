@@ -53,6 +53,8 @@ export interface AnalysisResponse {
     inputTokens: number;
     outputTokens: number;
     costUsd: number;
+    model: string;
+    provider: AIProvider;
   };
   requestId?: string;
 }
@@ -183,6 +185,8 @@ export async function analyzeMood(
         inputTokens,
         outputTokens,
         costUsd,
+        model,
+        provider: settings.provider,
       },
       requestId: response.id,
     };

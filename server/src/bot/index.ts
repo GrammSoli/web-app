@@ -418,8 +418,8 @@ export function createBot(token: string): Bot<MyContext> {
       await logUsage({
         userId: dbUser.id,
         entryId: entry.id,
-        serviceType: 'gpt_4o_mini',
-        modelName: 'gpt-4o-mini',
+        serviceType: analysis.usage.provider === 'deepseek' ? 'deepseek_chat' : 'gpt_4o_mini',
+        modelName: analysis.usage.model,
         inputTokens: analysis.usage.inputTokens,
         outputTokens: analysis.usage.outputTokens,
         costUsd: analysis.usage.costUsd,
@@ -538,8 +538,8 @@ export function createBot(token: string): Bot<MyContext> {
       await logUsage({
         userId: dbUser.id,
         entryId: entry.id,
-        serviceType: 'gpt_4o_mini',
-        modelName: 'gpt-4o-mini',
+        serviceType: result.analysis.usage.provider === 'deepseek' ? 'deepseek_chat' : 'gpt_4o_mini',
+        modelName: result.analysis.usage.model,
         inputTokens: result.analysis.usage.inputTokens,
         outputTokens: result.analysis.usage.outputTokens,
         costUsd: result.analysis.usage.costUsd,

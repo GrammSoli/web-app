@@ -31,8 +31,9 @@ enum SubscriptionTier {
 }
 
 enum ServiceType {
-  gpt_4o_mini  @map("gpt-4o-mini")
-  whisper_1    @map("whisper-1")
+  gpt_4o_mini    @map("gpt-4o-mini")
+  whisper_1      @map("whisper-1")
+  deepseek_chat  @map("deepseek-chat")
 
   @@map("service_type")
 }

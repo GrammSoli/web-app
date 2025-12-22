@@ -166,8 +166,8 @@ router.post('/entries', async (req: Request, res: Response) => {
       await logUsage({
         userId: user.id,
         entryId: entry.id,
-        serviceType: 'gpt_4o_mini',
-        modelName: 'gpt-4o-mini',
+        serviceType: analysisResponse.usage.provider === 'deepseek' ? 'deepseek_chat' : 'gpt_4o_mini',
+        modelName: analysisResponse.usage.model,
         inputTokens: analysisResponse.usage?.inputTokens || 0,
         outputTokens: analysisResponse.usage?.outputTokens || 0,
         costUsd: analysisResponse.usage?.costUsd || 0,

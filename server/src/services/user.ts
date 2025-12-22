@@ -360,7 +360,7 @@ export async function getTodayEntries(
 export interface LogUsageData {
   userId: string;
   entryId?: string;
-  serviceType: 'gpt_4o_mini' | 'whisper_1';
+  serviceType: 'gpt_4o_mini' | 'whisper_1' | 'deepseek_chat';
   modelName: string;
   inputTokens?: number;
   outputTokens?: number;
