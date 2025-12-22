@@ -35,12 +35,19 @@ interface CacheEntry {
 // ============================================
 
 const DEFAULTS: Record<string, unknown> = {
-  // Pricing
+  // OpenAI Pricing
   'openai.gpt4o_mini.input': 0.15,
   'openai.gpt4o_mini.output': 0.60,
   'openai.gpt4o.input': 2.50,
   'openai.gpt4o.output': 10.00,
   'openai.whisper.per_minute': 0.006,
+  
+  // DeepSeek Pricing (per 1M tokens)
+  'deepseek.chat.input': 0.14,
+  'deepseek.chat.output': 0.28,
+  'deepseek.reasoner.input': 0.55,
+  'deepseek.reasoner.output': 2.19,
+  
   'stars_to_usd_rate': 0.02,
   
   // Subscription

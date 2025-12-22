@@ -9,10 +9,11 @@ import { configService } from '../services/config.js';
 // ТИПЫ
 // ============================================
 
-export type TextModel = 'gpt-4o-mini' | 'gpt-4o';
+export type TextModel = 'gpt-4o-mini' | 'gpt-4o' | 'deepseek-chat' | 'deepseek-reasoner';
 export type AudioModel = 'whisper-1';
 export type ModelName = TextModel | AudioModel;
 export type SubscriptionTier = 'free' | 'basic' | 'premium';
+export type AIProvider = 'openai' | 'deepseek';
 
 // ============================================
 // STATIC DEFAULTS (fallback if config unavailable)
@@ -22,6 +23,11 @@ const DEFAULT_OPENAI_PRICING = {
   'gpt-4o-mini': { input: 0.15, output: 0.60 },
   'gpt-4o': { input: 2.50, output: 10.00 },
   'whisper-1': { perMinute: 0.006 },
+} as const;
+
+const DEFAULT_DEEPSEEK_PRICING = {
+  'deepseek-chat': { input: 0.14, output: 0.28 },
+  'deepseek-reasoner': { input: 0.55, output: 2.19 },
 } as const;
 
 const DEFAULT_STARS_RATE = 0.02;
@@ -62,9 +68,9 @@ export const SUBSCRIPTION_PRICES = {
 // ============================================
 
 /**
- * Get OpenAI text model pricing
+ * Get text model pricing (OpenAI models only, for async usage)
  */
-export async function getTextModelPricing(model: TextModel): Promise<{ input: number; output: number }> {
+export async function getTextModelPricing(model: 'gpt-4o-mini' | 'gpt-4o'): Promise<{ input: number; output: number }> {
   return configService.getOpenAIPricing(model);
 }
 
@@ -116,9 +122,10 @@ export async function getSubscriptionPricing(tier: 'basic' | 'premium'): Promise
 
 /**
  * Calculate text API cost (async, uses dynamic pricing)
+ * Only supports OpenAI models for async version
  */
 export async function calculateTextCostAsync(
-  model: TextModel,
+  model: 'gpt-4o-mini' | 'gpt-4o',
   inputTokens: number,
   outputTokens: number
 ): Promise<number> {
@@ -147,13 +154,29 @@ export async function calculateAudioCostAsync(durationSeconds: number): Promise<
 
 /**
  * Calculate text cost synchronously (uses default pricing)
+ * Supports both OpenAI and DeepSeek models
  */
 export function calculateTextCost(
-  model: TextModel,
+  model: string,
   inputTokens: number,
-  outputTokens: number
+  outputTokens: number,
+  provider: AIProvider = 'openai'
 ): number {
-  const pricing = DEFAULT_OPENAI_PRICING[model];
+  let pricing: { input: number; output: number };
+  
+  if (provider === 'deepseek') {
+    // DeepSeek pricing
+    const deepseekModel = model as keyof typeof DEFAULT_DEEPSEEK_PRICING;
+    pricing = DEFAULT_DEEPSEEK_PRICING[deepseekModel] || DEFAULT_DEEPSEEK_PRICING['deepseek-chat'];
+  } else {
+    // OpenAI pricing
+    const openaiModel = model as keyof typeof DEFAULT_OPENAI_PRICING;
+    if (openaiModel in DEFAULT_OPENAI_PRICING && openaiModel !== 'whisper-1') {
+      pricing = DEFAULT_OPENAI_PRICING[openaiModel] as { input: number; output: number };
+    } else {
+      pricing = DEFAULT_OPENAI_PRICING['gpt-4o-mini'];
+    }
+  }
   
   const inputCost = (inputTokens / 1_000_000) * pricing.input;
   const outputCost = (outputTokens / 1_000_000) * pricing.output;

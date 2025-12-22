@@ -1,23 +1,39 @@
 import OpenAI from 'openai';
 import { aiLogger } from '../utils/logger.js';
-import { calculateTextCost, calculateAudioCost, type TextModel } from '../utils/pricing.js';
+import { calculateTextCost, calculateAudioCost, type AIProvider } from '../utils/pricing.js';
 import { configService } from './config.js';
 import { DEFAULT_MOOD_ANALYSIS, validateMoodScoreRange } from '../config/ai-constants.js';
 
 // ============================================
-// OPENAI CLIENT INITIALIZATION
+// AI CLIENTS INITIALIZATION
 // ============================================
 
-const apiKey = process.env.OPENAI_API_KEY;
-if (!apiKey) {
+// OpenAI client for Whisper (audio transcription)
+const openaiApiKey = process.env.OPENAI_API_KEY;
+if (!openaiApiKey) {
   throw new Error('OPENAI_API_KEY environment variable is required');
 }
 
-const openai = new OpenAI({
-  apiKey,
-  maxRetries: 3, // Retry on rate limits and transient errors
-  timeout: 60000, // 60 second timeout
+const audioClient = new OpenAI({
+  apiKey: openaiApiKey,
+  maxRetries: 3,
+  timeout: 60000,
 });
+
+// DeepSeek client for chat (mood analysis)
+// Falls back to OpenAI if DEEPSEEK_API_KEY is not set
+const deepseekApiKey = process.env.DEEPSEEK_API_KEY;
+const chatClient = deepseekApiKey
+  ? new OpenAI({
+      apiKey: deepseekApiKey,
+      baseURL: 'https://api.deepseek.com',
+      maxRetries: 3,
+      timeout: 60000,
+    })
+  : audioClient; // fallback to OpenAI
+
+const chatProvider: AIProvider = deepseekApiKey ? 'deepseek' : 'openai';
+aiLogger.info({ chatProvider }, 'AI clients initialized');
 
 // ============================================
 // ТИПЫ
@@ -77,20 +93,29 @@ async function getAISettings(): Promise<{
   systemPrompt: string;
   temperature: number;
   maxTokens: number;
-  model: TextModel;
+  model: string;
+  provider: AIProvider;
 }> {
-  const [systemPrompt, temperature, maxTokens, model] = await Promise.all([
+  // Use DeepSeek model if available, otherwise OpenAI
+  const defaultModel = deepseekApiKey ? 'deepseek-chat' : 'gpt-4o-mini';
+  
+  const [systemPrompt, baseTemperature, maxTokens, model] = await Promise.all([
     configService.getString('ai.system_prompt', DEFAULT_SYSTEM_PROMPT),
     configService.getNumber('ai.temperature', 0.7),
     configService.getNumber('ai.max_tokens', 500),
-    configService.getString('ai.default_model', 'gpt-4o-mini'),
+    configService.getString('ai.default_model', defaultModel),
   ]);
+
+  // DeepSeek works better with higher temperature (1.3)
+  // OpenAI uses configured temperature (default 0.7)
+  const temperature = chatProvider === 'deepseek' ? 1.3 : baseTemperature;
 
   return {
     systemPrompt,
     temperature,
     maxTokens,
-    model: model as TextModel,
+    model,
+    provider: chatProvider,
   };
 }
 
@@ -100,7 +125,7 @@ async function getAISettings(): Promise<{
 
 export async function analyzeMood(
   text: string,
-  modelOverride?: TextModel
+  modelOverride?: string
 ): Promise<AnalysisResponse> {
   const startTime = Date.now();
   
@@ -109,9 +134,9 @@ export async function analyzeMood(
     const settings = await getAISettings();
     const model = modelOverride || settings.model;
     
-    aiLogger.debug({ textLength: text.length, model }, 'Starting mood analysis');
+    aiLogger.debug({ textLength: text.length, model, provider: settings.provider }, 'Starting mood analysis');
     
-    const response = await openai.chat.completions.create({
+    const response = await chatClient.chat.completions.create({
       model,
       messages: [
         { role: 'system', content: settings.systemPrompt },
@@ -140,7 +165,7 @@ export async function analyzeMood(
     
     const inputTokens = usage?.prompt_tokens || 0;
     const outputTokens = usage?.completion_tokens || 0;
-    const costUsd = calculateTextCost(model, inputTokens, outputTokens);
+    const costUsd = calculateTextCost(model, inputTokens, outputTokens, settings.provider);
     
     aiLogger.info({
       moodScore: result.moodScore,
@@ -149,6 +174,7 @@ export async function analyzeMood(
       outputTokens,
       costUsd,
       latencyMs,
+      provider: settings.provider,
     }, 'Mood analysis completed');
     
     return {
@@ -183,7 +209,8 @@ export async function transcribeAudio(
     // Создаём File-like объект из Buffer
     const audioFile = new File([audioBuffer], filename, { type: 'audio/ogg' });
     
-    const response = await openai.audio.transcriptions.create({
+    // Always use OpenAI for Whisper (best quality)
+    const response = await audioClient.audio.transcriptions.create({
       file: audioFile,
       model: 'whisper-1',
       language: 'ru',
