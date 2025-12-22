@@ -16,7 +16,7 @@ from .actions import (
     send_broadcast_action, 
     send_welcome_message,
     set_subscription_premium,
-    set_subscription_pro,
+    set_subscription_basic,
     set_subscription_free,
     block_users,
     unblock_users,
@@ -78,7 +78,7 @@ class UserAdmin(ModelAdmin):
     # Кастомные действия
     actions = [
         set_subscription_premium,
-        set_subscription_pro,
+        set_subscription_basic,
         set_subscription_free,
         block_users,
         unblock_users,

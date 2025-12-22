@@ -79,7 +79,7 @@ def set_subscription_premium(modeladmin, request, queryset):
     )
 
 
-@admin.action(description="💎 Установить подписку: Basic")
+@admin.action(description="� Установить подписку: Basic")
 def set_subscription_basic(modeladmin, request, queryset):
     """Массово установить Basic подписку выбранным пользователям."""
     from datetime import datetime, timedelta
@@ -92,7 +92,7 @@ def set_subscription_basic(modeladmin, request, queryset):
     )
     modeladmin.message_user(
         request,
-        f"💎 Pro подписка установлена для {updated} пользователей (на 30 дней)",
+        f"📦 Basic подписка установлена для {updated} пользователей (на 30 дней)",
         messages.SUCCESS
     )
 
