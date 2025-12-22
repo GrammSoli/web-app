@@ -341,6 +341,29 @@ def broadcasts_api_launch(request, broadcast_id: str):
 
 
 @staff_member_required
+def broadcasts_api_cancel(request, broadcast_id: str):
+    """API: Остановка рассылки."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    
+    try:
+        broadcast = Broadcast.objects.get(id=broadcast_id)
+        
+        if broadcast.status == 'sending':
+            # Ставим статус cancelled - Celery task увидит это и остановится
+            Broadcast.objects.filter(id=broadcast_id).update(status='cancelled')
+            return JsonResponse({'success': True, 'message': 'Рассылка будет остановлена в течение нескольких секунд'})
+        elif broadcast.status in ('scheduled', 'draft'):
+            Broadcast.objects.filter(id=broadcast_id).update(status='cancelled')
+            return JsonResponse({'success': True, 'message': 'Рассылка отменена'})
+        else:
+            return JsonResponse({'error': 'Рассылка уже завершена или остановлена'}, status=400)
+            
+    except Broadcast.DoesNotExist:
+        return JsonResponse({'error': 'Рассылка не найдена'}, status=404)
+
+
+@staff_member_required
 def broadcasts_api_delete(request, broadcast_id: str):
     """API: Удаление рассылки."""
     if request.method != 'POST':

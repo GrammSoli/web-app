@@ -213,6 +213,7 @@ class Broadcast(models.Model):
         ('scheduled', 'Запланирована'),
         ('sending', 'В процессе'),
         ('sent', 'Завершена'),
+        ('cancelled', 'Остановлена'),
         ('failed', 'Ошибка'),
     ]
     

@@ -23,6 +23,82 @@ logger = logging.getLogger(__name__)
 
 
 # ============================================================================
+# SEGMENT FILTERING
+# ============================================================================
+
+def apply_segment_filter(queryset, filter_rules: dict):
+    """
+    Применяет правила фильтрации сегмента к queryset.
+    
+    filter_rules формат:
+    {
+        "subscription_tier": {"in": ["premium", "basic"]},
+        "date_created": {"gte": "-7 days"},
+        "total_entries_count": {"gte": 1}
+    }
+    """
+    from datetime import datetime, timedelta
+    from django.utils import timezone
+    from django.db.models import Q
+    
+    def parse_relative_time(value: str) -> datetime:
+        """Парсит относительное время типа '-7 days', '-1 month'."""
+        value = value.strip()
+        if not value.startswith('-'):
+            return None
+        
+        parts = value[1:].split(' ')
+        if len(parts) != 2:
+            return None
+        
+        num = int(parts[0])
+        unit = parts[1].rstrip('s')  # days -> day
+        
+        if unit == 'day':
+            return timezone.now() - timedelta(days=num)
+        elif unit == 'week':
+            return timezone.now() - timedelta(weeks=num)
+        elif unit == 'month':
+            return timezone.now() - timedelta(days=num * 30)
+        return None
+    
+    for field, conditions in filter_rules.items():
+        if not isinstance(conditions, dict):
+            continue
+            
+        for op, value in conditions.items():
+            if op == 'in':
+                queryset = queryset.filter(**{f'{field}__in': value})
+            elif op == 'eq':
+                queryset = queryset.filter(**{field: value})
+            elif op == 'gte':
+                if isinstance(value, str) and value.startswith('-'):
+                    dt = parse_relative_time(value)
+                    if dt:
+                        queryset = queryset.filter(**{f'{field}__gte': dt})
+                else:
+                    queryset = queryset.filter(**{f'{field}__gte': value})
+            elif op == 'lte':
+                if isinstance(value, str) and value.startswith('-'):
+                    dt = parse_relative_time(value)
+                    if dt:
+                        queryset = queryset.filter(**{f'{field}__lte': dt})
+                else:
+                    queryset = queryset.filter(**{f'{field}__lte': value})
+            elif op == 'gt':
+                queryset = queryset.filter(**{f'{field}__gt': value})
+            elif op == 'lt':
+                queryset = queryset.filter(**{f'{field}__lt': value})
+            elif op == 'is_null':
+                if value:
+                    queryset = queryset.filter(**{f'{field}__isnull': True})
+                else:
+                    queryset = queryset.filter(**{f'{field}__isnull': False})
+    
+    return queryset
+
+
+# ============================================================================
 # TELEGRAM API
 # ============================================================================
 
@@ -442,9 +518,18 @@ def execute_broadcast(self, broadcast_id: str) -> Dict[str, Any]:
     # Получаем список получателей
     users_query = User.objects.filter(status='active')
     
-    # Фильтр по аудитории
-    if broadcast.target_audience == 'premium':
-        users_query = users_query.filter(subscription_tier__in=['premium', 'pro'])
+    # ПРИОРИТЕТ: сегмент > target_audience
+    if broadcast.segment_id:
+        segment = broadcast.segment
+        if segment and segment.filter_rules:
+            # Применяем правила фильтрации сегмента
+            users_query = apply_segment_filter(users_query, segment.filter_rules)
+        elif segment and segment.static_user_ids:
+            # Статический сегмент - конкретные user_id
+            users_query = User.objects.filter(id__in=segment.static_user_ids, status='active')
+    elif broadcast.target_audience == 'premium':
+        # Legacy: фильтр по аудитории
+        users_query = users_query.filter(subscription_tier__in=['premium', 'basic'])
     elif broadcast.target_audience == 'free':
         users_query = users_query.filter(subscription_tier__in=['free', None, ''])
     
@@ -477,11 +562,20 @@ def execute_broadcast(self, broadcast_id: str) -> Dict[str, Any]:
     failed_count = 0
     blocked_users = []
     last_error = None
+    cancelled = False
     
     # Обновляем прогресс каждые N сообщений
     progress_interval = max(1, total // 100)  # ~100 обновлений за рассылку
     
     for idx, telegram_id in enumerate(recipients):
+        # Проверяем отмену каждые 10 сообщений
+        if idx % 10 == 0:
+            broadcast.refresh_from_db()
+            if broadcast.status == 'cancelled':
+                logger.info(f"Broadcast {broadcast_id} cancelled by user")
+                cancelled = True
+                break
+        
         # Rate limiting
         rate_limiter.acquire()
         
@@ -525,12 +619,13 @@ def execute_broadcast(self, broadcast_id: str) -> Dict[str, Any]:
                 )
     
     # Завершаем рассылку
+    final_status = 'cancelled' if cancelled else 'sent'
     Broadcast.objects.filter(id=broadcast_id).update(
-        status='sent',
+        status=final_status,
         completed_at=timezone.now(),
         sent_count=sent_count,
         failed_count=failed_count,
-        last_error=last_error
+        last_error='Остановлено пользователем' if cancelled else last_error
     )
     
     update_broadcast_progress(
@@ -538,15 +633,16 @@ def execute_broadcast(self, broadcast_id: str) -> Dict[str, Any]:
         sent=sent_count,
         failed=failed_count,
         total=total,
-        status='sent'
+        status=final_status
     )
     
-    logger.info(f"Broadcast {broadcast_id} sent: {sent_count} sent, {failed_count} failed")
+    logger.info(f"Broadcast {broadcast_id} {final_status}: {sent_count} sent, {failed_count} failed")
     
     return {
         'success': True,
         'sent': sent_count,
         'failed': failed_count,
+        'cancelled': cancelled,
         'blocked_users': blocked_users[:100],  # Первые 100 для логов
     }
 

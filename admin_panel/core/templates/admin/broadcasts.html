@@ -920,6 +920,9 @@
                                 <button class="btn-icon edit" onclick="editBroadcast('{{ b.id }}')" title="Редактировать">✏️</button>
                                 <button class="btn-icon launch" onclick="launchBroadcast('{{ b.id }}')" title="Запустить">🚀</button>
                                 {% endif %}
+                                {% if b.status == 'sending' %}
+                                <button class="btn-icon cancel" onclick="cancelBroadcast('{{ b.id }}')" title="Остановить" style="background: #fef2f2; color: #dc2626;">⏹️</button>
+                                {% endif %}
                             </div>
                             {% if b.status != 'sending' %}
                             <button class="btn-icon delete" onclick="deleteBroadcast('{{ b.id }}')" title="Удалить">🗑️</button>
@@ -1227,6 +1230,27 @@ async function launchBroadcast(id) {
         if (data.success) {
             showAlert('🚀 Рассылка запущена!');
             setTimeout(() => location.reload(), 1000);
+        } else {
+            showAlert(data.error || 'Ошибка', 'error');
+        }
+    } catch (err) {
+        showAlert('Ошибка сети', 'error');
+    }
+}
+
+async function cancelBroadcast(id) {
+    if (!confirm('⚠️ Остановить рассылку? Уже отправленные сообщения не будут отменены.')) return;
+    
+    try {
+        const res = await fetch(`/admin/broadcasts/api/${id}/cancel/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken }
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            showAlert('⏹️ Рассылка остановлена!');
+            setTimeout(() => location.reload(), 1500);
         } else {
             showAlert(data.error || 'Ошибка', 'error');
         }
