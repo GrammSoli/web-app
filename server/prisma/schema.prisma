@@ -56,6 +56,14 @@ enum BroadcastAudience {
   @@map("broadcast_audience")
 }
 
+enum SegmentType {
+  system
+  dynamic
+  static
+
+  @@map("segment_type")
+}
+
 enum TransactionType {
   stars_payment
   adsgram_reward
@@ -258,8 +266,12 @@ model Broadcast {
   messageText         String            @map("message_text") @db.Text
   messagePhotoUrl     String?           @map("message_photo_url") @db.Text
 
-  // Targeting
+  // Targeting (legacy - kept for backward compatibility)
   targetAudience      BroadcastAudience @default(all) @map("target_audience")
+  
+  // New: Segment-based targeting (preferred)
+  segmentId           String?           @map("segment_id") @db.Uuid
+  segment             UserSegment?      @relation(fields: [segmentId], references: [id], onDelete: SetNull)
 
   // Scheduling
   scheduledAt         DateTime?         @map("scheduled_at") @db.Timestamptz
@@ -284,7 +296,46 @@ model Broadcast {
   userUpdated         String?           @map("user_updated") @db.Uuid
 
   @@index([status])
+  @@index([segmentId])
   @@map("broadcasts")
+}
+
+// ============================================
+// USER SEGMENTS
+// ============================================
+
+model UserSegment {
+  id                  String            @id @default(uuid()) @db.Uuid
+  
+  // Basic info
+  name                String            @db.VarChar(100)
+  description         String?           @db.Text
+  slug                String            @unique @db.VarChar(50)
+  
+  // Type
+  segmentType         SegmentType       @default(dynamic) @map("segment_type")
+  isSystem            Boolean           @default(false) @map("is_system")
+  
+  // Dynamic filter (JSON rules)
+  filterRules         Json?             @map("filter_rules") @db.JsonB
+  
+  // Static user list
+  staticUserIds       String[]          @map("static_user_ids") @db.Uuid
+  
+  // Cached stats
+  cachedUserCount     Int               @default(0) @map("cached_user_count")
+  cacheUpdatedAt      DateTime?         @map("cache_updated_at") @db.Timestamptz
+  
+  // Timestamps
+  dateCreated         DateTime          @default(now()) @map("date_created") @db.Timestamptz
+  dateUpdated         DateTime          @updatedAt @map("date_updated") @db.Timestamptz
+  
+  // Relations
+  broadcasts          Broadcast[]
+  
+  @@index([slug])
+  @@index([segmentType])
+  @@map("user_segments")
 }
 
 model AppSetting {

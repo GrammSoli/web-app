@@ -3,6 +3,7 @@
  * 
  * Сервис для отправки массовых рассылок через Telegram бота.
  * Поддерживает текст и изображения.
+ * Поддерживает сегменты и legacy target_audience.
  */
 
 import { prisma } from './database.js';
@@ -10,6 +11,7 @@ import { getBot } from '../bot/index.js';
 import { BroadcastAudience, BroadcastStatus } from '@prisma/client';
 import { dbLogger } from '../utils/logger.js';
 import { InlineKeyboard } from 'grammy';
+import { getSegmentUsers } from './segments.js';
 
 // Задержка между сообщениями (мс) чтобы не спамить Telegram API
 const MESSAGE_DELAY_MS = 50;
@@ -23,9 +25,9 @@ interface BroadcastResult {
 }
 
 /**
- * Получить список получателей для рассылки
+ * Получить список получателей для рассылки (legacy)
  */
-async function getRecipients(audience: BroadcastAudience): Promise<bigint[]> {
+async function getRecipientsLegacy(audience: BroadcastAudience): Promise<bigint[]> {
   let where: any = { status: 'active' };
   
   switch (audience) {
@@ -47,6 +49,24 @@ async function getRecipients(audience: BroadcastAudience): Promise<bigint[]> {
   });
   
   return users.map(u => u.telegramId);
+}
+
+/**
+ * Получить список получателей для рассылки
+ * Приоритет: segment_id > target_audience (legacy)
+ */
+async function getRecipients(broadcast: { 
+  segmentId: string | null; 
+  targetAudience: BroadcastAudience;
+}): Promise<bigint[]> {
+  // New: use segment if specified
+  if (broadcast.segmentId) {
+    const result = await getSegmentUsers(broadcast.segmentId);
+    return result.telegramIds;
+  }
+  
+  // Legacy: use target_audience
+  return getRecipientsLegacy(broadcast.targetAudience);
 }
 
 /**
@@ -105,10 +125,18 @@ export async function executeBroadcast(broadcastId: string): Promise<BroadcastRe
     throw new Error(`Broadcast ${broadcastId} not found`);
   }
   
-  dbLogger.info({ broadcastId, title: broadcast.title }, 'Starting broadcast');
+  dbLogger.info({ 
+    broadcastId, 
+    title: broadcast.title,
+    segmentId: broadcast.segmentId,
+    targetAudience: broadcast.targetAudience,
+  }, 'Starting broadcast');
   
-  // Получаем получателей
-  const recipients = await getRecipients(broadcast.targetAudience);
+  // Получаем получателей (segment > legacy target_audience)
+  const recipients = await getRecipients({
+    segmentId: broadcast.segmentId,
+    targetAudience: broadcast.targetAudience,
+  });
   
   // Обновляем статус
   await prisma.broadcast.update({
