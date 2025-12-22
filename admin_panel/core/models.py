@@ -7,6 +7,7 @@
 
 import uuid
 from django.db import models
+from django.contrib.postgres.fields import ArrayField
 
 
 class User(models.Model):
@@ -317,7 +318,13 @@ class UserSegment(models.Model):
     is_system = models.BooleanField(default=False, verbose_name='Системный')
     
     filter_rules = models.JSONField(blank=True, null=True, verbose_name='Правила фильтрации')
-    static_user_ids = models.JSONField(blank=True, null=True, verbose_name='Статический список UUID')
+    static_user_ids = ArrayField(
+        models.UUIDField(),
+        blank=True,
+        null=True,
+        default=list,
+        verbose_name='Статический список UUID'
+    )
     
     cached_user_count = models.IntegerField(default=0, verbose_name='Юзеров в сегменте')
     cache_updated_at = models.DateTimeField(blank=True, null=True, verbose_name='Кэш обновлён')
