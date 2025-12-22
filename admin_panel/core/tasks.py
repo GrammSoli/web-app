@@ -64,11 +64,24 @@ def apply_segment_filter(queryset, filter_rules: dict):
     
     for field, conditions in filter_rules.items():
         if not isinstance(conditions, dict):
+            # Старый формат: {"status": "active"} без оператора
+            queryset = queryset.filter(**{field: conditions})
             continue
             
         for op, value in conditions.items():
             if op == 'in':
-                queryset = queryset.filter(**{f'{field}__in': value})
+                # Обрабатываем null в списке
+                if None in value or 'null' in value:
+                    non_null_values = [v for v in value if v is not None and v != 'null']
+                    q = Q(**{f'{field}__isnull': True})
+                    if non_null_values:
+                        q |= Q(**{f'{field}__in': non_null_values})
+                    # Также проверяем пустую строку для subscription_tier
+                    if field == 'subscription_tier':
+                        q |= Q(**{field: ''})
+                    queryset = queryset.filter(q)
+                else:
+                    queryset = queryset.filter(**{f'{field}__in': value})
             elif op == 'eq':
                 queryset = queryset.filter(**{field: value})
             elif op == 'gte':
@@ -88,7 +101,12 @@ def apply_segment_filter(queryset, filter_rules: dict):
             elif op == 'gt':
                 queryset = queryset.filter(**{f'{field}__gt': value})
             elif op == 'lt':
-                queryset = queryset.filter(**{f'{field}__lt': value})
+                if isinstance(value, str) and value.startswith('-'):
+                    dt = parse_relative_time(value)
+                    if dt:
+                        queryset = queryset.filter(**{f'{field}__lt': dt})
+                else:
+                    queryset = queryset.filter(**{f'{field}__lt': value})
             elif op == 'is_null':
                 if value:
                     queryset = queryset.filter(**{f'{field}__isnull': True})
