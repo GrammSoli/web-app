@@ -2,6 +2,8 @@
 -- Date: 2025-12-22
 -- Description: Update filter_rules to match actual database columns
 
+SET search_path TO app, public;
+
 -- Update voice_users to use total_voice_count > 0
 UPDATE user_segments 
 SET filter_rules = '{"total_voice_count": {"gt": 0}}'
