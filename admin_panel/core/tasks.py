@@ -753,3 +753,69 @@ def update_segment_user_counts():
             logger.error(f"Error updating segment {segment.slug}: {e}")
     
     return {'updated': updated}
+
+
+@shared_task
+def update_traffic_source_stats():
+    """
+    Пересчитывает статистику для всех источников трафика.
+    Запускается периодически через Celery Beat (например, каждый час).
+    """
+    from core.models import TrafficSource, User
+    from django.db import connection
+    from django.db.models import Count, Sum
+    
+    sources = TrafficSource.objects.filter(is_active=True)
+    updated = 0
+    
+    for source in sources:
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT 
+                        COUNT(*) as total,
+                        COUNT(*) FILTER (WHERE subscription_tier != 'free' OR total_spend_usd > 0) as paying,
+                        COALESCE(SUM(total_spend_usd), 0) as revenue
+                    FROM app.users 
+                    WHERE referral_source = %s
+                """, [source.slug])
+                row = cursor.fetchone()
+                
+                if row:
+                    TrafficSource.objects.filter(id=source.id).update(
+                        total_users=row[0],
+                        total_paying_users=row[1],
+                        total_revenue_usd=row[2],
+                        date_updated=timezone.now()
+                    )
+                    updated += 1
+                    logger.info(f"Traffic source {source.slug}: {row[0]} users, {row[1]} paying, ${row[2]} revenue")
+                    
+        except Exception as e:
+            logger.error(f"Error updating traffic source {source.slug}: {e}")
+    
+    # Также обновим статистику для organic (null referral_source)
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT 
+                    COUNT(*) as total,
+                    COUNT(*) FILTER (WHERE subscription_tier != 'free' OR total_spend_usd > 0) as paying,
+                    COALESCE(SUM(total_spend_usd), 0) as revenue
+                FROM app.users 
+                WHERE referral_source IS NULL OR referral_source = ''
+            """)
+            row = cursor.fetchone()
+            
+            if row:
+                TrafficSource.objects.filter(slug='organic').update(
+                    total_users=row[0],
+                    total_paying_users=row[1],
+                    total_revenue_usd=row[2],
+                    date_updated=timezone.now()
+                )
+                logger.info(f"Traffic source organic: {row[0]} users, {row[1]} paying, ${row[2]} revenue")
+    except Exception as e:
+        logger.error(f"Error updating organic traffic source: {e}")
+    
+    return {'updated': updated}

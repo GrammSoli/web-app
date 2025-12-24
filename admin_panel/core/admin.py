@@ -11,7 +11,7 @@ from django.contrib import admin, messages
 from unfold.admin import ModelAdmin
 from unfold.decorators import display
 
-from .models import User, JournalEntry, Transaction, Subscription, Broadcast, UsageLog, AppConfig, UserSegment
+from .models import User, JournalEntry, Transaction, Subscription, Broadcast, UsageLog, AppConfig, UserSegment, TrafficSource
 from .actions import (
     send_broadcast_action, 
     send_welcome_message,
@@ -54,6 +54,7 @@ class UserAdmin(ModelAdmin):
         'subscription_tier',
         'status',
         'is_admin',
+        'referral_source',
         'language_code',
         'date_created',
     ]
@@ -711,3 +712,133 @@ class UserSegmentAdmin(ModelAdmin):
         if obj and obj.is_system:
             readonly.extend(['slug', 'segment_type', 'is_system', 'filter_rules'])
         return readonly
+
+
+@admin.register(TrafficSource)
+class TrafficSourceAdmin(ModelAdmin):
+    """
+    Админ-класс для управления источниками трафика.
+    """
+    
+    list_display = [
+        'name',
+        'slug',
+        'display_type',
+        'display_users',
+        'display_paying',
+        'display_conversion',
+        'display_revenue',
+        'display_arpu',
+        'display_link',
+        'is_active',
+    ]
+    
+    list_filter = [
+        'source_type',
+        'is_active',
+    ]
+    
+    search_fields = [
+        'slug',
+        'name',
+        'description',
+    ]
+    
+    readonly_fields = [
+        'id',
+        'total_users',
+        'total_paying_users',
+        'total_revenue_usd',
+        'date_created',
+        'date_updated',
+    ]
+    
+    ordering = ['-total_users']
+    list_per_page = 50
+    
+    actions = ['recalculate_stats']
+    
+    fieldsets = (
+        ('Основное', {
+            'fields': ('name', 'slug', 'description', 'source_type', 'is_active')
+        }),
+        ('UTM параметры', {
+            'fields': ('utm_source', 'utm_medium', 'utm_campaign'),
+            'classes': ('collapse',),
+        }),
+        ('Статистика (обновляется автоматически)', {
+            'fields': ('total_users', 'total_paying_users', 'total_revenue_usd'),
+        }),
+        ('Метаданные', {
+            'fields': ('date_created', 'date_updated'),
+            'classes': ('collapse',),
+        }),
+    )
+    
+    @display(description="Тип")
+    def display_type(self, obj):
+        type_icons = {
+            'utm': '🔗 UTM',
+            'campaign': '📢 Кампания',
+            'referral': '👥 Реферал',
+            'organic': '🌱 Органика',
+        }
+        return type_icons.get(obj.source_type, obj.source_type)
+    
+    @display(description="Пользователей")
+    def display_users(self, obj):
+        return obj.total_users
+    
+    @display(description="Платящих")
+    def display_paying(self, obj):
+        return obj.total_paying_users
+    
+    @display(description="Конверсия")
+    def display_conversion(self, obj):
+        if obj.total_users == 0:
+            return "—"
+        rate = obj.total_paying_users / obj.total_users * 100
+        return f"{rate:.1f}%"
+    
+    @display(description="Доход")
+    def display_revenue(self, obj):
+        return f"${obj.total_revenue_usd:.2f}"
+    
+    @display(description="ARPU")
+    def display_arpu(self, obj):
+        if obj.total_users == 0:
+            return "—"
+        arpu = float(obj.total_revenue_usd) / obj.total_users
+        return f"${arpu:.2f}"
+    
+    @display(description="Ссылка")
+    def display_link(self, obj):
+        return f"t.me/MindfulJournalBot?start={obj.slug}"
+    
+    @admin.action(description="🔄 Пересчитать статистику")
+    def recalculate_stats(self, request, queryset):
+        """Пересчитать статистику для выбранных источников."""
+        from django.db import connection
+        
+        updated = 0
+        for source in queryset:
+            with connection.cursor() as cursor:
+                # Подсчитываем пользователей
+                cursor.execute("""
+                    SELECT 
+                        COUNT(*) as total,
+                        COUNT(*) FILTER (WHERE subscription_tier != 'free' OR total_spend_usd > 0) as paying,
+                        COALESCE(SUM(total_spend_usd), 0) as revenue
+                    FROM app.users 
+                    WHERE referral_source = %s
+                """, [source.slug])
+                row = cursor.fetchone()
+                
+                if row:
+                    source.total_users = row[0]
+                    source.total_paying_users = row[1]
+                    source.total_revenue_usd = row[2]
+                    source.save()
+                    updated += 1
+        
+        self.message_user(request, f"✅ Обновлено источников: {updated}", messages.SUCCESS)

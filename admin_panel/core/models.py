@@ -27,6 +27,9 @@ class User(models.Model):
     subscription_expires_at = models.DateTimeField(blank=True, null=True, verbose_name='Подписка до')
     balance_stars = models.IntegerField(default=0, verbose_name='Баланс звёзд')
     
+    # Источник трафика
+    referral_source = models.CharField(max_length=100, blank=True, null=True, verbose_name='Источник')
+    
     # Статистика
     total_entries_count = models.IntegerField(default=0, verbose_name='Всего записей')
     total_voice_count = models.IntegerField(default=0, verbose_name='Голосовых записей')
@@ -415,3 +418,61 @@ class AppConfig(models.Model):
 
     def __str__(self):
         return f"{self.category}.{self.key}"
+
+
+class TrafficSource(models.Model):
+    """
+    Модель источника трафика для аналитики.
+    Соответствует таблице app.traffic_sources.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    
+    slug = models.CharField(max_length=100, unique=True, verbose_name='Slug')
+    name = models.CharField(max_length=255, verbose_name='Название')
+    description = models.TextField(blank=True, null=True, verbose_name='Описание')
+    
+    source_type = models.CharField(max_length=50, default='utm', verbose_name='Тип')
+    
+    # UTM параметры
+    utm_source = models.CharField(max_length=100, blank=True, null=True, verbose_name='UTM Source')
+    utm_medium = models.CharField(max_length=100, blank=True, null=True, verbose_name='UTM Medium')
+    utm_campaign = models.CharField(max_length=100, blank=True, null=True, verbose_name='UTM Campaign')
+    
+    # Кэшированная статистика
+    total_users = models.IntegerField(default=0, verbose_name='Всего пользователей')
+    total_paying_users = models.IntegerField(default=0, verbose_name='Платящих')
+    total_revenue_usd = models.DecimalField(max_digits=12, decimal_places=4, default=0, verbose_name='Доход USD')
+    
+    is_active = models.BooleanField(default=True, verbose_name='Активен')
+    
+    date_created = models.DateTimeField(auto_now_add=True, verbose_name='Создан')
+    date_updated = models.DateTimeField(auto_now=True, verbose_name='Обновлён')
+
+    class Meta:
+        managed = False
+        db_table = 'traffic_sources'
+        verbose_name = 'Источник трафика'
+        verbose_name_plural = 'Источники трафика'
+        ordering = ['-total_users']
+
+    def __str__(self):
+        return f"{self.name} ({self.slug})"
+    
+    @property
+    def conversion_rate(self):
+        """Конверсия в платящих."""
+        if self.total_users == 0:
+            return 0
+        return round(self.total_paying_users / self.total_users * 100, 2)
+    
+    @property
+    def arpu(self):
+        """Average Revenue Per User."""
+        if self.total_users == 0:
+            return 0
+        return round(float(self.total_revenue_usd) / self.total_users, 2)
+    
+    @property
+    def deep_link(self):
+        """Ссылка для привлечения."""
+        return f"t.me/MindfulJournalBot?start={self.slug}"
