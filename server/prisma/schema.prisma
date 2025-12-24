@@ -381,6 +381,3 @@ model TrafficSource {
   @@index([isActive])
   @@map("traffic_sources")
 }
-
-  @@map("app_settings")
-}
