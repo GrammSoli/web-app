@@ -78,6 +78,7 @@ class UserAdmin(ModelAdmin):
     
     # Кастомные действия
     actions = [
+        'export_to_excel',
         set_subscription_premium,
         set_subscription_basic,
         set_subscription_free,
@@ -86,6 +87,54 @@ class UserAdmin(ModelAdmin):
         send_broadcast_action, 
         send_welcome_message,
     ]
+    
+    @admin.action(description="📥 Скачать в Excel")
+    def export_to_excel(self, request, queryset):
+        """Экспорт выбранных пользователей в Excel."""
+        import openpyxl
+        from openpyxl.utils import get_column_letter
+        from django.http import HttpResponse
+        from datetime import datetime
+        
+        # Создаём workbook
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Пользователи"
+        
+        # Заголовки
+        headers = [
+            'Telegram ID', 'Username', 'Имя', 'Фамилия', 
+            'Подписка', 'Подписка до', 'Записей', 'Голосовых',
+            'Потрачено USD', 'Источник', 'Статус', 'Дата регистрации'
+        ]
+        for col, header in enumerate(headers, 1):
+            ws.cell(row=1, column=col, value=header)
+            ws.column_dimensions[get_column_letter(col)].width = 15
+        
+        # Данные
+        for row, user in enumerate(queryset, 2):
+            ws.cell(row=row, column=1, value=user.telegram_id)
+            ws.cell(row=row, column=2, value=user.username or '')
+            ws.cell(row=row, column=3, value=user.first_name or '')
+            ws.cell(row=row, column=4, value=user.last_name or '')
+            ws.cell(row=row, column=5, value=user.subscription_tier or 'free')
+            ws.cell(row=row, column=6, value=user.subscription_expires_at.strftime('%Y-%m-%d %H:%M') if user.subscription_expires_at else '')
+            ws.cell(row=row, column=7, value=user.total_entries_count)
+            ws.cell(row=row, column=8, value=user.total_voice_count)
+            ws.cell(row=row, column=9, value=float(user.total_spend_usd or 0))
+            ws.cell(row=row, column=10, value=user.referral_source or 'organic')
+            ws.cell(row=row, column=11, value=user.status)
+            ws.cell(row=row, column=12, value=user.date_created.strftime('%Y-%m-%d %H:%M') if user.date_created else '')
+        
+        # Отдаём файл
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        filename = f"users_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        wb.save(response)
+        
+        return response
     
     # Группировка полей при редактировании
     fieldsets = (
