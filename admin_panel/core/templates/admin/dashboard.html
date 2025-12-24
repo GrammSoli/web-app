@@ -163,6 +163,104 @@
         margin-top: 4px;
     }
     
+    /* Воронка конверсии */
+    .funnel-container {
+        background: var(--color-bg-primary, #fff);
+        border-radius: 12px;
+        padding: 24px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    .funnel-stage {
+        margin-bottom: 16px;
+    }
+    
+    .funnel-stage:last-child {
+        margin-bottom: 0;
+    }
+    
+    .funnel-bar-wrapper {
+        background: var(--color-bg-secondary, #f3f4f6);
+        border-radius: 8px;
+        height: 40px;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .funnel-bar {
+        height: 100%;
+        background: linear-gradient(90deg, #8B5CF6 0%, #A78BFA 100%);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        padding-right: 12px;
+        min-width: 60px;
+        transition: width 0.5s ease;
+    }
+    
+    .funnel-stage:nth-child(1) .funnel-bar {
+        background: linear-gradient(90deg, #10B981 0%, #34D399 100%);
+    }
+    
+    .funnel-stage:nth-child(2) .funnel-bar {
+        background: linear-gradient(90deg, #3B82F6 0%, #60A5FA 100%);
+    }
+    
+    .funnel-stage:nth-child(3) .funnel-bar {
+        background: linear-gradient(90deg, #F59E0B 0%, #FBBF24 100%);
+    }
+    
+    .funnel-stage:nth-child(4) .funnel-bar {
+        background: linear-gradient(90deg, #8B5CF6 0%, #A78BFA 100%);
+    }
+    
+    .funnel-percent {
+        color: white;
+        font-weight: 700;
+        font-size: 14px;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    }
+    
+    .funnel-info {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 8px;
+        font-size: 14px;
+    }
+    
+    .funnel-name {
+        font-weight: 600;
+        color: var(--color-text-primary, #1f2937);
+    }
+    
+    .funnel-count {
+        color: var(--color-text-secondary, #6b7280);
+    }
+    
+    .funnel-summary {
+        margin-top: 20px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+    
+    .funnel-stat {
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-size: 14px;
+    }
+    
+    .funnel-stat.good {
+        background: #D1FAE5;
+        color: #059669;
+    }
+    
+    .funnel-stat.warning {
+        background: #FEF3C7;
+        color: #D97706;
+    }
+    
     /* Графики */
     .charts-grid {
         display: grid;
@@ -445,6 +543,42 @@
                 </div>
                 <div class="kpi-subtitle">{{ dashboard.retention.day_30.returned }} из {{ dashboard.retention.day_30.cohort_size }} вернулись</div>
             </div>
+        </div>
+    </div>
+    
+    <!-- БЛОК 4: ВОРОНКА КОНВЕРСИИ -->
+    <div class="dashboard-section">
+        <h2 class="section-title">🎯 Воронка конверсии ({{ dashboard.funnel.period_days }} дней)</h2>
+        <div class="funnel-container">
+            {% for stage in dashboard.funnel.stages %}
+            <div class="funnel-stage">
+                <div class="funnel-bar-wrapper">
+                    <div class="funnel-bar" style="width: {{ stage.percent }}%">
+                        <span class="funnel-percent">{{ stage.percent }}%</span>
+                    </div>
+                </div>
+                <div class="funnel-info">
+                    <span class="funnel-name">{{ stage.name }}</span>
+                    <span class="funnel-count">{{ stage.count }} чел.</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        <div class="funnel-summary">
+            {% if dashboard.funnel.stages.3.percent > 0 %}
+                <span class="funnel-stat good">
+                    🎉 Конверсия в покупку: <strong>{{ dashboard.funnel.stages.3.percent }}%</strong>
+                </span>
+            {% else %}
+                <span class="funnel-stat warning">
+                    ⚠️ Пока нет покупок за последние {{ dashboard.funnel.period_days }} дней
+                </span>
+            {% endif %}
+            {% if dashboard.funnel.stages.1.percent < 50 %}
+                <span class="funnel-stat warning">
+                    📌 Только {{ dashboard.funnel.stages.1.percent }}% написали первую запись — улучшите онбординг!
+                </span>
+            {% endif %}
         </div>
     </div>
     

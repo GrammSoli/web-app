@@ -448,6 +448,78 @@ def get_entries_chart_data(days=14):
 
 
 # ============================================================================
+# ВОРОНКА КОНВЕРСИИ
+# ============================================================================
+
+def get_conversion_funnel(days=30):
+    """
+    Воронка конверсии за последние N дней.
+    Этапы: Зарегистрировались → 1 запись → 5 записей → Купили подписку
+    """
+    from django.db.models import Count
+    
+    now = timezone.now()
+    start = now - timedelta(days=days)
+    
+    # Все пользователи за период
+    users = User.objects.filter(date_created__gte=start)
+    total_registered = users.count()
+    
+    if total_registered == 0:
+        return {
+            'stages': [
+                {'name': 'Зарегистрировались', 'count': 0, 'percent': 100},
+                {'name': '1+ запись', 'count': 0, 'percent': 0},
+                {'name': '5+ записей', 'count': 0, 'percent': 0},
+                {'name': 'Купили подписку', 'count': 0, 'percent': 0},
+            ],
+            'period_days': days
+        }
+    
+    # Пользователи с 1+ записью
+    users_with_entries = users.annotate(
+        entries_count=Count('entries')
+    ).filter(entries_count__gte=1).count()
+    
+    # Пользователи с 5+ записями
+    users_with_5_entries = users.annotate(
+        entries_count=Count('entries')
+    ).filter(entries_count__gte=5).count()
+    
+    # Пользователи, купившие подписку (есть успешная транзакция)
+    users_paid = Transaction.objects.filter(
+        user__date_created__gte=start,
+        is_successful=True
+    ).values('user_id').distinct().count()
+    
+    return {
+        'stages': [
+            {
+                'name': 'Зарегистрировались',
+                'count': total_registered,
+                'percent': 100,
+            },
+            {
+                'name': '1+ запись',
+                'count': users_with_entries,
+                'percent': round(users_with_entries / total_registered * 100, 1) if total_registered > 0 else 0,
+            },
+            {
+                'name': '5+ записей',
+                'count': users_with_5_entries,
+                'percent': round(users_with_5_entries / total_registered * 100, 1) if total_registered > 0 else 0,
+            },
+            {
+                'name': 'Купили подписку',
+                'count': users_paid,
+                'percent': round(users_paid / total_registered * 100, 1) if total_registered > 0 else 0,
+            },
+        ],
+        'period_days': days
+    }
+
+
+# ============================================================================
 # СВОДНЫЙ ДАШБОРД
 # ============================================================================
 
@@ -514,6 +586,9 @@ def get_dashboard_data(period='today', start_date=None, end_date=None):
             'day_7': get_retention_day_7(),
             'day_30': get_retention_day_30(),
         },
+        
+        # Блок 4: Воронка конверсии
+        'funnel': get_conversion_funnel(30),
         
         # Графики
         'charts': {
