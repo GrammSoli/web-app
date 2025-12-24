@@ -237,39 +237,49 @@ def get_unit_economics(days=30):
 def get_retention_day_n(day_n: int):
     """
     Retention Day N - процент пользователей, вернувшихся на N-й день.
+    
+    Логика:
+    - Day 1: Зарегистрировались позавчера → вернулись вчера
+    - Day 7: Зарегистрировались 8 дней назад → вернулись вчера
+    - Day 30: Зарегистрировались 31 день назад → вернулись вчера
+    
+    Используем SQL для производительности.
     """
     now = timezone.now()
     today = now.replace(hour=0, minute=0, second=0, microsecond=0)
     
-    # Берём когорту: пользователи, зарегистрировавшиеся (day_n + 7) дней назад
-    # чтобы у них был шанс вернуться
-    cohort_start = today - timedelta(days=day_n + 7)
-    cohort_end = today - timedelta(days=day_n)
+    # Когорта: зарегистрировались (day_n + 1) дней назад
+    # Для Day 1: позавчера (2 дня назад)
+    # Для Day 7: 8 дней назад
+    cohort_day = today - timedelta(days=day_n + 1)
+    cohort_next_day = cohort_day + timedelta(days=1)
+    
+    # День возврата: N дней после регистрации
+    return_day = cohort_day + timedelta(days=day_n)
+    return_next_day = return_day + timedelta(days=1)
+    
+    # Если день возврата еще не наступил - нет данных
+    if return_next_day > now:
+        return {'rate': 0, 'cohort_size': 0, 'returned': 0, 'no_data': True}
     
     # Пользователи из когорты
     cohort_users = User.objects.filter(
-        date_created__gte=cohort_start,
-        date_created__lt=cohort_end
+        date_created__gte=cohort_day,
+        date_created__lt=cohort_next_day
     )
     
     cohort_count = cohort_users.count()
     if cohort_count == 0:
         return {'rate': 0, 'cohort_size': 0, 'returned': 0}
     
-    # Считаем, сколько из них сделали запись на N-й день после регистрации
-    returned = 0
-    for user in cohort_users:
-        user_day_n_start = user.date_created + timedelta(days=day_n)
-        user_day_n_end = user_day_n_start + timedelta(days=1)
-        
-        has_entry = JournalEntry.objects.filter(
-            user=user,
-            date_created__gte=user_day_n_start,
-            date_created__lt=user_day_n_end
-        ).exists()
-        
-        if has_entry:
-            returned += 1
+    # Считаем вернувшихся одним запросом
+    cohort_user_ids = list(cohort_users.values_list('id', flat=True))
+    
+    returned = JournalEntry.objects.filter(
+        user_id__in=cohort_user_ids,
+        date_created__gte=return_day,
+        date_created__lt=return_next_day
+    ).values('user_id').distinct().count()
     
     rate = round((returned / cohort_count) * 100, 1)
     
