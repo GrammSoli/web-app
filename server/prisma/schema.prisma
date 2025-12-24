@@ -100,6 +100,9 @@ model User {
   totalVoiceCount     Int               @default(0) @map("total_voice_count")
   totalSpendUsd       Decimal           @default(0) @map("total_spend_usd") @db.Decimal(10, 4)
 
+  // Referral tracking
+  referralSource      String?           @map("referral_source") @db.VarChar(100)
+
   // Status & Admin
   status              UserStatus        @default(active)
   isAdmin             Boolean           @default(false) @map("is_admin")
@@ -346,6 +349,38 @@ model AppSetting {
 
   dateCreated         DateTime          @default(now()) @map("date_created") @db.Timestamptz
   dateUpdated         DateTime          @updatedAt @map("date_updated") @db.Timestamptz
+
+  @@map("app_settings")
+}
+
+model TrafficSource {
+  id                  String            @id @default(uuid()) @db.Uuid
+  
+  slug                String            @unique @db.VarChar(100)
+  name                String            @db.VarChar(255)
+  description         String?           @db.Text
+  
+  sourceType          String            @default("utm") @map("source_type") @db.VarChar(50)
+  
+  // UTM parameters
+  utmSource           String?           @map("utm_source") @db.VarChar(100)
+  utmMedium           String?           @map("utm_medium") @db.VarChar(100)
+  utmCampaign         String?           @map("utm_campaign") @db.VarChar(100)
+  
+  // Cached stats
+  totalUsers          Int               @default(0) @map("total_users")
+  totalPayingUsers    Int               @default(0) @map("total_paying_users")
+  totalRevenueUsd     Decimal           @default(0) @map("total_revenue_usd") @db.Decimal(12, 4)
+  
+  isActive            Boolean           @default(true) @map("is_active")
+  
+  dateCreated         DateTime          @default(now()) @map("date_created") @db.Timestamptz
+  dateUpdated         DateTime          @updatedAt @map("date_updated") @db.Timestamptz
+
+  @@index([slug])
+  @@index([isActive])
+  @@map("traffic_sources")
+}
 
   @@map("app_settings")
 }

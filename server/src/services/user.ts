@@ -14,6 +14,7 @@ export interface CreateUserData {
   firstName?: string;
   lastName?: string;
   languageCode?: string;
+  referralSource?: string;
 }
 
 /**
@@ -42,7 +43,7 @@ export async function getOrCreateUser(data: CreateUserData): Promise<User> {
     return existing;
   }
   
-  dbLogger.info({ telegramId: data.telegramId.toString() }, 'Creating new user');
+  dbLogger.info({ telegramId: data.telegramId.toString(), referralSource: data.referralSource }, 'Creating new user');
   
   return prisma.user.create({
     data: {
@@ -51,6 +52,7 @@ export async function getOrCreateUser(data: CreateUserData): Promise<User> {
       firstName: data.firstName,
       lastName: data.lastName,
       languageCode: data.languageCode || 'ru',
+      referralSource: data.referralSource || null,
     },
   });
 }

@@ -47,18 +47,25 @@ export function createBot(token: string): Bot<MyContext> {
     const user = ctx.from;
     if (!user) return;
     
+    // Parse deep link parameter (e.g., /start yandex or /start payment_success)
+    const startParam = ctx.match?.toString().trim() || null;
+    
+    // Determine referral source (skip special params like payment_success)
+    const specialParams = ['payment_success', 'premium', 'help'];
+    const referralSource = startParam && !specialParams.includes(startParam) ? startParam : undefined;
+    
     const dbUser = await getOrCreateUser({
       telegramId: BigInt(user.id),
       username: user.username,
       firstName: user.first_name,
       lastName: user.last_name,
       languageCode: user.language_code,
+      referralSource: referralSource,
     });
     
-    botLogger.info({ telegramId: user.id, oderId: dbUser.id }, 'User started bot');
+    botLogger.info({ telegramId: user.id, userId: dbUser.id, referralSource }, 'User started bot');
     
     // Check for deep link parameter (e.g., payment_success)
-    const startParam = ctx.match;
     if (startParam === 'payment_success') {
       await ctx.reply(
         '🎉 *Спасибо за оплату!*\n\nВаша подписка активирована. Наслаждайтесь всеми возможностями AI Mindful Journal!',
