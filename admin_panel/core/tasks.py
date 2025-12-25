@@ -771,25 +771,34 @@ def update_traffic_source_stats():
     for source in sources:
         try:
             with connection.cursor() as cursor:
+                # Пользователи и доход
                 cursor.execute("""
                     SELECT 
                         COUNT(*) as total,
-                        COUNT(*) FILTER (WHERE subscription_tier != 'free' OR total_spend_usd > 0) as paying,
                         COALESCE(SUM(total_spend_usd), 0) as revenue
                     FROM app.users 
                     WHERE referral_source = %s
                 """, [source.slug])
                 row = cursor.fetchone()
                 
+                # Платящие - только с успешными транзакциями
+                cursor.execute("""
+                    SELECT COUNT(DISTINCT u.id)
+                    FROM app.users u
+                    INNER JOIN app.transactions t ON t.user_id = u.id
+                    WHERE u.referral_source = %s AND t.is_successful = true
+                """, [source.slug])
+                paying_row = cursor.fetchone()
+                
                 if row:
                     TrafficSource.objects.filter(id=source.id).update(
                         total_users=row[0],
-                        total_paying_users=row[1],
-                        total_revenue_usd=row[2],
+                        total_paying_users=paying_row[0] if paying_row else 0,
+                        total_revenue_usd=row[1],
                         date_updated=timezone.now()
                     )
                     updated += 1
-                    logger.info(f"Traffic source {source.slug}: {row[0]} users, {row[1]} paying, ${row[2]} revenue")
+                    logger.info(f"Traffic source {source.slug}: {row[0]} users, {paying_row[0] if paying_row else 0} paying, ${row[1]} revenue")
                     
         except Exception as e:
             logger.error(f"Error updating traffic source {source.slug}: {e}")
@@ -800,21 +809,29 @@ def update_traffic_source_stats():
             cursor.execute("""
                 SELECT 
                     COUNT(*) as total,
-                    COUNT(*) FILTER (WHERE subscription_tier != 'free' OR total_spend_usd > 0) as paying,
                     COALESCE(SUM(total_spend_usd), 0) as revenue
                 FROM app.users 
                 WHERE referral_source IS NULL OR referral_source = ''
             """)
             row = cursor.fetchone()
             
+            # Платящие органик
+            cursor.execute("""
+                SELECT COUNT(DISTINCT u.id)
+                FROM app.users u
+                INNER JOIN app.transactions t ON t.user_id = u.id
+                WHERE (u.referral_source IS NULL OR u.referral_source = '') AND t.is_successful = true
+            """)
+            paying_row = cursor.fetchone()
+            
             if row:
                 TrafficSource.objects.filter(slug='organic').update(
                     total_users=row[0],
-                    total_paying_users=row[1],
-                    total_revenue_usd=row[2],
+                    total_paying_users=paying_row[0] if paying_row else 0,
+                    total_revenue_usd=row[1],
                     date_updated=timezone.now()
                 )
-                logger.info(f"Traffic source organic: {row[0]} users, {row[1]} paying, ${row[2]} revenue")
+                logger.info(f"Traffic source organic: {row[0]} users, {paying_row[0] if paying_row else 0} paying, ${row[1]} revenue")
     except Exception as e:
         logger.error(f"Error updating organic traffic source: {e}")
     

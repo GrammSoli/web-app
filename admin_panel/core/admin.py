@@ -872,21 +872,29 @@ class TrafficSourceAdmin(ModelAdmin):
         updated = 0
         for source in queryset:
             with connection.cursor() as cursor:
-                # Подсчитываем пользователей
+                # Подсчитываем пользователей и доход
                 cursor.execute("""
                     SELECT 
                         COUNT(*) as total,
-                        COUNT(*) FILTER (WHERE subscription_tier != 'free' OR total_spend_usd > 0) as paying,
                         COALESCE(SUM(total_spend_usd), 0) as revenue
                     FROM app.users 
                     WHERE referral_source = %s
                 """, [source.slug])
                 row = cursor.fetchone()
                 
+                # Подсчитываем платящих - только тех у кого есть успешные транзакции
+                cursor.execute("""
+                    SELECT COUNT(DISTINCT u.id)
+                    FROM app.users u
+                    INNER JOIN app.transactions t ON t.user_id = u.id
+                    WHERE u.referral_source = %s AND t.is_successful = true
+                """, [source.slug])
+                paying_row = cursor.fetchone()
+                
                 if row:
                     source.total_users = row[0]
-                    source.total_paying_users = row[1]
-                    source.total_revenue_usd = row[2]
+                    source.total_paying_users = paying_row[0] if paying_row else 0
+                    source.total_revenue_usd = row[1]
                     source.save()
                     updated += 1
         
