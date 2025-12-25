@@ -872,30 +872,29 @@ class TrafficSourceAdmin(ModelAdmin):
         updated = 0
         for source in queryset:
             with connection.cursor() as cursor:
-                # Подсчитываем пользователей и доход
+                # Подсчитываем пользователей
                 cursor.execute("""
-                    SELECT 
-                        COUNT(*) as total,
-                        COALESCE(SUM(total_spend_usd), 0) as revenue
+                    SELECT COUNT(*) as total
                     FROM app.users 
                     WHERE referral_source = %s
                 """, [source.slug])
-                row = cursor.fetchone()
+                users_row = cursor.fetchone()
                 
-                # Подсчитываем платящих - только тех у кого есть успешные транзакции
+                # Подсчитываем платящих и доход из транзакций
                 cursor.execute("""
-                    SELECT COUNT(DISTINCT u.id)
+                    SELECT 
+                        COUNT(DISTINCT u.id) as paying,
+                        COALESCE(SUM(t.amount_usd), 0) as revenue
                     FROM app.users u
                     INNER JOIN app.transactions t ON t.user_id = u.id
                     WHERE u.referral_source = %s AND t.is_successful = true
                 """, [source.slug])
                 paying_row = cursor.fetchone()
                 
-                if row:
-                    source.total_users = row[0]
-                    source.total_paying_users = paying_row[0] if paying_row else 0
-                    source.total_revenue_usd = row[1]
-                    source.save()
-                    updated += 1
+                source.total_users = users_row[0] if users_row else 0
+                source.total_paying_users = paying_row[0] if paying_row else 0
+                source.total_revenue_usd = paying_row[1] if paying_row else 0
+                source.save()
+                updated += 1
         
         self.message_user(request, f"✅ Обновлено источников: {updated}", messages.SUCCESS)

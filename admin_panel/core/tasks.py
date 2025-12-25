@@ -771,34 +771,33 @@ def update_traffic_source_stats():
     for source in sources:
         try:
             with connection.cursor() as cursor:
-                # Пользователи и доход
+                # Пользователи
                 cursor.execute("""
-                    SELECT 
-                        COUNT(*) as total,
-                        COALESCE(SUM(total_spend_usd), 0) as revenue
+                    SELECT COUNT(*) as total
                     FROM app.users 
                     WHERE referral_source = %s
                 """, [source.slug])
-                row = cursor.fetchone()
+                users_row = cursor.fetchone()
                 
-                # Платящие - только с успешными транзакциями
+                # Платящие и доход из транзакций
                 cursor.execute("""
-                    SELECT COUNT(DISTINCT u.id)
+                    SELECT 
+                        COUNT(DISTINCT u.id) as paying,
+                        COALESCE(SUM(t.amount_usd), 0) as revenue
                     FROM app.users u
                     INNER JOIN app.transactions t ON t.user_id = u.id
                     WHERE u.referral_source = %s AND t.is_successful = true
                 """, [source.slug])
                 paying_row = cursor.fetchone()
                 
-                if row:
-                    TrafficSource.objects.filter(id=source.id).update(
-                        total_users=row[0],
-                        total_paying_users=paying_row[0] if paying_row else 0,
-                        total_revenue_usd=row[1],
-                        date_updated=timezone.now()
-                    )
-                    updated += 1
-                    logger.info(f"Traffic source {source.slug}: {row[0]} users, {paying_row[0] if paying_row else 0} paying, ${row[1]} revenue")
+                TrafficSource.objects.filter(id=source.id).update(
+                    total_users=users_row[0] if users_row else 0,
+                    total_paying_users=paying_row[0] if paying_row else 0,
+                    total_revenue_usd=paying_row[1] if paying_row else 0,
+                    date_updated=timezone.now()
+                )
+                updated += 1
+                logger.info(f"Traffic source {source.slug}: {users_row[0] if users_row else 0} users, {paying_row[0] if paying_row else 0} paying, ${paying_row[1] if paying_row else 0} revenue")
                     
         except Exception as e:
             logger.error(f"Error updating traffic source {source.slug}: {e}")
@@ -807,31 +806,30 @@ def update_traffic_source_stats():
     try:
         with connection.cursor() as cursor:
             cursor.execute("""
-                SELECT 
-                    COUNT(*) as total,
-                    COALESCE(SUM(total_spend_usd), 0) as revenue
+                SELECT COUNT(*) as total
                 FROM app.users 
                 WHERE referral_source IS NULL OR referral_source = ''
             """)
-            row = cursor.fetchone()
+            users_row = cursor.fetchone()
             
-            # Платящие органик
+            # Платящие и доход organic
             cursor.execute("""
-                SELECT COUNT(DISTINCT u.id)
+                SELECT 
+                    COUNT(DISTINCT u.id) as paying,
+                    COALESCE(SUM(t.amount_usd), 0) as revenue
                 FROM app.users u
                 INNER JOIN app.transactions t ON t.user_id = u.id
                 WHERE (u.referral_source IS NULL OR u.referral_source = '') AND t.is_successful = true
             """)
             paying_row = cursor.fetchone()
             
-            if row:
-                TrafficSource.objects.filter(slug='organic').update(
-                    total_users=row[0],
-                    total_paying_users=paying_row[0] if paying_row else 0,
-                    total_revenue_usd=row[1],
-                    date_updated=timezone.now()
-                )
-                logger.info(f"Traffic source organic: {row[0]} users, {paying_row[0] if paying_row else 0} paying, ${row[1]} revenue")
+            TrafficSource.objects.filter(slug='organic').update(
+                total_users=users_row[0] if users_row else 0,
+                total_paying_users=paying_row[0] if paying_row else 0,
+                total_revenue_usd=paying_row[1] if paying_row else 0,
+                date_updated=timezone.now()
+            )
+            logger.info(f"Traffic source organic: {users_row[0] if users_row else 0} users, {paying_row[0] if paying_row else 0} paying, ${paying_row[1] if paying_row else 0} revenue")
     except Exception as e:
         logger.error(f"Error updating organic traffic source: {e}")
     
