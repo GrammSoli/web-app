@@ -152,7 +152,13 @@ export function createBot(token: string): Bot<MyContext> {
     const helpPhotoUrl = await configService.getString('bot.help_photo_url', '');
     
     const helpKeyboard = {
-      inline_keyboard: [[{ text: '◀️ Назад', callback_data: 'back_to_start' }]]
+      inline_keyboard: [
+        [
+          { text: '📜 Соглашение', url: 'https://telegra.ph/Polzovatelskoe-soglashenie-08-15-10' },
+          { text: '🔒 Конфиденциальность', url: 'https://telegra.ph/Politika-konfidencialnosti-08-15-17' }
+        ],
+        [{ text: '◀️ Назад', callback_data: 'back_to_start' }]
+      ]
     };
     
     if (helpPhotoUrl) {
@@ -172,7 +178,13 @@ export function createBot(token: string): Bot<MyContext> {
     const helpPhotoUrl = await configService.getString('bot.help_photo_url', '');
     
     const helpKeyboard = {
-      inline_keyboard: [[{ text: '◀️ Назад', callback_data: 'back_to_start' }]]
+      inline_keyboard: [
+        [
+          { text: '📜 Соглашение', url: 'https://telegra.ph/Polzovatelskoe-soglashenie-08-15-10' },
+          { text: '🔒 Конфиденциальность', url: 'https://telegra.ph/Politika-konfidencialnosti-08-15-17' }
+        ],
+        [{ text: '◀️ Назад', callback_data: 'back_to_start' }]
+      ]
     };
     
     if (helpPhotoUrl) {
