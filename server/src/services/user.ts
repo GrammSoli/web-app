@@ -410,15 +410,20 @@ export async function logUsage(data: LogUsageData): Promise<void> {
 
 /**
  * Активировать подписку
+ * @param actualPriceUsd - реальная сумма оплаты в USD (для card payments, отличается от stars pricing)
  */
 export async function activateSubscription(
   userId: string,
   tier: 'basic' | 'premium',
-  transactionId?: string
+  transactionId?: string,
+  actualPriceUsd?: number
 ): Promise<void> {
   const pricing = await getSubscriptionPricing(tier);
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + pricing.durationDays);
+  
+  // Если передана реальная сумма (card payment), используем её, иначе рассчитываем от stars
+  const finalPriceUsd = actualPriceUsd !== undefined ? actualPriceUsd : pricing.usd;
   
   await prisma.$transaction([
     // Создаём запись подписки
@@ -428,8 +433,8 @@ export async function activateSubscription(
         transactionId,
         tier,
         expiresAt,
-        priceStars: pricing.stars,
-        priceUsd: new Prisma.Decimal(pricing.usd),
+        priceStars: actualPriceUsd !== undefined ? 0 : pricing.stars, // 0 stars для card payments
+        priceUsd: new Prisma.Decimal(finalPriceUsd),
       },
     }),
     // Обновляем пользователя

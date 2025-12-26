@@ -205,7 +205,7 @@ export function createApp() {
                 data: {
                   userId: user.id,
                   invoiceId: `platega_${transactionId}`,
-                  transactionType: 'stars_payment',
+                  transactionType: 'card_payment',
                   amountStars: 0,
                   amountUsd: rubToUsd,
                   currency: currency,
@@ -219,7 +219,8 @@ export function createApp() {
                 },
               });
               
-              await activateSubscription(user.id, payloadData.tier, transaction.id);
+              // Pass actual USD amount for correct MRR calculation
+              await activateSubscription(user.id, payloadData.tier, transaction.id, rubToUsd);
               
               // Update user total spend
               await prisma.user.update({
