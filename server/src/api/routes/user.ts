@@ -878,8 +878,13 @@ router.get('/subscription/card-prices', async (req: Request, res: Response) => {
     const { getSubscriptionPricing } = await import('../../utils/pricing.js');
     const { plategaService } = await import('../../services/platega.js');
     
+    const isConfigured = plategaService.isConfigured();
+    const isAdmin = user.isAdmin;
+    
+    apiLogger.info({ isConfigured, isAdmin, userId: user.id }, 'Card prices check');
+    
     // Только для админов в бета-режиме
-    const isEnabled = plategaService.isConfigured() && user.isAdmin;
+    const isEnabled = isConfigured && isAdmin;
     
     const [basicPricing, premiumPricing] = await Promise.all([
       getSubscriptionPricing('basic'),
