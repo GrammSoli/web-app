@@ -233,8 +233,8 @@ export function createBot(token: string): Bot<MyContext> {
     const user = ctx.from;
     if (!user) return;
     
-    // Check if user is admin (for Platega beta testing)
-    const dbUser = await getOrCreateUser({
+    // Ensure user exists in database
+    await getOrCreateUser({
       telegramId: BigInt(user.id),
       username: user.username,
       firstName: user.first_name,
