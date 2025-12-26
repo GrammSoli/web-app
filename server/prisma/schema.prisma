@@ -66,6 +66,8 @@ enum SegmentType {
 
 enum TransactionType {
   stars_payment
+  card_payment
+  crypto_payment
   adsgram_reward
   refund
 
