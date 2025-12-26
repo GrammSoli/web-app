@@ -231,8 +231,8 @@ export default function PremiumPage() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {/* Card payment - main button (admin only for now) */}
-                  {cardPrices?.enabled && user?.isAdmin && (
+                  {/* Card payment - main button */}
+                  {cardPrices?.enabled && (
                     <button
                       onClick={() => handleCardPurchase('premium')}
                       disabled={purchasing === 'premium-card'}
@@ -323,8 +323,8 @@ export default function PremiumPage() {
               </div>
             ) : (
               <div className="space-y-2">
-                {/* Card payment - main button (admin only for now) */}
-                {cardPrices?.enabled && user?.isAdmin && (
+                {/* Card payment - main button */}
+                {cardPrices?.enabled && (
                   <button
                     onClick={() => handleCardPurchase('basic')}
                     disabled={purchasing === 'basic-card'}

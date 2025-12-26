@@ -879,12 +879,10 @@ router.get('/subscription/card-prices', async (req: Request, res: Response) => {
     const { plategaService } = await import('../../services/platega.js');
     
     const isConfigured = plategaService.isConfigured();
-    const isAdmin = user.isAdmin;
     
-    apiLogger.info({ isConfigured, isAdmin, userId: user.id }, 'Card prices check');
+    apiLogger.info({ isConfigured, userId: user.id }, 'Card prices check');
     
-    // Только для админов в бета-режиме
-    const isEnabled = isConfigured && isAdmin;
+    const isEnabled = isConfigured;
     
     const [basicPricing, premiumPricing] = await Promise.all([
       getSubscriptionPricing('basic'),
@@ -913,11 +911,6 @@ router.post('/subscription/card-payment', async (req: Request, res: Response) =>
     
     if (!tier || !['basic', 'premium'].includes(tier)) {
       return res.status(400).json({ error: 'Invalid tier' });
-    }
-    
-    // Только для админов в бета-режиме
-    if (!user.isAdmin) {
-      return res.status(403).json({ error: 'Card payments are in beta, available for admins only' });
     }
     
     const { plategaService, PLATOGA_METHODS } = await import('../../services/platega.js');

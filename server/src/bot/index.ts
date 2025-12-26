@@ -250,10 +250,8 @@ export function createBot(token: string): Bot<MyContext> {
     // Build keyboard with payment options
     const keyboard: Array<Array<{ text: string; callback_data: string }>> = [];
     
-    // Main card payment button (only for admins during beta)
-    if (dbUser.isAdmin) {
-      keyboard.push([{ text: '💳 Оплатить картой (СБП)', callback_data: 'pay_card_select' }]);
-    }
+    // Main card payment button
+    keyboard.push([{ text: '💳 Оплатить картой (СБП)', callback_data: 'pay_card_select' }]);
     
     // Stars and Crypto buttons - smaller, side by side
     keyboard.push([
