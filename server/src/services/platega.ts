@@ -14,15 +14,15 @@ import { apiLogger } from '../utils/logger.js';
 export interface PlatogaPaymentDetails {
   amount: number;
   currency: string;
-  description: string;
-  return: string;
-  failedUrl: string;
-  payload?: string;
 }
 
 export interface PlatogaCreatePaymentRequest {
   paymentMethod: number;
   paymentDetails: PlatogaPaymentDetails;
+  description: string;
+  return: string;
+  failedUrl: string;
+  payload?: string;
 }
 
 export interface PlatogaCreatePaymentResponse {
@@ -149,11 +149,11 @@ class PlategaService {
       paymentDetails: {
         amount: params.amount,
         currency: params.currency || 'RUB',
-        description: params.description,
-        return: params.successUrl,
-        failedUrl: params.failUrl,
-        payload: params.payload,
       },
+      description: params.description,
+      return: params.successUrl,
+      failedUrl: params.failUrl,
+      payload: params.payload,
     };
     
     return this.request<PlatogaCreatePaymentResponse>('POST', '/transaction/process', request);
