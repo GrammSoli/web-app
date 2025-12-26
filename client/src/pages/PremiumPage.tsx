@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Preloader } from 'konsta/react';
-import { Gem, Star, Crown, Check, Zap, ExternalLink, CreditCard, Bitcoin } from 'lucide-react';
+import { Gem, Star, Crown, Check, ExternalLink, CreditCard, Bitcoin } from 'lucide-react';
 import { useTelegram } from '@/hooks/useTelegram';
 import { useAppStore } from '@/store/useAppStore';
 import { api } from '@/lib/api';
