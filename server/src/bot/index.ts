@@ -230,19 +230,181 @@ export function createBot(token: string): Bot<MyContext> {
   bot.callbackQuery('show_premium', async (ctx) => {
     await ctx.answerCallbackQuery();
     
+    const user = ctx.from;
+    if (!user) return;
+    
+    // Check if user is admin (for Platega beta testing)
+    const dbUser = await getOrCreateUser({
+      telegramId: BigInt(user.id),
+      username: user.username,
+      firstName: user.first_name,
+      lastName: user.last_name,
+      languageCode: user.language_code,
+    });
+    
+    const [basicPricing, premiumPricing] = await Promise.all([
+      getSubscriptionPricing('basic'),
+      getSubscriptionPricing('premium'),
+    ]);
+    
+    // Build keyboard with payment options
+    const keyboard: Array<Array<{ text: string; callback_data: string }>> = [];
+    
+    // Main card payment button (only for admins during beta)
+    if (dbUser.isAdmin) {
+      keyboard.push([{ text: '💳 Оплатить картой (СБП)', callback_data: 'pay_card_select' }]);
+    }
+    
+    // Stars and Crypto buttons - smaller, side by side
+    keyboard.push([
+      { text: `⭐ Stars`, callback_data: 'pay_stars_select' },
+      { text: `🪙 Крипта`, callback_data: 'pay_crypto_select' },
+    ]);
+    
+    keyboard.push([{ text: '◀️ Назад', callback_data: 'back_to_start' }]);
+    
+    await ctx.reply(
+      `💎 *Премиум подписка*\n\n` +
+      `🔹 *Basic* — ${basicPricing.stars} ⭐ / ${basicPricing.rub} ₽/мес\n` +
+      `🔹 *Premium* — ${premiumPricing.stars} ⭐ / ${premiumPricing.rub} ₽/мес\n\n` +
+      `Выберите способ оплаты:`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: { inline_keyboard: keyboard },
+      }
+    );
+  });
+  
+  // Card payment tier selection (Platega)
+  bot.callbackQuery('pay_card_select', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    
     const [basicPricing, premiumPricing] = await Promise.all([
       getSubscriptionPricing('basic'),
       getSubscriptionPricing('premium'),
     ]);
     
     await ctx.reply(
-      `⭐ *Выбери тариф:*`,
+      `💳 *Оплата картой (СБП)*\n\nВыберите тариф:`,
       {
         parse_mode: 'Markdown',
         reply_markup: {
           inline_keyboard: [
-            [{ text: `💳 Basic — ${basicPricing.stars} ⭐/мес`, callback_data: 'buy_basic' }],
-            [{ text: `💳 Premium — ${premiumPricing.stars} ⭐/мес`, callback_data: 'buy_premium' }],
+            [{ text: `Basic — ${basicPricing.rub} ₽/мес`, callback_data: 'pay_card_basic' }],
+            [{ text: `Premium — ${premiumPricing.rub} ₽/мес`, callback_data: 'pay_card_premium' }],
+            [{ text: '◀️ Назад', callback_data: 'show_premium' }],
+          ],
+        },
+      }
+    );
+  });
+  
+  // Process card payment
+  bot.callbackQuery(/^pay_card_(basic|premium)$/, async (ctx) => {
+    const tier = ctx.match![1] as 'basic' | 'premium';
+    await ctx.answerCallbackQuery();
+    
+    const user = ctx.from;
+    if (!user) return;
+    
+    const dbUser = await getOrCreateUser({
+      telegramId: BigInt(user.id),
+      username: user.username,
+      firstName: user.first_name,
+      lastName: user.last_name,
+      languageCode: user.language_code,
+    });
+    
+    const pricing = await getSubscriptionPricing(tier);
+    const { plategaService } = await import('../services/platega.js');
+    
+    const webAppUrl = process.env.WEBAPP_URL || 'https://app.mindful-journal.com';
+    
+    try {
+      const payment = await plategaService.createPayment({
+        amount: pricing.rub,
+        currency: 'RUB',
+        description: `AI Mindful Journal — подписка ${tier === 'premium' ? 'Premium' : 'Basic'}`,
+        successUrl: `${webAppUrl}/payment-success`,
+        failUrl: `${webAppUrl}/payment-failed`,
+        payload: JSON.stringify({
+          type: 'subscription',
+          userId: dbUser.id,
+          tier: tier,
+          telegramId: user.id,
+        }),
+        paymentMethod: 2, // СБП QR
+      });
+      
+      botLogger.info({
+        userId: dbUser.id,
+        tier,
+        transactionId: payment.transactionId,
+        redirect: payment.redirect,
+      }, 'Platega payment created');
+      
+      await ctx.reply(
+        `💳 *Оплата ${tier === 'premium' ? 'Premium' : 'Basic'}*\n\n` +
+        `Сумма: *${pricing.rub} ₽*\n\n` +
+        `Нажмите кнопку ниже для оплаты через СБП:`,
+        {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '💳 Оплатить', url: payment.redirect }],
+              [{ text: '◀️ Отмена', callback_data: 'show_premium' }],
+            ],
+          },
+        }
+      );
+    } catch (error) {
+      botLogger.error({ error }, 'Platega payment creation failed');
+      await ctx.reply('❌ Ошибка создания платежа. Попробуйте позже или выберите другой способ оплаты.');
+    }
+  });
+  
+  // Stars payment tier selection
+  bot.callbackQuery('pay_stars_select', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    
+    const [basicPricing, premiumPricing] = await Promise.all([
+      getSubscriptionPricing('basic'),
+      getSubscriptionPricing('premium'),
+    ]);
+    
+    await ctx.reply(
+      `⭐ *Оплата Telegram Stars*\n\nВыберите тариф:`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: `Basic — ${basicPricing.stars} ⭐/мес`, callback_data: 'buy_basic' }],
+            [{ text: `Premium — ${premiumPricing.stars} ⭐/мес`, callback_data: 'buy_premium' }],
+            [{ text: '◀️ Назад', callback_data: 'show_premium' }],
+          ],
+        },
+      }
+    );
+  });
+  
+  // Crypto payment tier selection
+  bot.callbackQuery('pay_crypto_select', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    
+    const [basicPricing, premiumPricing] = await Promise.all([
+      getSubscriptionPricing('basic'),
+      getSubscriptionPricing('premium'),
+    ]);
+    
+    await ctx.reply(
+      `🪙 *Оплата криптовалютой*\n\nВыберите тариф:`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: `Basic — $${basicPricing.usd}/мес`, callback_data: 'buy_crypto_basic' }],
+            [{ text: `Premium — $${premiumPricing.usd}/мес`, callback_data: 'buy_crypto_premium' }],
+            [{ text: '◀️ Назад', callback_data: 'show_premium' }],
           ],
         },
       }

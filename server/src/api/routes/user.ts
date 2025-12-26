@@ -869,6 +869,86 @@ router.get('/subscription/crypto-prices', async (_req: Request, res: Response) =
 });
 
 /**
+ * GET /api/user/subscription/card-prices
+ * Получение цен для оплаты картой/СБП (только для админов в бета-режиме)
+ */
+router.get('/subscription/card-prices', async (req: Request, res: Response) => {
+  try {
+    const user = req.user!;
+    const { getSubscriptionPricing } = await import('../../utils/pricing.js');
+    const { plategaService } = await import('../../services/platega.js');
+    
+    // Только для админов в бета-режиме
+    const isEnabled = plategaService.isConfigured() && user.isAdmin;
+    
+    const [basicPricing, premiumPricing] = await Promise.all([
+      getSubscriptionPricing('basic'),
+      getSubscriptionPricing('premium'),
+    ]);
+    
+    res.json({
+      enabled: isEnabled,
+      basic: { rub: basicPricing.rub, durationDays: basicPricing.durationDays },
+      premium: { rub: premiumPricing.rub, durationDays: premiumPricing.durationDays },
+    });
+  } catch (error) {
+    apiLogger.error({ error }, 'Failed to get card prices');
+    res.status(500).json({ error: 'Failed to get card prices' });
+  }
+});
+
+/**
+ * POST /api/user/subscription/card-payment
+ * Создание платежа картой/СБП через Platega
+ */
+router.post('/subscription/card-payment', async (req: Request, res: Response) => {
+  try {
+    const user = req.user!;
+    const { tier } = req.body as { tier: 'basic' | 'premium' };
+    
+    if (!tier || !['basic', 'premium'].includes(tier)) {
+      return res.status(400).json({ error: 'Invalid tier' });
+    }
+    
+    // Только для админов в бета-режиме
+    if (!user.isAdmin) {
+      return res.status(403).json({ error: 'Card payments are in beta, available for admins only' });
+    }
+    
+    const { plategaService, PLATOGA_METHODS } = await import('../../services/platega.js');
+    const { getSubscriptionPricing } = await import('../../utils/pricing.js');
+    
+    if (!plategaService.isConfigured()) {
+      return res.status(503).json({ error: 'Card payments are not configured' });
+    }
+    
+    const pricing = await getSubscriptionPricing(tier);
+    const webAppUrl = process.env.WEBAPP_URL || 'https://app.mindful-journal.com';
+    
+    const result = await plategaService.createPayment({
+      amount: pricing.rub,
+      paymentMethod: PLATOGA_METHODS.SBP_QR,
+      description: `Подписка ${tier === 'premium' ? 'Premium' : 'Basic'} - Mindful Journal`,
+      successUrl: `${webAppUrl}/payment-success`,
+      failUrl: `${webAppUrl}/payment-failed`,
+      payload: JSON.stringify({
+        type: 'subscription',
+        tier,
+        userId: user.id,
+        durationDays: pricing.durationDays,
+      }),
+    });
+    
+    apiLogger.info({ userId: user.id, tier, transactionId: result.transactionId }, 'Card payment created');
+    
+    res.json({ paymentUrl: result.redirect });
+  } catch (error) {
+    apiLogger.error({ error }, 'Failed to create card payment');
+    res.status(500).json({ error: 'Failed to create card payment' });
+  }
+});
+
+/**
  * GET /api/user/export
  * Экспорт всех записей пользователя (JSON/CSV)
  */

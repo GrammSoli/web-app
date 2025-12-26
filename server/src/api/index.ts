@@ -6,6 +6,7 @@ import { apiLimiter } from './middleware/index.js';
 import { userRoutes, adminRoutes, internalRoutes } from './routes/index.js';
 import { apiLogger } from '../utils/logger.js';
 import { cryptoPayService } from '../services/cryptopay.js';
+import { plategaService } from '../services/platega.js';
 import { activateSubscription } from '../services/user.js';
 import prisma from '../services/database.js';
 import { getBot } from '../bot/index.js';
@@ -132,6 +133,129 @@ export function createApp() {
       res.json({ ok: true });
     } catch (error) {
       apiLogger.error({ error }, 'CryptoPay webhook error');
+      res.status(500).json({ error: 'Webhook processing failed' });
+    }
+  });
+  
+  // ============================================
+  // Platega webhook (card payments)
+  // ============================================
+  app.post('/api/webhook/platega', express.json(), async (req, res) => {
+    try {
+      const merchantId = req.headers['x-merchantid'] as string;
+      const secret = req.headers['x-secret'] as string;
+      
+      apiLogger.info({ 
+        hasMerchantId: !!merchantId,
+        hasSecret: !!secret,
+        body: req.body,
+      }, 'Platega webhook received');
+      
+      // Verify credentials
+      if (!plategaService.verifyWebhook(merchantId, secret)) {
+        apiLogger.warn({ merchantId }, 'Invalid Platega webhook credentials');
+        return res.status(401).json({ error: 'Invalid credentials' });
+      }
+      
+      apiLogger.info('Platega webhook credentials verified');
+      
+      const payload = req.body;
+      const { id: transactionId, amount, currency, status, payload: userPayload } = payload;
+      
+      apiLogger.info({
+        transactionId,
+        amount,
+        currency,
+        status,
+        userPayload,
+      }, 'Platega payment status');
+      
+      // Only process CONFIRMED payments
+      if (status !== 'CONFIRMED') {
+        apiLogger.info({ status }, 'Platega payment not confirmed, skipping');
+        return res.json({ ok: true });
+      }
+      
+      // Idempotency check
+      const existingTx = await prisma.transaction.findFirst({
+        where: { invoiceId: `platega_${transactionId}` },
+      });
+      
+      if (existingTx) {
+        apiLogger.info({ transactionId }, 'Platega payment already processed (idempotency)');
+        return res.json({ ok: true });
+      }
+      
+      // Parse payload to get user info
+      if (userPayload) {
+        try {
+          const payloadData = JSON.parse(userPayload);
+          
+          if (payloadData.type === 'subscription' && payloadData.userId && payloadData.tier) {
+            const user = await prisma.user.findUnique({
+              where: { id: payloadData.userId },
+            });
+            
+            if (user) {
+              // Convert RUB to USD (approximate)
+              const rubToUsd = currency === 'RUB' ? amount / 100 : amount; // 1 USD ~ 100 RUB
+              
+              // Create transaction record
+              const transaction = await prisma.transaction.create({
+                data: {
+                  userId: user.id,
+                  invoiceId: `platega_${transactionId}`,
+                  transactionType: 'stars_payment',
+                  amountStars: 0,
+                  amountUsd: rubToUsd,
+                  currency: currency,
+                  isSuccessful: true,
+                  metadata: { 
+                    tier: payloadData.tier, 
+                    plategaTransactionId: transactionId,
+                    amountRub: amount,
+                    paymentMethod: payload.paymentMethod,
+                  },
+                },
+              });
+              
+              await activateSubscription(user.id, payloadData.tier, transaction.id);
+              
+              // Update user total spend
+              await prisma.user.update({
+                where: { id: user.id },
+                data: { 
+                  totalSpendUsd: { increment: rubToUsd },
+                },
+              });
+              
+              // Send notification to user
+              try {
+                const bot = getBot();
+                await bot.api.sendMessage(
+                  user.telegramId.toString(),
+                  `✅ Оплата прошла успешно!\n\nВаша подписка ${payloadData.tier === 'premium' ? 'Premium' : 'Basic'} активирована. Спасибо за покупку! 💜`
+                );
+              } catch (notifyError) {
+                apiLogger.warn({ error: notifyError }, 'Failed to send payment notification');
+              }
+              
+              apiLogger.info({
+                userId: user.id,
+                tier: payloadData.tier,
+                transactionId,
+                dbTransactionId: transaction.id,
+              }, 'Platega subscription activated');
+            }
+          }
+        } catch (parseError) {
+          apiLogger.error({ error: parseError }, 'Failed to parse Platega payload');
+        }
+      }
+      
+      res.json({ ok: true });
+    } catch (error) {
+      apiLogger.error({ error }, 'Platega webhook error');
       res.status(500).json({ error: 'Webhook processing failed' });
     }
   });

@@ -200,6 +200,21 @@ export async function createCryptoInvoice(tier: 'basic' | 'premium'): Promise<{ 
   });
 }
 
+export async function createCardPayment(tier: 'basic' | 'premium'): Promise<{ paymentUrl: string }> {
+  return apiFetch('/user/subscription/card-payment', {
+    method: 'POST',
+    body: JSON.stringify({ tier }),
+  });
+}
+
+export async function getCardPrices(): Promise<{
+  enabled: boolean;
+  basic: { rub: number; durationDays: number };
+  premium: { rub: number; durationDays: number };
+}> {
+  return apiFetch('/user/subscription/card-prices');
+}
+
 // ============================================
 // SETTINGS API
 // ============================================
@@ -262,6 +277,8 @@ export const api = {
     createInvoice,
     getCryptoPrices,
     createCryptoInvoice,
+    getCardPrices,
+    createCardPayment,
   },
   export: {
     download: exportData,

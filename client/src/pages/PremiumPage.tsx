@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Preloader } from 'konsta/react';
-import { Gem, Star, Crown, Check, Zap, ExternalLink } from 'lucide-react';
+import { Gem, Star, Crown, Check, Zap, ExternalLink, CreditCard, Bitcoin } from 'lucide-react';
 import { useTelegram } from '@/hooks/useTelegram';
 import { useAppStore } from '@/store/useAppStore';
 import { api } from '@/lib/api';
@@ -28,6 +28,12 @@ interface CryptoPrices {
   premium: { usdt: number; durationDays: number };
 }
 
+interface CardPrices {
+  enabled: boolean;
+  basic: { rub: number; durationDays: number };
+  premium: { rub: number; durationDays: number };
+}
+
 const PLAN_STYLES = {
   basic: {
     icon: Star,
@@ -46,6 +52,7 @@ export default function PremiumPage() {
   
   const [plans, setPlans] = useState<Plans | null>(null);
   const [cryptoPrices, setCryptoPrices] = useState<CryptoPrices | null>(null);
+  const [cardPrices, setCardPrices] = useState<CardPrices | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [purchasing, setPurchasing] = useState<string | null>(null);
@@ -59,12 +66,14 @@ export default function PremiumPage() {
     setLoadError(false);
     setLoading(true);
     try {
-      const [plansData, cryptoData] = await Promise.all([
+      const [plansData, cryptoData, cardData] = await Promise.all([
         api.subscription.getPlans(),
         api.subscription.getCryptoPrices().catch(() => null),
+        api.subscription.getCardPrices().catch(() => null),
       ]);
       setPlans(plansData);
       if (cryptoData) setCryptoPrices(cryptoData);
+      if (cardData) setCardPrices(cardData);
     } catch {
       // Use default plans as fallback
       setPlans(DEFAULT_PLANS);
@@ -108,6 +117,23 @@ export default function PremiumPage() {
     } catch (error) {
       haptic.error();
       showAlert(error instanceof Error ? error.message : 'Ошибка при создании счёта');
+    } finally {
+      setPurchasing(null);
+    }
+  };
+
+  const handleCardPurchase = async (tier: 'basic' | 'premium') => {
+    haptic.medium();
+    setPurchasing(`${tier}-card`);
+
+    try {
+      const { paymentUrl } = await api.subscription.createCardPayment(tier);
+      // Открываем страницу оплаты
+      openLink(paymentUrl);
+      showAlert('После оплаты подписка активируется автоматически');
+    } catch (error) {
+      haptic.error();
+      showAlert(error instanceof Error ? error.message : 'Ошибка при создании платежа');
     } finally {
       setPurchasing(null);
     }
@@ -199,47 +225,65 @@ export default function PremiumPage() {
                 ))}
               </ul>
               
-              <button
-                onClick={() => handlePurchase('premium')}
-                disabled={currentTier === 'premium' || purchasing === 'premium-stars'}
-                className={`w-full py-4 rounded-2xl font-bold text-lg transition-all active:scale-[0.98]
-                  ${currentTier === 'premium'
-                    ? 'bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400'
-                    : 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-xl shadow-purple-500/30'
-                  } disabled:opacity-60`}
-              >
-                {purchasing === 'premium-stars' ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <Preloader className="!w-5 !h-5" />
-                    Оплата...
-                  </span>
-                ) : currentTier === 'premium' ? (
+              {currentTier === 'premium' ? (
+                <div className="w-full py-4 rounded-2xl font-bold text-lg text-center bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400">
                   <span className="flex items-center justify-center gap-1"><Check className="w-5 h-5" /> Активен</span>
-                ) : (
-                  <span className="flex items-center justify-center gap-1">
-                    {plans?.premium.stars || 150} <Star className="w-5 h-5 text-yellow-300 fill-yellow-300" /> Быстро
-                  </span>
-                )}
-              </button>
-              
-              {/* Crypto payment button for Premium */}
-              {cryptoPrices?.enabled && currentTier !== 'premium' && (
-                <button
-                  onClick={() => handleCryptoPurchase('premium')}
-                  disabled={purchasing === 'premium-crypto'}
-                  className="w-full mt-2 py-3 rounded-xl font-semibold text-sm transition-all active:scale-[0.98] bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/20 disabled:opacity-60"
-                >
-                  {purchasing === 'premium-crypto' ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <Preloader className="!w-4 !h-4" />
-                    </span>
-                  ) : (
-                    <span className="flex items-center justify-center gap-1">
-                      <Zap className="w-4 h-4" /> ${cryptoPrices.premium.usdt} Crypto 
-                      <span className="text-xs opacity-80 ml-1">(-30%)</span>
-                    </span>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {/* Card payment - main button (admin only for now) */}
+                  {cardPrices?.enabled && user?.isAdmin && (
+                    <button
+                      onClick={() => handleCardPurchase('premium')}
+                      disabled={purchasing === 'premium-card'}
+                      className="w-full py-4 rounded-2xl font-bold text-lg transition-all active:scale-[0.98] bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-xl shadow-purple-500/30 disabled:opacity-60"
+                    >
+                      {purchasing === 'premium-card' ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <Preloader className="!w-5 !h-5" />
+                          Оплата...
+                        </span>
+                      ) : (
+                        <span className="flex items-center justify-center gap-2">
+                          <CreditCard className="w-5 h-5" /> {cardPrices.premium.rub} ₽ Картой / СБП
+                        </span>
+                      )}
+                    </button>
                   )}
-                </button>
+                  
+                  {/* Stars and Crypto buttons - small, side by side */}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handlePurchase('premium')}
+                      disabled={purchasing === 'premium-stars'}
+                      className="flex-1 py-3 rounded-xl font-semibold text-sm transition-all active:scale-[0.98] bg-gradient-to-r from-yellow-400 to-amber-500 text-white shadow-lg shadow-yellow-500/20 disabled:opacity-60"
+                    >
+                      {purchasing === 'premium-stars' ? (
+                        <Preloader className="!w-4 !h-4 mx-auto" />
+                      ) : (
+                        <span className="flex items-center justify-center gap-1">
+                          <Star className="w-4 h-4 fill-current" /> {plans?.premium.stars || 150}
+                        </span>
+                      )}
+                    </button>
+                    
+                    {cryptoPrices?.enabled && (
+                      <button
+                        onClick={() => handleCryptoPurchase('premium')}
+                        disabled={purchasing === 'premium-crypto'}
+                        className="flex-1 py-3 rounded-xl font-semibold text-sm transition-all active:scale-[0.98] bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/20 disabled:opacity-60"
+                      >
+                        {purchasing === 'premium-crypto' ? (
+                          <Preloader className="!w-4 !h-4 mx-auto" />
+                        ) : (
+                          <span className="flex items-center justify-center gap-1">
+                            <Bitcoin className="w-4 h-4" /> ${cryptoPrices.premium.usdt}
+                          </span>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                </div>
               )}
             </div>
           </div>
@@ -269,49 +313,68 @@ export default function PremiumPage() {
               ))}
             </ul>
             
-            <button
-              onClick={() => handlePurchase('basic')}
-              disabled={currentTier !== 'free' || purchasing === 'basic-stars'}
-              className={`w-full py-3 rounded-xl font-semibold transition-all active:scale-[0.98]
-                ${currentTier === 'basic'
-                  ? 'bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400'
-                  : currentTier === 'premium'
-                    ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500'
-                    : 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg shadow-blue-500/30'
-                } disabled:opacity-60`}
-            >
-              {purchasing === 'basic-stars' ? (
-                <span className="flex items-center justify-center gap-2">
-                  <Preloader className="!w-5 !h-5" />
-                </span>
-              ) : currentTier === 'basic' ? (
+            {currentTier === 'basic' ? (
+              <div className="w-full py-3 rounded-xl font-semibold text-center bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400">
                 <span className="flex items-center justify-center gap-1"><Check className="w-5 h-5" /> Активен</span>
-              ) : currentTier === 'premium' ? (
-                'У вас Premium'
-              ) : (
-                <span className="flex items-center justify-center gap-1">
-                  {plans?.basic.stars || 50} <Star className="w-5 h-5 text-yellow-300 fill-yellow-300" /> Быстро
-                </span>
-              )}
-            </button>
-            
-            {/* Crypto payment button for Basic */}
-            {cryptoPrices?.enabled && currentTier === 'free' && (
-              <button
-                onClick={() => handleCryptoPurchase('basic')}
-                disabled={purchasing === 'basic-crypto'}
-                className="w-full mt-2 py-2.5 rounded-xl font-semibold text-sm transition-all active:scale-[0.98] bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md shadow-emerald-500/20 disabled:opacity-60"
-              >
-                {purchasing === 'basic-crypto' ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <Preloader className="!w-4 !h-4" />
-                  </span>
-                ) : (
-                  <span className="flex items-center justify-center gap-1">
-                    <Zap className="w-4 h-4" /> ${cryptoPrices.basic.usdt} Crypto
-                  </span>
+              </div>
+            ) : currentTier === 'premium' ? (
+              <div className="w-full py-3 rounded-xl font-semibold text-center bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500">
+                У вас Premium
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {/* Card payment - main button (admin only for now) */}
+                {cardPrices?.enabled && user?.isAdmin && (
+                  <button
+                    onClick={() => handleCardPurchase('basic')}
+                    disabled={purchasing === 'basic-card'}
+                    className="w-full py-3 rounded-xl font-semibold transition-all active:scale-[0.98] bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg shadow-blue-500/30 disabled:opacity-60"
+                  >
+                    {purchasing === 'basic-card' ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <Preloader className="!w-5 !h-5" />
+                      </span>
+                    ) : (
+                      <span className="flex items-center justify-center gap-2">
+                        <CreditCard className="w-4 h-4" /> {cardPrices.basic.rub} ₽ Картой / СБП
+                      </span>
+                    )}
+                  </button>
                 )}
-              </button>
+                
+                {/* Stars and Crypto buttons - small, side by side */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handlePurchase('basic')}
+                    disabled={purchasing === 'basic-stars'}
+                    className="flex-1 py-2.5 rounded-xl font-semibold text-sm transition-all active:scale-[0.98] bg-gradient-to-r from-yellow-400 to-amber-500 text-white shadow-md shadow-yellow-500/20 disabled:opacity-60"
+                  >
+                    {purchasing === 'basic-stars' ? (
+                      <Preloader className="!w-4 !h-4 mx-auto" />
+                    ) : (
+                      <span className="flex items-center justify-center gap-1">
+                        <Star className="w-4 h-4 fill-current" /> {plans?.basic.stars || 50}
+                      </span>
+                    )}
+                  </button>
+                  
+                  {cryptoPrices?.enabled && (
+                    <button
+                      onClick={() => handleCryptoPurchase('basic')}
+                      disabled={purchasing === 'basic-crypto'}
+                      className="flex-1 py-2.5 rounded-xl font-semibold text-sm transition-all active:scale-[0.98] bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md shadow-emerald-500/20 disabled:opacity-60"
+                    >
+                      {purchasing === 'basic-crypto' ? (
+                        <Preloader className="!w-4 !h-4 mx-auto" />
+                      ) : (
+                        <span className="flex items-center justify-center gap-1">
+                          <Bitcoin className="w-4 h-4" /> ${cryptoPrices.basic.usdt}
+                        </span>
+                      )}
+                    </button>
+                  )}
+                </div>
+              </div>
             )}
           </div>
         </div>

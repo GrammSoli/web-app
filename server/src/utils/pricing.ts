@@ -106,13 +106,20 @@ export async function getSubscriptionPricing(tier: 'basic' | 'premium'): Promise
   stars: number;
   durationDays: number;
   usd: number;
+  rub: number;
 }> {
   const pricing = await configService.getSubscriptionPricing(tier);
-  const rate = await getStarsToUsdRate();
+  const starsRate = await getStarsToUsdRate();
+  const usd = pricing.stars * starsRate;
+  
+  // Get fixed RUB price from config (not calculated from USD)
+  const defaultRub = tier === 'premium' ? 399 : 150;
+  const rub = await configService.getNumber(`subscription.${tier}.rub`, defaultRub);
   
   return {
     ...pricing,
-    usd: pricing.stars * rate,
+    usd,
+    rub,
   };
 }
 
