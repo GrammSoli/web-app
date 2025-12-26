@@ -232,10 +232,12 @@ export function createApp() {
               // Send notification to user
               try {
                 const bot = getBot();
-                await bot.api.sendMessage(
-                  user.telegramId.toString(),
-                  `✅ Оплата прошла успешно!\n\nВаша подписка ${payloadData.tier === 'premium' ? 'Premium' : 'Basic'} активирована. Спасибо за покупку! 💜`
-                );
+                if (bot) {
+                  await bot.api.sendMessage(
+                    user.telegramId.toString(),
+                    `✅ Оплата прошла успешно!\n\nВаша подписка ${payloadData.tier === 'premium' ? 'Premium' : 'Basic'} активирована. Спасибо за покупку! 💜`
+                  );
+                }
               } catch (notifyError) {
                 apiLogger.warn({ error: notifyError }, 'Failed to send payment notification');
               }
