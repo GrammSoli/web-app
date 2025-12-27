@@ -15,7 +15,6 @@ import {
   SwipeableListItem,
   SwipeAction,
   TrailingActions,
-  Type as ListType,
 } from 'react-swipeable-list';
 import 'react-swipeable-list/dist/styles.css';
 import { Trash2 } from 'lucide-react';
@@ -253,7 +252,7 @@ export default function EntriesPage() {
   const trailingActions = (id: string) => (
     <TrailingActions>
       <SwipeAction
-        destructive={true}
+        destructive={false}
         onClick={() => handleDelete(id)}
       >
         <div className="bg-red-500 text-white flex items-center justify-center w-20 my-1 rounded-r-2xl ml-[-20px] shadow-sm transform translate-x-1">
@@ -557,18 +556,16 @@ export default function EntriesPage() {
           ) : (
             <>
               <SwipeableList
-                fullSwipe={true}
-                type={ListType.IOS}
-                className="space-y-3"
+                threshold={0.25}
               >
                 {filteredEntries.map((entry) => (
                   <SwipeableListItem
                     key={entry.id}
                     trailingActions={trailingActions(entry.id)}
-                    className="block" // Fix layout
+                    className="mb-3 block"
                   >
                     <div
-                      className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden w-full relative z-10"
+                      className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden w-full"
                     >
                       <EntryCard
                         entry={entry}
