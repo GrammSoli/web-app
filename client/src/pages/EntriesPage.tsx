@@ -9,6 +9,7 @@ import { FileText, Search, Filter, X, Calendar, Tag, Eye, EyeOff, Lock, Sparkles
 import { useAppStore } from '@/store/useAppStore';
 import { useTelegram } from '@/hooks/useTelegram';
 import EntryCard from '@/components/EntryCard';
+import SkeletonCard from '@/components/SkeletonCard';
 import { FREE_SEARCH_LIMIT, MAX_VISIBLE_TAGS } from '@/config/constants';
 
 type DateFilter = 'all' | 'today' | 'week' | 'month' | 'custom';
@@ -19,18 +20,18 @@ export default function EntriesPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { haptic } = useTelegram();
-  const { 
-    entries, 
-    entriesLoading, 
-    hasMoreEntries, 
+  const {
+    entries,
+    entriesLoading,
+    hasMoreEntries,
     privacyBlur,
     user,
     fetchEntries,
     togglePrivacyBlur
   } = useAppStore();
-  
+
   const isFree = !user || user.subscriptionTier === 'free';
-  
+
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [dateFilter, setDateFilter] = useState<DateFilter>('all');
@@ -43,25 +44,25 @@ export default function EntriesPage() {
   const [searchMode, setSearchMode] = useState<SearchMode>('text');
   const [customDateFrom, setCustomDateFrom] = useState('');
   const [customDateTo, setCustomDateTo] = useState('');
-  
+
   // Need to define hasActiveFilters earlier
   const hasActiveFilters = dateFilter !== 'all' || selectedTags.length > 0 || sortOrder !== 'newest';
-  
+
   // Infinite scroll observer - using ref to prevent re-creation
   const observerRef = useRef<IntersectionObserver | null>(null);
   const hasActiveFiltersRef = useRef(hasActiveFilters);
   hasActiveFiltersRef.current = hasActiveFilters;
-  
+
   const loadMoreRef = useCallback((node: HTMLDivElement | null) => {
     if (entriesLoading) return;
     if (observerRef.current) observerRef.current.disconnect();
-    
+
     observerRef.current = new IntersectionObserver(observedEntries => {
       if (observedEntries[0].isIntersecting && hasMoreEntries && !searchQuery && !hasActiveFiltersRef.current) {
         fetchEntries(false);
       }
     });
-    
+
     if (node) observerRef.current.observe(node);
   }, [entriesLoading, hasMoreEntries, searchQuery, fetchEntries]);
 
@@ -89,26 +90,26 @@ export default function EntriesPage() {
   // Filter entries
   const filteredEntries = useMemo(() => {
     if (!entries) return [];
-    
+
     // For free users, limit to last N entries for search
     let entriesToSearch = entries;
     if (isFree && searchQuery) {
       entriesToSearch = entries.slice(0, FREE_SEARCH_LIMIT);
     }
-    
+
     const filtered = entriesToSearch.filter(entry => {
       // Text search (AI search would be server-side for Premium)
-      const matchesSearch = !searchQuery || 
+      const matchesSearch = !searchQuery ||
         entry.textContent.toLowerCase().includes(searchQuery.toLowerCase()) ||
         entry.moodLabel?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         entry.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
-      
+
       if (!matchesSearch) return false;
-      
+
       // Date filter
       const entryDate = new Date(entry.dateCreated || Date.now());
       const now = new Date();
-      
+
       switch (dateFilter) {
         case 'today':
           if (isBefore(entryDate, startOfDay(now)) || isAfter(entryDate, endOfDay(now))) {
@@ -136,23 +137,23 @@ export default function EntriesPage() {
           }
           break;
       }
-      
+
       // Tags filter (only for Premium - free users can't filter by tags)
       if (selectedTags.length > 0 && !isFree) {
         const hasMatchingTag = entry.tags?.some(tag => selectedTags.includes(tag));
         if (!hasMatchingTag) return false;
       }
-      
+
       return true;
     });
-    
+
     // Sort entries
     return filtered.sort((a, b) => {
       const dateA = new Date(a.dateCreated || 0).getTime();
       const dateB = new Date(b.dateCreated || 0).getTime();
       const moodA = a.moodScore || 0;
       const moodB = b.moodScore || 0;
-      
+
       switch (sortOrder) {
         case 'oldest':
           return dateA - dateB;
@@ -168,8 +169,8 @@ export default function EntriesPage() {
   }, [entries, searchQuery, dateFilter, selectedTags, sortOrder, customDateFrom, customDateTo, isFree]);
 
   const toggleTag = (tag: string) => {
-    setSelectedTags(prev => 
-      prev.includes(tag) 
+    setSelectedTags(prev =>
+      prev.includes(tag)
         ? prev.filter(t => t !== tag)
         : [...prev, tag]
     );
@@ -207,7 +208,7 @@ export default function EntriesPage() {
   return (
     <div className="fade-in min-h-screen pb-24">
       <div className="p-4 space-y-4 pt-6">
-        
+
         {/* Header */}
         <div className="flex items-center justify-between px-1">
           <div className="flex items-center gap-3">
@@ -224,25 +225,25 @@ export default function EntriesPage() {
               </p>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-2">
             {/* Privacy toggle */}
             <button
               onClick={togglePrivacyBlur}
               className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors
-                ${privacyBlur 
-                  ? 'bg-indigo-500 text-white' 
+                ${privacyBlur
+                  ? 'bg-indigo-500 text-white'
                   : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'}`}
             >
               {privacyBlur ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
             </button>
-            
+
             {/* Filter toggle */}
             <button
               onClick={() => setShowFilters(!showFilters)}
               className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors
-                ${hasActiveFilters 
-                  ? 'bg-indigo-500 text-white' 
+                ${hasActiveFilters
+                  ? 'bg-indigo-500 text-white'
                   : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'}`}
             >
               <Filter className="w-5 h-5" />
@@ -275,23 +276,22 @@ export default function EntriesPage() {
               {/* AI Search toggle - Premium only */}
               <button
                 onClick={() => isFree ? handlePremiumFeature() : setSearchMode(searchMode === 'ai' ? 'text' : 'ai')}
-                className={`p-1.5 rounded-lg transition-colors ${
-                  searchMode === 'ai' 
-                    ? 'bg-purple-500 text-white' 
-                    : isFree 
-                      ? 'bg-gray-100 dark:bg-gray-700 text-gray-400' 
+                className={`p-1.5 rounded-lg transition-colors ${searchMode === 'ai'
+                    ? 'bg-purple-500 text-white'
+                    : isFree
+                      ? 'bg-gray-100 dark:bg-gray-700 text-gray-400'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
-                }`}
+                  }`}
               >
                 <Sparkles className="w-4 h-4" />
               </button>
             </div>
           </div>
-          
+
           {/* Free search limit notice */}
           {isFree && searchQuery && (
             <p className="text-xs text-gray-400 px-2 flex items-center gap-1">
-              <Lock className="w-3 h-3" /> Поиск по последним {FREE_SEARCH_LIMIT} записям. 
+              <Lock className="w-3 h-3" /> Поиск по последним {FREE_SEARCH_LIMIT} записям.
               <button onClick={handlePremiumFeature} className="text-purple-500 underline">
                 Снять ограничение
               </button>
@@ -302,7 +302,7 @@ export default function EntriesPage() {
         {/* Filters Panel */}
         {showFilters && (
           <div className="space-y-3">
-            
+
             {/* Sort Order - Premium */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-3 border border-gray-100 dark:border-gray-700">
               <div className="flex items-center gap-2 text-xs font-medium text-gray-500 mb-2 px-1">
@@ -316,8 +316,8 @@ export default function EntriesPage() {
                     key={order}
                     onClick={() => isFree ? handlePremiumFeature() : setSortOrder(order)}
                     className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all
-                      ${sortOrder === order 
-                        ? 'bg-indigo-500 text-white shadow-sm' 
+                      ${sortOrder === order
+                        ? 'bg-indigo-500 text-white shadow-sm'
                         : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 active:bg-gray-100 dark:active:bg-gray-600'}`}
                   >
                     {sortLabels[order]}
@@ -325,7 +325,7 @@ export default function EntriesPage() {
                 ))}
               </div>
             </div>
-            
+
             {/* Date Filter */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-3 border border-gray-100 dark:border-gray-700">
               <div className="flex items-center gap-2 text-xs font-medium text-gray-500 mb-2 px-1">
@@ -338,8 +338,8 @@ export default function EntriesPage() {
                     key={filter}
                     onClick={() => setDateFilter(filter)}
                     className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all flex-shrink-0
-                      ${dateFilter === filter 
-                        ? 'bg-indigo-500 text-white shadow-sm' 
+                      ${dateFilter === filter
+                        ? 'bg-indigo-500 text-white shadow-sm'
                         : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 active:bg-gray-100 dark:active:bg-gray-600'}`}
                   >
                     {dateFilterLabels[filter]}
@@ -349,8 +349,8 @@ export default function EntriesPage() {
                 <button
                   onClick={() => isFree ? handlePremiumFeature() : setDateFilter('custom')}
                   className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all flex items-center gap-1 flex-shrink-0
-                    ${dateFilter === 'custom' 
-                      ? 'bg-indigo-500 text-white shadow-sm' 
+                    ${dateFilter === 'custom'
+                      ? 'bg-indigo-500 text-white shadow-sm'
                       : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 active:bg-gray-100 dark:active:bg-gray-600'}`}
                 >
                   <CalendarRange className="w-3 h-3" />
@@ -358,7 +358,7 @@ export default function EntriesPage() {
                   {isFree && <Lock className="w-2.5 h-2.5 text-purple-400" />}
                 </button>
               </div>
-              
+
               {/* Custom date inputs */}
               {dateFilter === 'custom' && !isFree && (
                 <div className="flex gap-2 mt-2 overflow-x-auto no-scrollbar">
@@ -403,8 +403,8 @@ export default function EntriesPage() {
                       key={tag}
                       onClick={() => !isFree && toggleTag(tag)}
                       className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all
-                        ${selectedTags.includes(tag) 
-                          ? 'bg-indigo-500 text-white shadow-sm' 
+                        ${selectedTags.includes(tag)
+                          ? 'bg-indigo-500 text-white shadow-sm'
                           : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 active:bg-gray-100 dark:active:bg-gray-600'}`}
                     >
                       #{tag}
@@ -420,7 +420,7 @@ export default function EntriesPage() {
                   )}
                 </div>
                 {isFree && (
-                  <button 
+                  <button
                     onClick={handlePremiumFeature}
                     className="absolute inset-0 flex items-center justify-center"
                   />
@@ -454,7 +454,7 @@ export default function EntriesPage() {
               </span>
             )}
             {selectedTags.map(tag => (
-              <span 
+              <span
                 key={tag}
                 className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 text-sm"
               >
@@ -470,8 +470,8 @@ export default function EntriesPage() {
         {/* Entries List */}
         <div className="space-y-3">
           {entriesLoading && (!entries || entries.length === 0) ? (
-            <div className="flex justify-center py-12">
-              <Preloader />
+            <div className="space-y-3 py-2">
+              {[1, 2, 3].map(i => <SkeletonCard key={i} />)}
             </div>
           ) : filteredEntries.length === 0 ? (
             <div className="bg-white dark:bg-gray-800 rounded-3xl p-8 shadow-sm border border-gray-100 dark:border-gray-700 text-center">
@@ -482,7 +482,7 @@ export default function EntriesPage() {
                 {hasActiveFilters || searchQuery ? 'Ничего не найдено' : 'Пока нет записей'}
               </h3>
               <p className="text-gray-400 text-sm">
-                {hasActiveFilters || searchQuery 
+                {hasActiveFilters || searchQuery
                   ? 'Попробуйте изменить фильтры или поисковый запрос'
                   : 'Создайте первую запись на главной странице'
                 }
@@ -499,11 +499,11 @@ export default function EntriesPage() {
           ) : (
             <>
               {filteredEntries.map((entry) => (
-                <div 
+                <div
                   key={entry.id}
                   className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden"
                 >
-                  <EntryCard 
+                  <EntryCard
                     entry={entry}
                     onClick={() => navigate(`/entry/${entry.id}`)}
                   />

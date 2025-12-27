@@ -7,21 +7,22 @@ import { Flame, FileText, Smile, CalendarDays, BookOpen, User, AlertCircle, Refr
 import { useAppStore } from '@/store/useAppStore';
 import { useTelegram } from '@/hooks/useTelegram';
 import EntryCard from '@/components/EntryCard';
+import SkeletonCard from '@/components/SkeletonCard';
 import { QUICK_MOOD_OPTIONS } from '@/config/moods';
 
 export default function HomePage() {
   const navigate = useNavigate();
   const { user, haptic } = useTelegram();
   const [displayCount, setDisplayCount] = useState(5);
-  const { 
-    entries, 
-    entriesLoading, 
+  const {
+    entries,
+    entriesLoading,
     entriesError,
     userError,
     hasMoreEntries,
     stats,
     privacyBlur,
-    fetchEntries, 
+    fetchEntries,
     fetchStats,
     fetchUser,
     togglePrivacyBlur
@@ -61,7 +62,7 @@ export default function HomePage() {
     <div className="fade-in min-h-screen">
       {/* Content Container */}
       <div className="p-4 space-y-4 pt-6">
-        
+
         {/* Header with date and avatar */}
         <div className="flex justify-between items-end px-1">
           <div>
@@ -77,15 +78,15 @@ export default function HomePage() {
             <button
               onClick={handleToggleBlur}
               className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors
-                ${privacyBlur 
-                  ? 'bg-indigo-500 text-white' 
+                ${privacyBlur
+                  ? 'bg-indigo-500 text-white'
                   : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'}`}
             >
               {privacyBlur ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
             </button>
-            
+
             {/* Profile avatar */}
-            <button 
+            <button
               onClick={() => navigate('/profile')}
               className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 
                          overflow-hidden border-2 border-white shadow-lg flex items-center justify-center text-white text-lg font-bold"
@@ -100,12 +101,12 @@ export default function HomePage() {
           {/* Decorative blur circles */}
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10 blur-2xl" />
           <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full -ml-8 -mb-8 blur-xl" />
-          
+
           <h3 className="text-lg font-semibold opacity-90 relative z-10">Как настроение?</h3>
-          
+
           <div className="flex justify-between mt-5 relative z-10">
             {QUICK_MOOD_OPTIONS.map((mood) => (
-              <button 
+              <button
                 key={mood.score}
                 onClick={() => handleQuickMood(mood)}
                 className="text-3xl hover:scale-110 active:scale-95 transition-all duration-200 
@@ -116,7 +117,7 @@ export default function HomePage() {
               </button>
             ))}
           </div>
-          
+
           <p className="text-white/60 text-xs mt-4 text-center relative z-10">
             Нажми на эмодзи чтобы записать
           </p>
@@ -134,7 +135,7 @@ export default function HomePage() {
               <p className="text-gray-400 text-xs">Дней подряд</p>
             </div>
           </div>
-          
+
           {/* Entries Count Card */}
           <div className="bg-white dark:bg-gray-800 p-4 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-3">
             <span className="bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 w-12 h-12 flex items-center justify-center rounded-2xl flex-shrink-0">
@@ -145,7 +146,7 @@ export default function HomePage() {
               <p className="text-gray-400 text-xs">Всего записей</p>
             </div>
           </div>
-          
+
           {/* Average Mood Card */}
           <div className="bg-white dark:bg-gray-800 p-4 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-3">
             <span className="bg-gradient-to-br from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30 w-12 h-12 flex items-center justify-center rounded-2xl flex-shrink-0">
@@ -158,7 +159,7 @@ export default function HomePage() {
               <p className="text-gray-400 text-xs">Ср. настроение</p>
             </div>
           </div>
-          
+
           {/* Today Card */}
           <div className="bg-white dark:bg-gray-800 p-4 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-3">
             <span className="bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 w-12 h-12 flex items-center justify-center rounded-2xl flex-shrink-0">
@@ -176,7 +177,7 @@ export default function HomePage() {
           <div className="flex justify-between items-center mb-3 px-1">
             <h2 className="text-lg font-bold text-gray-700 dark:text-gray-200">Последние записи</h2>
             {entries && entries.length > 0 && (
-              <button 
+              <button
                 onClick={() => navigate('/entries')}
                 className="text-blue-500 text-sm font-medium"
               >
@@ -184,9 +185,14 @@ export default function HomePage() {
               </button>
             )}
           </div>
-          
+
           <div className="space-y-3">
-            {(userError || entriesError) ? (
+            {entriesLoading && (!entries || entries.length === 0) ? (
+              <div className="space-y-3">
+                <SkeletonCard />
+                <SkeletonCard />
+              </div>
+            ) : (userError || entriesError) ? (
               <div className="bg-white dark:bg-gray-800 rounded-3xl p-8 shadow-sm border border-red-100 dark:border-red-900/50 text-center">
                 <div className="mb-4 flex justify-center">
                   <AlertCircle className="w-16 h-16 text-red-400" />
@@ -218,17 +224,17 @@ export default function HomePage() {
                   Пока тишина...
                 </h3>
                 <p className="text-gray-400 text-sm leading-relaxed">
-                  Самое время записать первую мысль.<br/>
+                  Самое время записать первую мысль.<br />
                   Нажми на эмодзи сверху!
                 </p>
               </div>
             ) : (
               entries.slice(0, displayCount).map((entry) => (
-                <div 
+                <div
                   key={entry.id}
                   className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden"
                 >
-                  <EntryCard 
+                  <EntryCard
                     entry={entry}
                     onClick={() => navigate(`/entry/${entry.id}`)}
                   />
@@ -256,11 +262,7 @@ export default function HomePage() {
         </div>
 
         {/* Initial loading */}
-        {entriesLoading && (!entries || entries.length === 0) && (
-          <div className="flex justify-center py-12">
-            <Preloader />
-          </div>
-        )}
+
       </div>
     </div>
   );
