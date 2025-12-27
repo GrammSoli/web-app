@@ -238,6 +238,20 @@ class ConfigService {
     voiceAllowed: boolean;
     voiceMinutesDaily: number;
   }> {
+
+    // Check bypass tiers config FIRST
+    const bypassTiers = await this.getBool('feature.bypass_tiers', false);
+
+    if (bypassTiers) {
+      // Return limits for bypass mode
+      const [dailyEntries, voiceAllowed, voiceMinutesDaily] = await Promise.all([
+        this.getNumber('limits.bypass.daily_entries', 5),
+        this.getBool('limits.bypass.voice_allowed', true),
+        this.getNumber('limits.bypass.voice_minutes_daily', 1),
+      ]);
+      return { dailyEntries, voiceAllowed, voiceMinutesDaily };
+    }
+
     const defaults = {
       free: { dailyEntries: 5, voiceAllowed: false, voiceMinutesDaily: 0 },
       basic: { dailyEntries: 20, voiceAllowed: true, voiceMinutesDaily: 5 },
