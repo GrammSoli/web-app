@@ -8,6 +8,15 @@ import { useAppStore } from '@/store/useAppStore';
 import { useTelegram } from '@/hooks/useTelegram';
 import EntryCard from '@/components/EntryCard';
 import SkeletonCard from '@/components/SkeletonCard';
+import {
+  SwipeableList,
+  SwipeableListItem,
+  SwipeAction,
+  TrailingActions,
+} from 'react-swipeable-list';
+import 'react-swipeable-list/dist/styles.css';
+import { Trash2 } from 'lucide-react';
+import { api } from '@/lib/api';
 import { QUICK_MOOD_OPTIONS } from '@/config/moods';
 
 export default function HomePage() {
@@ -25,6 +34,7 @@ export default function HomePage() {
     fetchEntries,
     fetchStats,
     fetchUser,
+    removeEntry,
     togglePrivacyBlur
   } = useAppStore();
 
@@ -45,6 +55,50 @@ export default function HomePage() {
       setDisplayCount(prev => prev + 5);
     }
   };
+
+  const handleDelete = async (id: string) => {
+    // Confirm delete
+    if (window.Telegram?.WebApp?.showConfirm) {
+      window.Telegram.WebApp.showConfirm('Удалить эту запись безвозвратно?', async (confirmed) => {
+        if (confirmed) {
+          try {
+            haptic.medium();
+            // Optimistic update
+            removeEntry(id);
+            await api.entries.delete(id);
+          } catch (error) {
+            console.error('Failed to delete', error);
+            fetchEntries(true); // Revert on error
+          }
+        }
+      });
+    } else {
+      // Fallback for web
+      if (confirm('Удалить запись?')) {
+        try {
+          // Optimistic update
+          removeEntry(id);
+          await api.entries.delete(id);
+        } catch (error) {
+          console.error(error);
+          fetchEntries(true);
+        }
+      }
+    }
+  };
+
+  const trailingActions = (id: string) => (
+    <TrailingActions>
+      <SwipeAction
+        destructive={false}
+        onClick={() => handleDelete(id)}
+      >
+        <div className="bg-red-500 text-white flex items-center justify-center w-20 my-1 rounded-r-2xl ml-[-20px] shadow-sm transform translate-x-1">
+          <Trash2 className="w-6 h-6" />
+        </div>
+      </SwipeAction>
+    </TrailingActions>
+  );
 
   const handleQuickMood = (mood: typeof QUICK_MOOD_OPTIONS[0]) => {
     navigate('/new', { state: { mood: { emoji: mood.emoji, score: mood.score, label: mood.label } } });
@@ -229,17 +283,26 @@ export default function HomePage() {
                 </p>
               </div>
             ) : (
-              entries.slice(0, displayCount).map((entry) => (
-                <div
-                  key={entry.id}
-                  className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden"
-                >
-                  <EntryCard
-                    entry={entry}
-                    onClick={() => navigate(`/entry/${entry.id}`)}
-                  />
-                </div>
-              ))
+              <SwipeableList
+                threshold={0.25}
+              >
+                {entries.slice(0, displayCount).map((entry) => (
+                  <SwipeableListItem
+                    key={entry.id}
+                    trailingActions={trailingActions(entry.id)}
+                    className="mb-3 block"
+                  >
+                    <div
+                      className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden w-full"
+                    >
+                      <EntryCard
+                        entry={entry}
+                        onClick={() => navigate(`/entry/${entry.id}`)}
+                      />
+                    </div>
+                  </SwipeableListItem>
+                ))}
+              </SwipeableList>
             )}
 
             {/* Load more - показываем если есть еще локальные или серверные записи */}
