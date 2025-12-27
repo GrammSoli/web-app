@@ -10,6 +10,16 @@ import { useAppStore } from '@/store/useAppStore';
 import { useTelegram } from '@/hooks/useTelegram';
 import EntryCard from '@/components/EntryCard';
 import SkeletonCard from '@/components/SkeletonCard';
+import {
+  SwipeableList,
+  SwipeableListItem,
+  SwipeAction,
+  TrailingActions,
+  Type as ListType,
+} from 'react-swipeable-list';
+import 'react-swipeable-list/dist/styles.css';
+import { Trash2 } from 'lucide-react';
+import { api } from '@/lib/api';
 import { FREE_SEARCH_LIMIT, MAX_VISIBLE_TAGS } from '@/config/constants';
 
 type DateFilter = 'all' | 'today' | 'week' | 'month' | 'custom';
@@ -27,6 +37,7 @@ export default function EntriesPage() {
     privacyBlur,
     user,
     fetchEntries,
+    removeEntry,
     togglePrivacyBlur
   } = useAppStore();
 
@@ -205,6 +216,53 @@ export default function EntriesPage() {
     navigate('/premium');
   };
 
+  const handleDelete = async (id: string) => {
+    // Confirm delete
+    if (window.Telegram?.WebApp?.showConfirm) {
+      window.Telegram.WebApp.showConfirm('Удалить эту запись безвозвратно?', async (confirmed) => {
+        if (confirmed) {
+          try {
+            haptic.medium();
+            // Optimistic update
+            removeEntry(id);
+            await api.entries.delete(id);
+          } catch (error) {
+            // If failed, we should probably reload entries or show error, 
+            // but for simple optimistic logic this is 'good enough' for now 
+            // or we could refetch.
+            console.error('Failed to delete', error);
+            fetchEntries(true); // Revert on error
+          }
+        }
+      });
+    } else {
+      // Fallback for web
+      if (confirm('Удалить запись?')) {
+        try {
+          // Optimistic update
+          removeEntry(id);
+          await api.entries.delete(id);
+        } catch (error) {
+          console.error(error);
+          fetchEntries(true);
+        }
+      }
+    }
+  };
+
+  const trailingActions = (id: string) => (
+    <TrailingActions>
+      <SwipeAction
+        destructive={true}
+        onClick={() => handleDelete(id)}
+      >
+        <div className="bg-red-500 text-white flex items-center justify-center w-20 my-1 rounded-r-2xl ml-[-20px] shadow-sm transform translate-x-1">
+          <Trash2 className="w-6 h-6" />
+        </div>
+      </SwipeAction>
+    </TrailingActions>
+  );
+
   return (
     <div className="fade-in min-h-screen pb-24">
       <div className="p-4 space-y-4 pt-6">
@@ -277,10 +335,10 @@ export default function EntriesPage() {
               <button
                 onClick={() => isFree ? handlePremiumFeature() : setSearchMode(searchMode === 'ai' ? 'text' : 'ai')}
                 className={`p-1.5 rounded-lg transition-colors ${searchMode === 'ai'
-                    ? 'bg-purple-500 text-white'
-                    : isFree
-                      ? 'bg-gray-100 dark:bg-gray-700 text-gray-400'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                  ? 'bg-purple-500 text-white'
+                  : isFree
+                    ? 'bg-gray-100 dark:bg-gray-700 text-gray-400'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
                   }`}
               >
                 <Sparkles className="w-4 h-4" />
@@ -498,17 +556,28 @@ export default function EntriesPage() {
             </div>
           ) : (
             <>
-              {filteredEntries.map((entry) => (
-                <div
-                  key={entry.id}
-                  className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden"
-                >
-                  <EntryCard
-                    entry={entry}
-                    onClick={() => navigate(`/entry/${entry.id}`)}
-                  />
-                </div>
-              ))}
+              <SwipeableList
+                fullSwipe={true}
+                type={ListType.IOS}
+                className="space-y-3"
+              >
+                {filteredEntries.map((entry) => (
+                  <SwipeableListItem
+                    key={entry.id}
+                    trailingActions={trailingActions(entry.id)}
+                    className="block" // Fix layout
+                  >
+                    <div
+                      className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden w-full relative z-10"
+                    >
+                      <EntryCard
+                        entry={entry}
+                        onClick={() => navigate(`/entry/${entry.id}`)}
+                      />
+                    </div>
+                  </SwipeableListItem>
+                ))}
+              </SwipeableList>
 
               {/* Infinite scroll trigger */}
               {hasMoreEntries && !searchQuery && !hasActiveFilters && (
