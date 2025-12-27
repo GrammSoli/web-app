@@ -1,9 +1,9 @@
 import { useEffect, useState, useMemo, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Preloader } from 'konsta/react';
-import { 
-  XAxis, 
-  YAxis, 
+import {
+  XAxis,
+  YAxis,
   ResponsiveContainer,
   Area,
   AreaChart,
@@ -11,7 +11,8 @@ import {
 } from 'recharts';
 import { format, subDays } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { FileText, Smile, Flame, Trophy, TrendingUp, BarChart3, Mic, Crown, Tag, Calendar, Sprout, Heart, Anchor } from 'lucide-react';
+import { FileText, Smile, Flame, Trophy, TrendingUp, BarChart3, Mic, Crown, Tag, Calendar, Sprout, Heart, Anchor, RefreshCw } from 'lucide-react';
+import PullToRefresh from 'react-simple-pull-to-refresh';
 import { useAppStore } from '@/store/useAppStore';
 import { useTelegram } from '@/hooks/useTelegram';
 
@@ -29,35 +30,25 @@ export default function StatsPage() {
     fetchStats();
   }, [fetchStats]);
 
-  if (statsLoading && !stats) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Preloader />
-      </div>
-    );
-  }
-
-  if (!stats) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="bg-white dark:bg-gray-800 rounded-3xl p-8 shadow-sm border border-gray-100 dark:border-gray-700 text-center">
-          <div className="mb-4 flex justify-center">
-            <BarChart3 className="w-12 h-12 text-gray-400" />
-          </div>
-          <p className="text-gray-400">Не удалось загрузить статистику</p>
-        </div>
-      </div>
-    );
-  }
+  const handleRefresh = async () => {
+    try {
+      haptic.medium();
+      await fetchStats();
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   // Prepare chart data based on selected period (memoized)
   const chartData = useMemo(() => {
+    if (!stats) return [];
+
     const rawData = chartPeriod === 'week' ? stats.weeklyMoods : (stats.monthlyMoods || stats.weeklyMoods);
-    
+
     const dayShort: Record<number, string> = {
       0: 'ВС', 1: 'ПН', 2: 'ВТ', 3: 'СР', 4: 'ЧТ', 5: 'ПТ', 6: 'СБ'
     };
-    
+
     const data = (rawData || []).map((item) => {
       const d = new Date(item.date);
       return {
@@ -79,9 +70,10 @@ export default function StatsPage() {
         fullDate: format(d, 'd MMM', { locale: ru }),
       });
     }
-    
+
     return data;
-  }, [stats.weeklyMoods, stats.monthlyMoods, chartPeriod]);
+    return data;
+  }, [stats, chartPeriod]);
 
   const handlePeriodChange = (period: ChartPeriod) => {
     haptic.light();
@@ -89,252 +81,282 @@ export default function StatsPage() {
   };
 
   return (
-    <div className="fade-in min-h-screen relative">
-      <div className={`p-4 space-y-4 pt-6 ${isFree ? 'blur-[6px] pointer-events-none select-none' : ''}`}>
-        
-        {/* Header */}
-        <div className="px-1">
-          <h1 className="text-2xl font-extrabold text-gray-800 dark:text-white">Статистика</h1>
-          <p className="text-gray-400 text-sm mt-1">Отслеживай своё настроение</p>
+    <PullToRefresh
+      onRefresh={handleRefresh}
+      pullingContent=""
+      refreshingContent={
+        <div className="w-full flex justify-center py-4">
+          <Preloader className="w-8 h-8 text-indigo-500" />
         </div>
-
-        {/* Bento Grid - Summary cards */}
-        <div className="grid grid-cols-2 gap-3">
-          <BentoCard
-            value={stats.totalEntries}
-            label="Всего записей"
-            icon={<FileText className="w-6 h-6 text-blue-500" />}
-            iconBg="from-blue-100 to-indigo-100"
-          />
-          <BentoCard
-            value={stats.averageMood.toFixed(1)}
-            label="Среднее настроение"
-            icon={<Smile className="w-6 h-6 text-green-500" />}
-            iconBg="from-green-100 to-emerald-100"
-          />
-          <BentoCard
-            value={stats.currentStreak}
-            label="Текущая серия"
-            icon={<Flame className="w-6 h-6 text-orange-500" />}
-            suffix=" дн."
-            iconBg="from-orange-100 to-red-100"
-          />
-          <BentoCard
-            value={stats.longestStreak}
-            label="Лучшая серия"
-            icon={<Trophy className="w-6 h-6 text-purple-500" />}
-            suffix=" дн."
-            iconBg="from-purple-100 to-pink-100"
-          />
-        </div>
-
-        {/* Mood Chart - Wide Card */}
-        <div className="bg-white dark:bg-gray-800 rounded-3xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base font-bold text-gray-700 dark:text-gray-200 flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-indigo-500" />
-              Настроение
-            </h2>
-            {/* Period Switcher */}
-            <div className="flex bg-gray-100 dark:bg-gray-700 rounded-xl p-1">
+      }
+    >
+      <div className="fade-in min-h-screen relative">
+        {statsLoading && !stats ? (
+          <div className="flex items-center justify-center h-screen">
+            <Preloader />
+          </div>
+        ) : !stats ? (
+          <div className="min-h-screen flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl p-8 shadow-sm border border-gray-100 dark:border-gray-700 text-center">
+              <div className="mb-4 flex justify-center">
+                <BarChart3 className="w-12 h-12 text-gray-400" />
+              </div>
+              <p className="text-gray-400">Не удалось загрузить статистику</p>
               <button
-                onClick={() => handlePeriodChange('week')}
-                className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
-                  chartPeriod === 'week' 
-                    ? 'bg-white dark:bg-gray-600 text-indigo-600 dark:text-indigo-400 shadow-sm' 
-                    : 'text-gray-500 dark:text-gray-400'
-                }`}
+                onClick={() => fetchStats()}
+                className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-xl font-medium"
               >
-                Неделя
-              </button>
-              <button
-                onClick={() => handlePeriodChange('month')}
-                className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
-                  chartPeriod === 'month' 
-                    ? 'bg-white dark:bg-gray-600 text-indigo-600 dark:text-indigo-400 shadow-sm' 
-                    : 'text-gray-500 dark:text-gray-400'
-                }`}
-              >
-                Месяц
+                <RefreshCw className="w-4 h-4" />
+                Попробовать снова
               </button>
             </div>
           </div>
-          <ResponsiveContainer width="100%" height={160}>
-            <AreaChart data={chartData}>
-              <defs>
-                <linearGradient id="moodGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
-                </linearGradient>
-              </defs>
-              <XAxis 
-                dataKey="date" 
-                axisLine={false}
-                tickLine={false}
-                tick={{ fill: '#9ca3af', fontSize: 10 }}
-                interval={chartPeriod === 'month' ? 6 : 0}
-              />
-              <YAxis 
-                domain={[0, 10]} 
-                hide 
-              />
-              <Tooltip
-                content={({ active, payload }) => {
-                  if (active && payload && payload.length) {
-                    const data = payload[0].payload;
-                    return (
-                      <div className="bg-gray-900 text-white rounded-xl px-3 py-2 shadow-lg">
-                        <p className="text-xs opacity-70">{data.fullDate}</p>
-                        <p className="font-bold">{data.score > 0 ? `${data.score}/10` : '—'}</p>
-                      </div>
-                    );
-                  }
-                  return null;
-                }}
-              />
-              <Area
-                type="monotone"
-                dataKey="score"
-                stroke="#6366f1"
-                strokeWidth={2}
-                fill="url(#moodGradient)"
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
+        ) : (<>
+          <div className={`p-4 space-y-4 pt-6 ${isFree ? 'blur-[6px] pointer-events-none select-none' : ''}`}>
 
-        {/* Trend Card with Comparison */}
-        <div className="bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-3xl p-5 text-white shadow-xl shadow-indigo-500/25 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10 blur-2xl" />
-          
-          <div className="flex items-center gap-3 relative z-10">
-            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm flex-shrink-0">
-              {stats.moodTrend === 'up' && <Sprout className="w-5 h-5 text-white" />}
-              {stats.moodTrend === 'down' && <Heart className="w-5 h-5 text-white" />}
-              {stats.moodTrend === 'stable' && <Anchor className="w-5 h-5 text-white" />}
+            {/* Header */}
+            <div className="px-1">
+              <h1 className="text-2xl font-extrabold text-gray-800 dark:text-white">Статистика</h1>
+              <p className="text-gray-400 text-sm mt-1">Отслеживай своё настроение</p>
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="font-semibold text-base flex items-center gap-2 flex-wrap">
-                {stats.moodTrend === 'up' && 'Ты расцветаешь!'}
-                {stats.moodTrend === 'down' && 'Время позаботиться о себе'}
-                {stats.moodTrend === 'stable' && 'Стабильное настроение'}
-                {stats.trendPercentage !== undefined && stats.trendPercentage !== 0 && (
-                  <span className={`text-sm px-2 py-0.5 rounded-full ${
-                    stats.trendPercentage > 0 ? 'bg-green-400/30' : 'bg-red-400/30'
-                  }`}>
-                    {stats.trendPercentage > 0 ? '+' : ''}{stats.trendPercentage}%
-                  </span>
+
+            {/* Bento Grid - Summary cards */}
+            <div className="grid grid-cols-2 gap-3">
+              <BentoCard
+                value={stats.totalEntries}
+                label="Всего записей"
+                icon={<FileText className="w-6 h-6 text-blue-500" />}
+                iconBg="from-blue-100 to-indigo-100"
+              />
+              <BentoCard
+                value={stats.averageMood.toFixed(1)}
+                label="Среднее настроение"
+                icon={<Smile className="w-6 h-6 text-green-500" />}
+                iconBg="from-green-100 to-emerald-100"
+              />
+              <BentoCard
+                value={stats.currentStreak}
+                label="Текущая серия"
+                icon={<Flame className="w-6 h-6 text-orange-500" />}
+                suffix=" дн."
+                iconBg="from-orange-100 to-red-100"
+              />
+              <BentoCard
+                value={stats.longestStreak}
+                label="Лучшая серия"
+                icon={<Trophy className="w-6 h-6 text-purple-500" />}
+                suffix=" дн."
+                iconBg="from-purple-100 to-pink-100"
+              />
+            </div>
+
+            {/* Mood Chart - Wide Card */}
+            <div className="bg-white dark:bg-gray-800 rounded-3xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-base font-bold text-gray-700 dark:text-gray-200 flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-indigo-500" />
+                  Настроение
+                </h2>
+                {/* Period Switcher */}
+                <div className="flex bg-gray-100 dark:bg-gray-700 rounded-xl p-1">
+                  <button
+                    onClick={() => handlePeriodChange('week')}
+                    className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${chartPeriod === 'week'
+                      ? 'bg-white dark:bg-gray-600 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                      : 'text-gray-500 dark:text-gray-400'
+                      }`}
+                  >
+                    Неделя
+                  </button>
+                  <button
+                    onClick={() => handlePeriodChange('month')}
+                    className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${chartPeriod === 'month'
+                      ? 'bg-white dark:bg-gray-600 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                      : 'text-gray-500 dark:text-gray-400'
+                      }`}
+                  >
+                    Месяц
+                  </button>
+                </div>
+              </div>
+              <ResponsiveContainer width="100%" height={160}>
+                <AreaChart data={chartData}>
+                  <defs>
+                    <linearGradient id="moodGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis
+                    dataKey="date"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: '#9ca3af', fontSize: 10 }}
+                    interval={chartPeriod === 'month' ? 6 : 0}
+                  />
+                  <YAxis
+                    domain={[0, 10]}
+                    hide
+                  />
+                  <Tooltip
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        const data = payload[0].payload;
+                        return (
+                          <div className="bg-gray-900 text-white rounded-xl px-3 py-2 shadow-lg">
+                            <p className="text-xs opacity-70">{data.fullDate}</p>
+                            <p className="font-bold">{data.score > 0 ? `${data.score}/10` : '—'}</p>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="score"
+                    stroke="#6366f1"
+                    strokeWidth={2}
+                    fill="url(#moodGradient)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Trend Card with Comparison */}
+            <div className="bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-3xl p-5 text-white shadow-xl shadow-indigo-500/25 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10 blur-2xl" />
+
+              <div className="flex items-center gap-3 relative z-10">
+                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm flex-shrink-0">
+                  {stats.moodTrend === 'up' && <Sprout className="w-5 h-5 text-white" />}
+                  {stats.moodTrend === 'down' && <Heart className="w-5 h-5 text-white" />}
+                  {stats.moodTrend === 'stable' && <Anchor className="w-5 h-5 text-white" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-base flex items-center gap-2 flex-wrap">
+                    {stats.moodTrend === 'up' && 'Ты расцветаешь!'}
+                    {stats.moodTrend === 'down' && 'Время позаботиться о себе'}
+                    {stats.moodTrend === 'stable' && 'Стабильное настроение'}
+                    {stats.trendPercentage !== undefined && stats.trendPercentage !== 0 && (
+                      <span className={`text-sm px-2 py-0.5 rounded-full ${stats.trendPercentage > 0 ? 'bg-green-400/30' : 'bg-red-400/30'
+                        }`}>
+                        {stats.trendPercentage > 0 ? '+' : ''}{stats.trendPercentage}%
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-white/80 mt-1">
+                    {stats.moodTrend === 'up' && 'Графики идут вверх. Запомни, что именно радовало тебя на этой неделе.'}
+                    {stats.moodTrend === 'down' && 'Неделя выдалась непростой. Позволь себе отдохнуть и восстановить ресурс.'}
+                    {stats.moodTrend === 'stable' && 'Постоянство — это тоже хорошо! Ты находишься в равновесии.'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Top Tags */}
+            <div className="bg-white dark:bg-gray-800 rounded-3xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
+              <h2 className="text-base font-bold text-gray-700 dark:text-gray-200 mb-3 flex items-center gap-2">
+                <Tag className="w-5 h-5 text-indigo-500" />
+                Частые теги
+              </h2>
+
+              <div className="flex flex-wrap gap-1.5">
+                {(stats.topTags || []).slice(0, 8).map((item, index) => {
+                  // Gradient colors for tags
+                  const tagColors = [
+                    'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300 active:bg-indigo-100',
+                    'bg-purple-50 text-purple-600 dark:bg-purple-900/40 dark:text-purple-300 active:bg-purple-100',
+                    'bg-pink-50 text-pink-600 dark:bg-pink-900/40 dark:text-pink-300 active:bg-pink-100',
+                    'bg-blue-50 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300 active:bg-blue-100',
+                    'bg-teal-50 text-teal-600 dark:bg-teal-900/40 dark:text-teal-300 active:bg-teal-100',
+                    'bg-amber-50 text-amber-600 dark:bg-amber-900/40 dark:text-amber-300 active:bg-amber-100',
+                    'bg-rose-50 text-rose-600 dark:bg-rose-900/40 dark:text-rose-300 active:bg-rose-100',
+                    'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300 active:bg-emerald-100',
+                  ];
+                  const colorClass = tagColors[index % tagColors.length];
+
+                  return (
+                    <button
+                      key={item.tag}
+                      onClick={() => {
+                        haptic?.light?.();
+                        navigate(`/entries?tag=${encodeURIComponent(item.tag)}`);
+                      }}
+                      className={`text-xs px-2.5 py-1 rounded-full font-medium transition-all ${colorClass}`}
+                    >
+                      #{item.tag} <span className="opacity-60">({item.count})</span>
+                    </button>
+                  );
+                })}
+                {(!stats.topTags || stats.topTags.length === 0) && (
+                  <p className="text-gray-400 text-sm">Пока нет тегов</p>
                 )}
               </div>
-              <p className="text-sm text-white/80 mt-1">
-                {stats.moodTrend === 'up' && 'Графики идут вверх. Запомни, что именно радовало тебя на этой неделе.'}
-                {stats.moodTrend === 'down' && 'Неделя выдалась непростой. Позволь себе отдохнуть и восстановить ресурс.'}
-                {stats.moodTrend === 'stable' && 'Постоянство — это тоже хорошо! Ты находишься в равновесии.'}
-              </p>
+            </div>
+
+            {/* Daily Limits */}
+            <div className="bg-white dark:bg-gray-800 rounded-3xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
+              <h2 className="text-base font-bold text-gray-700 dark:text-gray-200 mb-4 flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-gray-500" />
+                Лимиты на сегодня
+              </h2>
+              <div className="space-y-4">
+                <LimitBar
+                  label="Записи"
+                  current={stats.todayEntries}
+                  max={stats.dailyLimit}
+                  icon={<FileText className="w-4 h-4 text-gray-500" />}
+                />
+                <LimitBar
+                  label="Голосовые"
+                  current={stats.todayVoice}
+                  max={stats.voiceLimit}
+                  icon={<Mic className="w-4 h-4 text-gray-500" />}
+                  suffix=" мин"
+                />
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Top Tags */}
-        <div className="bg-white dark:bg-gray-800 rounded-3xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
-          <h2 className="text-base font-bold text-gray-700 dark:text-gray-200 mb-3 flex items-center gap-2">
-            <Tag className="w-5 h-5 text-indigo-500" />
-            Частые теги
-          </h2>
-          
-          <div className="flex flex-wrap gap-1.5">
-            {(stats.topTags || []).slice(0, 8).map((item, index) => {
-              // Gradient colors for tags
-              const tagColors = [
-                'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300 active:bg-indigo-100',
-                'bg-purple-50 text-purple-600 dark:bg-purple-900/40 dark:text-purple-300 active:bg-purple-100',
-                'bg-pink-50 text-pink-600 dark:bg-pink-900/40 dark:text-pink-300 active:bg-pink-100',
-                'bg-blue-50 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300 active:bg-blue-100',
-                'bg-teal-50 text-teal-600 dark:bg-teal-900/40 dark:text-teal-300 active:bg-teal-100',
-                'bg-amber-50 text-amber-600 dark:bg-amber-900/40 dark:text-amber-300 active:bg-amber-100',
-                'bg-rose-50 text-rose-600 dark:bg-rose-900/40 dark:text-rose-300 active:bg-rose-100',
-                'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300 active:bg-emerald-100',
-              ];
-              const colorClass = tagColors[index % tagColors.length];
-              
-              return (
-                <button
-                  key={item.tag}
-                  onClick={() => {
-                    haptic?.light?.();
-                    navigate(`/entries?tag=${encodeURIComponent(item.tag)}`);
-                  }}
-                  className={`text-xs px-2.5 py-1 rounded-full font-medium transition-all ${colorClass}`}
-                >
-                  #{item.tag} <span className="opacity-60">({item.count})</span>
+          {/* Premium CTA Overlay for Free users */}
+          {isFree && (
+            <div
+              className="absolute inset-0 flex items-center justify-center z-10"
+              onClick={() => { haptic.light(); navigate('/premium'); }}
+            >
+              <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm rounded-3xl p-6 shadow-2xl border border-purple-100 dark:border-purple-900/50 text-center max-w-xs mx-4">
+                <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-purple-500/30">
+                  <BarChart3 className="w-8 h-8 text-white" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-2">Статистика Premium</h3>
+                <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">
+                  Графики настроения, тренды, серии и топ теги доступны с подпиской
+                </p>
+                <button className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold py-3 px-6 rounded-xl shadow-lg shadow-purple-500/30 flex items-center justify-center gap-2">
+                  <Crown className="w-5 h-5" />
+                  Открыть Premium
                 </button>
-              );
-            })}
-            {(!stats.topTags || stats.topTags.length === 0) && (
-              <p className="text-gray-400 text-sm">Пока нет тегов</p>
-            )}
-          </div>
-        </div>
-
-        {/* Daily Limits */}
-        <div className="bg-white dark:bg-gray-800 rounded-3xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
-          <h2 className="text-base font-bold text-gray-700 dark:text-gray-200 mb-4 flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-gray-500" />
-            Лимиты на сегодня
-          </h2>
-          <div className="space-y-4">
-            <LimitBar
-              label="Записи"
-              current={stats.todayEntries}
-              max={stats.dailyLimit}
-              icon={<FileText className="w-4 h-4 text-gray-500" />}
-            />
-            <LimitBar
-              label="Голосовые"
-              current={stats.todayVoice}
-              max={stats.voiceLimit}
-              icon={<Mic className="w-4 h-4 text-gray-500" />}
-              suffix=" мин"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Premium CTA Overlay for Free users */}
-      {isFree && (
-        <div 
-          className="absolute inset-0 flex items-center justify-center z-10"
-          onClick={() => { haptic.light(); navigate('/premium'); }}
-        >
-          <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm rounded-3xl p-6 shadow-2xl border border-purple-100 dark:border-purple-900/50 text-center max-w-xs mx-4">
-            <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-purple-500/30">
-              <BarChart3 className="w-8 h-8 text-white" />
+              </div>
             </div>
-            <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-2">Статистика Premium</h3>
-            <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">
-              Графики настроения, тренды, серии и топ теги доступны с подпиской
-            </p>
-            <button className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold py-3 px-6 rounded-xl shadow-lg shadow-purple-500/30 flex items-center justify-center gap-2">
-              <Crown className="w-5 h-5" />
-              Открыть Premium
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
+          )}
+        </>
+        )}
+      </div>
+    </PullToRefresh>
   );
 }
 
 // Bento Card Component
-function BentoCard({ 
-  value, 
-  label, 
-  icon, 
+function BentoCard({
+  value,
+  label,
+  icon,
   suffix = '',
   iconBg = 'from-blue-100 to-indigo-100'
-}: { 
-  value: string | number; 
-  label: string; 
+}: {
+  value: string | number;
+  label: string;
   icon: ReactNode;
   suffix?: string;
   iconBg?: string;
@@ -353,15 +375,15 @@ function BentoCard({
 }
 
 // Limit Bar Component
-function LimitBar({ 
-  label, 
-  current, 
+function LimitBar({
+  label,
+  current,
   max,
   icon,
   suffix = ''
-}: { 
-  label: string; 
-  current: number; 
+}: {
+  label: string;
+  current: number;
   max: number | null;
   icon: ReactNode;
   suffix?: string;
@@ -390,12 +412,11 @@ function LimitBar({
       </div>
       {!isUnlimited && (
         <div className="h-3 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-          <div 
-            className={`h-full rounded-full transition-all ${
-              isNearLimit 
-                ? 'bg-gradient-to-r from-orange-400 to-red-500' 
-                : 'bg-gradient-to-r from-blue-400 to-indigo-500'
-            }`}
+          <div
+            className={`h-full rounded-full transition-all ${isNearLimit
+              ? 'bg-gradient-to-r from-orange-400 to-red-500'
+              : 'bg-gradient-to-r from-blue-400 to-indigo-500'
+              }`}
             style={{ width: `${percentage}%` }}
           />
         </div>
