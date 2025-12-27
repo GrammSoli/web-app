@@ -41,36 +41,36 @@ const DEFAULTS: Record<string, unknown> = {
   'openai.gpt4o.input': 2.50,
   'openai.gpt4o.output': 10.00,
   'openai.whisper.per_minute': 0.006,
-  
+
   // DeepSeek Pricing (per 1M tokens)
   'deepseek.chat.input': 0.14,
   'deepseek.chat.output': 0.28,
   'deepseek.reasoner.input': 0.55,
   'deepseek.reasoner.output': 2.19,
-  
+
   'stars_to_usd_rate': 0.02,
-  
+
   // Subscription
   'subscription.basic.stars': 50,
   'subscription.basic.duration_days': 30,
   'subscription.premium.stars': 150,
   'subscription.premium.duration_days': 30,
-  
+
   // Limits - Free
   'limits.free.daily_entries': 5,
   'limits.free.voice_allowed': false,
   'limits.free.voice_minutes_daily': 0,
-  
+
   // Limits - Basic
   'limits.basic.daily_entries': 20,
   'limits.basic.voice_allowed': true,
   'limits.basic.voice_minutes_daily': 5,
-  
+
   // Limits - Premium
   'limits.premium.daily_entries': -1,
   'limits.premium.voice_allowed': true,
   'limits.premium.voice_minutes_daily': -1,
-  
+
   // AI
   'ai.default_model': 'gpt-4o-mini',
   'ai.temperature': 0.7,
@@ -91,17 +91,23 @@ const DEFAULTS: Record<string, unknown> = {
 - Рекомендации должны быть тёплыми и поддерживающими, не навязчивыми
 - Если запись слишком короткая для анализа, всё равно постарайся дать оценку
 - Отвечай на русском языке`,
-  
+
   // Rate Limiting
   'rate_limit.api.window_ms': 60000,
   'rate_limit.api.max_requests': 60,
   'rate_limit.ai.max_requests': 10,
-  
+
   // Feature Flags
   'feature.voice_enabled': true,
   'feature.adsgram_enabled': false,
   'feature.maintenance_mode': false,
-  
+  'feature.bypass_tiers': false, // When true, all users get unified limits (no premium paywall)
+
+  // Bypass limits (used when feature.bypass_tiers = true)
+  'limits.bypass.daily_entries': 5,
+  'limits.bypass.voice_allowed': true,
+  'limits.bypass.voice_minutes_daily': 1,
+
   // Messages
   'msg.welcome': `👋 Привет, {name}!
 
@@ -131,11 +137,11 @@ const DEFAULTS: Record<string, unknown> = {
   'msg.error_generic': '😔 Не удалось обработать запрос. Попробуй ещё раз позже.',
   'msg.voice_processing': '🎤 Расшифровываю голосовое сообщение...',
   'msg.payment_success': '✅ Спасибо за покупку!\n\nТвоя подписка активирована. Наслаждайся всеми возможностями! 🎉',
-  
+
   // App settings
   'app.support_link': 'https://t.me/mindful_support',
   'app.channel_link': 'https://t.me/mindful_journal_channel',
-  
+
   // Bot messages
   'msg.welcome_back': `Рад тебя видеть! 🌿
 
@@ -216,11 +222,11 @@ class ConfigService {
    */
   async getMessage(key: string, replacements: Record<string, string> = {}): Promise<string> {
     let message = await this.getString(key, DEFAULTS[key] as string);
-    
+
     for (const [placeholder, value] of Object.entries(replacements)) {
       message = message.replace(new RegExp(`\\{${placeholder}\\}`, 'g'), value);
     }
-    
+
     return message;
   }
 
@@ -232,12 +238,26 @@ class ConfigService {
     voiceAllowed: boolean;
     voiceMinutesDaily: number;
   }> {
+
+    // Check bypass tiers config FIRST
+    const bypassTiers = await this.getBool('feature.bypass_tiers', false);
+
+    if (bypassTiers) {
+      // Return limits for bypass mode
+      const [dailyEntries, voiceAllowed, voiceMinutesDaily] = await Promise.all([
+        this.getNumber('limits.bypass.daily_entries', 5),
+        this.getBool('limits.bypass.voice_allowed', true),
+        this.getNumber('limits.bypass.voice_minutes_daily', 1),
+      ]);
+      return { dailyEntries, voiceAllowed, voiceMinutesDaily };
+    }
+
     const defaults = {
       free: { dailyEntries: 5, voiceAllowed: false, voiceMinutesDaily: 0 },
       basic: { dailyEntries: 20, voiceAllowed: true, voiceMinutesDaily: 5 },
       premium: { dailyEntries: -1, voiceAllowed: true, voiceMinutesDaily: -1 },
     };
-    
+
     const [dailyEntries, voiceAllowed, voiceMinutesDaily] = await Promise.all([
       this.getNumber(`limits.${tier}.daily_entries`, defaults[tier].dailyEntries),
       this.getBool(`limits.${tier}.voice_allowed`, defaults[tier].voiceAllowed),
@@ -258,7 +278,7 @@ class ConfigService {
       basic: { stars: 50, durationDays: 30 },
       premium: { stars: 150, durationDays: 30 },
     };
-    
+
     const [stars, durationDays] = await Promise.all([
       this.getNumber(`subscription.${tier}.stars`, defaults[tier].stars),
       this.getNumber(`subscription.${tier}.duration_days`, defaults[tier].durationDays),
@@ -279,7 +299,7 @@ class ConfigService {
       gpt4o_mini: { input: 0.15, output: 0.60 },
       gpt4o: { input: 2.50, output: 10.00 },
     };
-    
+
     const [input, output] = await Promise.all([
       this.getNumber(`openai.${normalizedKey}.input`, defaults[normalizedKey].input),
       this.getNumber(`openai.${normalizedKey}.output`, defaults[normalizedKey].output),
@@ -307,15 +327,15 @@ class ConfigService {
    */
   async preload(): Promise<void> {
     if (this.isLoading) return;
-    
+
     const now = Date.now();
     if (now - this.lastFullLoad < this.fullLoadInterval) return;
 
     this.isLoading = true;
-    
+
     try {
       configLogger.info('Preloading all configuration from database');
-      
+
       const rows = await prisma.$queryRaw<ConfigRow[]>`
         SELECT key, value, value_type as "valueType", default_value as "defaultValue", is_active as "isActive"
         FROM app.app_config
@@ -381,7 +401,7 @@ class ConfigService {
 
     const row = rows[0];
     const parsedValue = this.parseValue(row.value, row.valueType, row.defaultValue);
-    
+
     // Cache it
     this.cache.set(key, {
       value: parsedValue,
@@ -397,20 +417,20 @@ class ConfigService {
         case 'number':
           const num = parseFloat(value);
           return isNaN(num) ? parseFloat(defaultValue) : num;
-        
+
         case 'boolean':
           return value.toLowerCase() === 'true' || value === '1';
-        
+
         case 'json':
           return JSON.parse(value);
-        
+
         case 'string':
         default:
           return value;
       }
     } catch (error) {
       configLogger.warn({ value, type, defaultValue, error }, 'Failed to parse config value, using default');
-      
+
       // Try to parse default value
       try {
         switch (type) {
