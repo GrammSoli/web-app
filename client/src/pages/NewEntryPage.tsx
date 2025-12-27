@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import confetti from 'canvas-confetti';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Preloader } from 'konsta/react';
 import { Lightbulb, Sparkles, Brain } from 'lucide-react';
@@ -14,14 +15,14 @@ export default function NewEntryPage() {
   const location = useLocation();
   const { haptic, showAlert } = useTelegram();
   const { addEntry } = useAppStore();
-  
+
   const [text, setText] = useState('');
   const [selectedMood, setSelectedMood] = useState<number | null>(
     (location.state as { mood?: { score: number } })?.mood?.score || null
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [placeholder] = useState(() => getRandomPlaceholder());
-  
+
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Auto-focus textarea
@@ -31,12 +32,12 @@ export default function NewEntryPage() {
 
   const handleSubmit = async () => {
     const trimmedText = text.trim();
-    
+
     if (trimmedText.length < APP_CONFIG.MIN_ENTRY_CHARS) {
       showAlert('Напиши хотя бы пару предложений о своих чувствах');
       return;
     }
-    
+
     if (trimmedText.length > APP_CONFIG.MAX_ENTRY_CHARS) {
       showAlert(`Слишком длинный текст. Максимум ${APP_CONFIG.MAX_ENTRY_CHARS} символов.`);
       return;
@@ -46,15 +47,28 @@ export default function NewEntryPage() {
     haptic.medium();
 
     try {
-      const entry = await api.entries.create({ 
+      const entry = await api.entries.create({
         textContent: trimmedText,
         ...(selectedMood && { moodScore: selectedMood })
       });
-      
+
       haptic.success();
+
+      // Celebration!
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#6366f1', '#a855f7', '#ec4899', '#3b82f6'] // Indigo, Purple, Pink, Blue
+      });
+
       addEntry(entry);
-      navigate(`/entry/${entry.id}`, { replace: true });
-      
+
+      // Delay navigation slightly to show confetti
+      setTimeout(() => {
+        navigate(`/entry/${entry.id}`, { replace: true });
+      }, 500);
+
     } catch (error) {
       haptic.error();
       showAlert(error instanceof Error ? error.message : 'Не удалось сохранить запись');
@@ -72,7 +86,7 @@ export default function NewEntryPage() {
     <div className="fade-in min-h-screen flex flex-col">
       {/* Content */}
       <div className="p-4 space-y-4 pt-6 flex-1">
-        
+
         {/* Header */}
         <div className="px-1">
           <h1 className="text-2xl font-extrabold text-gray-800 dark:text-white">Новая запись</h1>
@@ -84,7 +98,7 @@ export default function NewEntryPage() {
           <p className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-3">Выбери настроение</p>
           <div className="flex justify-between">
             {MOOD_SELECTOR_OPTIONS.map((mood) => (
-              <button 
+              <button
                 key={mood.score}
                 onClick={() => {
                   haptic.light();
@@ -92,10 +106,10 @@ export default function NewEntryPage() {
                 }}
                 className={`text-2xl w-12 h-12 rounded-2xl flex items-center justify-center 
                            transition-all duration-200 
-                           ${selectedMood === mood.score 
-                             ? 'bg-gradient-to-br from-indigo-500 to-purple-500 scale-110 shadow-lg shadow-indigo-500/30' 
-                             : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 active:scale-95'
-                           }`}
+                           ${selectedMood === mood.score
+                    ? 'bg-gradient-to-br from-indigo-500 to-purple-500 scale-110 shadow-lg shadow-indigo-500/30'
+                    : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 active:scale-95'
+                  }`}
               >
                 {mood.emoji}
               </button>
@@ -117,15 +131,14 @@ export default function NewEntryPage() {
                          text-gray-900 dark:text-white placeholder:text-gray-400 resize-none
                          focus:outline-none text-[16px] leading-relaxed"
             />
-            
+
             {/* Character count */}
-            <div className={`absolute bottom-4 right-4 text-xs font-semibold px-3 py-1.5 rounded-full ${
-              isOverLimit
+            <div className={`absolute bottom-4 right-4 text-xs font-semibold px-3 py-1.5 rounded-full ${isOverLimit
                 ? 'bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400'
-                : isValid 
-                  ? 'bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400' 
+                : isValid
+                  ? 'bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400'
                   : 'bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-400'
-            }`}>
+              }`}>
               {charCount} / {minChars}+
             </div>
           </div>
@@ -150,10 +163,10 @@ export default function NewEntryPage() {
           disabled={!isValid || isSubmitting}
           className={`w-full py-4 rounded-2xl font-bold text-lg 
                      shadow-xl active:scale-[0.98] transition-all flex items-center justify-center gap-2
-                     ${isValid 
-                       ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/30' 
-                       : 'bg-gray-200 dark:bg-gray-700 text-gray-400 shadow-none'
-                     }
+                     ${isValid
+              ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/30'
+              : 'bg-gray-200 dark:bg-gray-700 text-gray-400 shadow-none'
+            }
                      disabled:opacity-60 disabled:active:scale-100`}
         >
           {isSubmitting ? (
