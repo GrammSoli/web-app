@@ -24,7 +24,7 @@ export async function getOrCreateUser(data: CreateUserData): Promise<User> {
   const existing = await prisma.user.findUnique({
     where: { telegramId: data.telegramId },
   });
-  
+
   if (existing) {
     // Обновляем данные если изменились
     if (
@@ -42,9 +42,9 @@ export async function getOrCreateUser(data: CreateUserData): Promise<User> {
     }
     return existing;
   }
-  
+
   dbLogger.info({ telegramId: data.telegramId.toString(), referralSource: data.referralSource }, 'Creating new user');
-  
+
   return prisma.user.create({
     data: {
       telegramId: data.telegramId,
@@ -71,10 +71,10 @@ export async function getUserByTelegramId(telegramId: bigint): Promise<User | nu
  */
 export async function updateUserTimezone(userId: string, timezone: string): Promise<User> {
   dbLogger.info({ userId, timezone }, 'Updating user timezone');
-  
+
   // Use raw SQL to bypass Prisma cache issue
   await prisma.$executeRaw`UPDATE app.users SET timezone = ${timezone} WHERE id = ${userId}::uuid`;
-  
+
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) throw new Error('User not found');
   return user;
@@ -95,11 +95,11 @@ export async function hasActiveSubscription(userId: string): Promise<boolean> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
   });
-  
+
   if (!user) return false;
   if (user.subscriptionTier === 'free') return false;
   if (!user.subscriptionExpiresAt) return false;
-  
+
   return user.subscriptionExpiresAt > new Date();
 }
 
@@ -107,12 +107,20 @@ export async function hasActiveSubscription(userId: string): Promise<boolean> {
  * Получить эффективный тариф пользователя
  */
 export async function getEffectiveTier(userId: string): Promise<SubscriptionTier> {
+  // Check bypass tiers config FIRST
+  // Dynamic import to avoid circular dependency loops during startup
+  const { configService } = await import('./config.js');
+  const bypassTiers = await configService.getBool('feature.bypass_tiers', false);
+  if (bypassTiers) {
+    return 'premium';
+  }
+
   const user = await prisma.user.findUnique({
     where: { id: userId },
   });
-  
+
   if (!user) return 'free';
-  
+
   // Если подписка истекла — возвращаем free
   if (user.subscriptionTier !== 'free' && user.subscriptionExpiresAt) {
     if (user.subscriptionExpiresAt < new Date()) {
@@ -124,7 +132,7 @@ export async function getEffectiveTier(userId: string): Promise<SubscriptionTier
       return 'free';
     }
   }
-  
+
   return user.subscriptionTier;
 }
 
@@ -153,7 +161,7 @@ export interface ProcessEntryData {
  */
 export async function createEntry(data: CreateEntryData): Promise<JournalEntry> {
   dbLogger.debug({ userId: data.userId, isVoice: data.isVoice }, 'Creating journal entry');
-  
+
   return prisma.journalEntry.create({
     data: {
       userId: data.userId,
@@ -214,17 +222,17 @@ export async function getUserEntries(
   }
 ): Promise<JournalEntry[]> {
   const { limit = 50, offset = 0, startDate, endDate } = options || {};
-  
+
   const where: Prisma.JournalEntryWhereInput = {
     userId,
   };
-  
+
   if (startDate || endDate) {
     where.dateCreated = {};
     if (startDate) where.dateCreated.gte = startDate;
     if (endDate) where.dateCreated.lte = endDate;
   }
-  
+
   return prisma.journalEntry.findMany({
     where,
     orderBy: { dateCreated: 'desc' },
@@ -242,12 +250,12 @@ export async function countTodayEntries(
 ): Promise<{ total: number; voice: number }> {
   // Get today's boundaries in user's timezone
   const { start, end } = getTodayBoundsForTimezone(timezone);
-  
+
   const [total, voice] = await Promise.all([
     prisma.journalEntry.count({
       where: {
         userId,
-        dateCreated: { 
+        dateCreated: {
           gte: start,
           lte: end,
         },
@@ -256,7 +264,7 @@ export async function countTodayEntries(
     prisma.journalEntry.count({
       where: {
         userId,
-        dateCreated: { 
+        dateCreated: {
           gte: start,
           lte: end,
         },
@@ -264,7 +272,7 @@ export async function countTodayEntries(
       },
     }),
   ]);
-  
+
   return { total, voice };
 }
 
@@ -279,7 +287,7 @@ export async function getTodayVoiceUsageSeconds(
   timezone: string = 'UTC'
 ): Promise<number> {
   const { start, end } = getTodayBoundsForTimezone(timezone);
-  
+
   const result = await prisma.usageLog.aggregate({
     where: {
       userId,
@@ -293,7 +301,7 @@ export async function getTodayVoiceUsageSeconds(
       durationSeconds: true,
     },
   });
-  
+
   return result._sum.durationSeconds || 0;
 }
 
@@ -302,7 +310,7 @@ export async function getTodayVoiceUsageSeconds(
  */
 function getTodayBoundsForTimezone(timezone: string): { start: Date; end: Date } {
   const now = new Date();
-  
+
   // Get the current date in user's timezone (YYYY-MM-DD format)
   const formatter = new Intl.DateTimeFormat('en-CA', {
     timeZone: timezone,
@@ -311,26 +319,26 @@ function getTodayBoundsForTimezone(timezone: string): { start: Date; end: Date }
     day: '2-digit',
   });
   const todayStr = formatter.format(now);
-  
+
   // Create date objects for start and end of day
   // We need to find what UTC time corresponds to 00:00 and 23:59:59 in user's timezone
   const startLocal = new Date(`${todayStr}T00:00:00`);
   const endLocal = new Date(`${todayStr}T23:59:59.999`);
-  
+
   // Get offset for the timezone
   const getOffset = (date: Date) => {
     const utc = new Date(date.toLocaleString('en-US', { timeZone: 'UTC' }));
     const tz = new Date(date.toLocaleString('en-US', { timeZone: timezone }));
     return (tz.getTime() - utc.getTime()) / (1000 * 60);
   };
-  
+
   const startOffset = getOffset(startLocal);
   const endOffset = getOffset(endLocal);
-  
+
   // Convert to UTC
   const startUTC = new Date(startLocal.getTime() - startOffset * 60 * 1000);
   const endUTC = new Date(endLocal.getTime() - endOffset * 60 * 1000);
-  
+
   return { start: startUTC, end: endUTC };
 }
 
@@ -342,7 +350,7 @@ export async function getTodayEntries(
   timezone: string = 'UTC'
 ): Promise<JournalEntry[]> {
   const { start, end } = getTodayBoundsForTimezone(timezone);
-  
+
   return prisma.journalEntry.findMany({
     where: {
       userId,
@@ -390,7 +398,7 @@ export async function logUsage(data: LogUsageData): Promise<void> {
       latencyMs: data.latencyMs,
     },
   });
-  
+
   // Обновляем total_spend_usd пользователя
   await prisma.user.update({
     where: { id: data.userId },
@@ -400,7 +408,7 @@ export async function logUsage(data: LogUsageData): Promise<void> {
       },
     },
   });
-  
+
   dbLogger.debug({ userId: data.userId, costUsd: data.costUsd }, 'Usage logged');
 }
 
@@ -421,10 +429,10 @@ export async function activateSubscription(
   const pricing = await getSubscriptionPricing(tier);
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + pricing.durationDays);
-  
+
   // Если передана реальная сумма (card payment), используем её, иначе рассчитываем от stars
   const finalPriceUsd = actualPriceUsd !== undefined ? actualPriceUsd : pricing.usd;
-  
+
   await prisma.$transaction([
     // Создаём запись подписки
     prisma.subscription.create({
@@ -446,7 +454,7 @@ export async function activateSubscription(
       },
     }),
   ]);
-  
+
   dbLogger.info({ userId, tier, expiresAt }, 'Subscription activated');
 }
 
@@ -469,7 +477,7 @@ export interface DashboardStats {
 export async function getDashboardStats(): Promise<DashboardStats> {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  
+
   const [
     todayUsage,
     todayTransactions,
@@ -500,15 +508,15 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       where: { dateCreated: { gte: today } },
     }),
   ]);
-  
+
   const todayApiCost = Number(todayUsage._sum.costUsd || 0);
   const todayRevenue = Number(todayTransactions._sum.amountUsd || 0);
-  
+
   const totalUsers = userStats.reduce((sum, s) => sum + s._count, 0);
   const premiumUsers = userStats
     .filter(s => s.subscriptionTier !== 'free')
     .reduce((sum, s) => sum + s._count, 0);
-  
+
   return {
     todayApiCost,
     todayRevenue,
@@ -564,7 +572,7 @@ export async function getAverageMood(userId: string): Promise<number | null> {
       moodScore: true,
     },
   });
-  
+
   return result._avg.moodScore;
 }
 
@@ -580,7 +588,7 @@ export function calculateStreak(
 ): { current: number; longest: number } {
   // Group entries by date in user's timezone
   const dailyStats: Record<string, { moods: number[] }> = {};
-  
+
   entries.forEach((entry) => {
     if (entry.moodScore) {
       const dateKey = getDateInTimezone(entry.dateCreated, timezone);
@@ -590,19 +598,19 @@ export function calculateStreak(
       dailyStats[dateKey].moods.push(entry.moodScore);
     }
   });
-  
+
   // Calculate current streak
   let currentStreak = 0;
   const now = new Date();
   const todayKey = getDateInTimezone(now, timezone);
   const yesterday = new Date(now.getTime() - 86400000);
   const yesterdayKey = getDateInTimezone(yesterday, timezone);
-  
+
   // Start from today or yesterday if user has entry
   if (dailyStats[todayKey] || dailyStats[yesterdayKey]) {
     const startDate = dailyStats[todayKey] ? todayKey : yesterdayKey;
     let checkDate = new Date(startDate + 'T00:00:00Z');
-    
+
     while (true) {
       const dateKey = getDateInTimezone(checkDate, timezone);
       if (dailyStats[dateKey]) {
@@ -613,12 +621,12 @@ export function calculateStreak(
       }
     }
   }
-  
+
   // Calculate longest streak
   let longestStreak = 0;
   let tempStreak = 0;
   const sortedDates = Object.keys(dailyStats).sort().reverse();
-  
+
   for (let i = 0; i < sortedDates.length; i++) {
     if (i === 0) {
       tempStreak = 1;
@@ -626,7 +634,7 @@ export function calculateStreak(
       const prevDate = new Date(sortedDates[i - 1]);
       const currDate = new Date(sortedDates[i]);
       const diffDays = (prevDate.getTime() - currDate.getTime()) / 86400000;
-      
+
       if (diffDays === 1) {
         tempStreak++;
       } else {
@@ -635,6 +643,6 @@ export function calculateStreak(
     }
     longestStreak = Math.max(longestStreak, tempStreak);
   }
-  
+
   return { current: currentStreak, longest: longestStreak };
 }
