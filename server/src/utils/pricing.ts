@@ -111,11 +111,11 @@ export async function getSubscriptionPricing(tier: 'basic' | 'premium'): Promise
   const pricing = await configService.getSubscriptionPricing(tier);
   const starsRate = await getStarsToUsdRate();
   const usd = pricing.stars * starsRate;
-  
+
   // Get fixed RUB price from config (not calculated from USD)
   const defaultRub = tier === 'premium' ? 399 : 150;
   const rub = await configService.getNumber(`subscription.${tier}.rub`, defaultRub);
-  
+
   return {
     ...pricing,
     usd,
@@ -137,10 +137,10 @@ export async function calculateTextCostAsync(
   outputTokens: number
 ): Promise<number> {
   const pricing = await getTextModelPricing(model);
-  
+
   const inputCost = (inputTokens / 1_000_000) * pricing.input;
   const outputCost = (outputTokens / 1_000_000) * pricing.output;
-  
+
   return Number((inputCost + outputCost).toFixed(6));
 }
 
@@ -150,7 +150,7 @@ export async function calculateTextCostAsync(
 export async function calculateAudioCostAsync(durationSeconds: number): Promise<number> {
   const pricePerMinute = await getWhisperPricing();
   const durationMinutes = durationSeconds / 60;
-  
+
   return Number((durationMinutes * pricePerMinute).toFixed(6));
 }
 
@@ -170,7 +170,7 @@ export function calculateTextCost(
   provider: AIProvider = 'openai'
 ): number {
   let pricing: { input: number; output: number };
-  
+
   if (provider === 'deepseek') {
     // DeepSeek pricing
     const deepseekModel = model as keyof typeof DEFAULT_DEEPSEEK_PRICING;
@@ -184,10 +184,10 @@ export function calculateTextCost(
       pricing = DEFAULT_OPENAI_PRICING['gpt-4o-mini'];
     }
   }
-  
+
   const inputCost = (inputTokens / 1_000_000) * pricing.input;
   const outputCost = (outputTokens / 1_000_000) * pricing.output;
-  
+
   return Number((inputCost + outputCost).toFixed(6));
 }
 
@@ -197,7 +197,7 @@ export function calculateTextCost(
 export function calculateAudioCost(durationSeconds: number): number {
   const durationMinutes = durationSeconds / 60;
   const cost = durationMinutes * DEFAULT_OPENAI_PRICING['whisper-1'].perMinute;
-  
+
   return Number(cost.toFixed(6));
 }
 
@@ -211,11 +211,11 @@ export function calculateCost(params: {
   durationSeconds?: number;
 }): number {
   const { model, inputTokens = 0, outputTokens = 0, durationSeconds = 0 } = params;
-  
+
   if (model === 'whisper-1') {
     return calculateAudioCost(durationSeconds);
   }
-  
+
   return calculateTextCost(model as TextModel, inputTokens, outputTokens);
 }
 
@@ -299,8 +299,21 @@ export async function checkLimitsAsync(
     }
   }
 
-  const limits = await getTierLimits(tier);
-  
+  // Check if tiers are bypassed (unified limits for all users)
+  const bypassTiers = await configService.getBool('feature.bypass_tiers', false);
+
+  let limits;
+  if (bypassTiers) {
+    // Unified limits when tiers are disabled: 5 entries, 1 min voice
+    limits = {
+      dailyEntries: await configService.getNumber('limits.bypass.daily_entries', 5),
+      voiceAllowed: await configService.getBool('limits.bypass.voice_allowed', true),
+      voiceMinutesDaily: await configService.getNumber('limits.bypass.voice_minutes_daily', 1),
+    };
+  } else {
+    limits = await getTierLimits(tier);
+  }
+
   // Check voice permission
   if (isVoice && !limits.voiceAllowed) {
     return {
@@ -308,13 +321,13 @@ export async function checkLimitsAsync(
       reason: 'Голосовые записи доступны только в платных тарифах',
     };
   }
-  
+
   // Check voice minutes daily limit (duration-based, not count-based)
   if (isVoice && limits.voiceMinutesDaily !== -1) {
     const totalSecondsAfterThis = usedVoiceSecondsToday + newVoiceDurationSeconds;
     const totalMinutesAfterThis = totalSecondsAfterThis / 60;
     const usedMinutes = Math.round((usedVoiceSecondsToday / 60) * 10) / 10; // Round to 1 decimal
-    
+
     if (totalMinutesAfterThis > limits.voiceMinutesDaily) {
       return {
         allowed: false,
@@ -324,7 +337,7 @@ export async function checkLimitsAsync(
       };
     }
   }
-  
+
   // Check total daily limit
   if (limits.dailyEntries !== -1 && currentDailyEntries >= limits.dailyEntries) {
     return {
@@ -332,7 +345,7 @@ export async function checkLimitsAsync(
       reason: `Достигнут лимит записей (${limits.dailyEntries}/день)`,
     };
   }
-  
+
   return { allowed: true };
 }
 
@@ -348,20 +361,20 @@ export function checkLimits(
   newVoiceDurationSeconds: number = 0
 ): LimitCheckResult {
   const limits = DEFAULT_TIER_LIMITS[tier];
-  
+
   if (isVoice && !limits.voiceAllowed) {
     return {
       allowed: false,
       reason: 'Голосовые записи доступны только в платных тарифах',
     };
   }
-  
+
   // Check voice minutes limit (duration-based)
   if (isVoice && limits.voiceMinutesDaily !== -1) {
     const totalSecondsAfterThis = usedVoiceSecondsToday + newVoiceDurationSeconds;
     const totalMinutesAfterThis = totalSecondsAfterThis / 60;
     const usedMinutes = Math.round((usedVoiceSecondsToday / 60) * 10) / 10;
-    
+
     if (totalMinutesAfterThis > limits.voiceMinutesDaily) {
       return {
         allowed: false,
@@ -371,14 +384,14 @@ export function checkLimits(
       };
     }
   }
-  
+
   if (limits.dailyEntries !== -1 && currentDailyEntries >= limits.dailyEntries) {
     return {
       allowed: false,
       reason: `Достигнут лимит записей (${limits.dailyEntries}/день)`,
     };
   }
-  
+
   return { allowed: true };
 }
 
@@ -406,7 +419,7 @@ export function estimateTextCost(textLength: number): {
   // Rough estimate: 1 token ≈ 2.5 characters for Russian
   const estimatedInputTokens = Math.ceil(textLength / 2.5);
   const estimatedOutputTokens = 200;
-  
+
   return {
     estimatedTokens: estimatedInputTokens + estimatedOutputTokens,
     estimatedCost: calculateTextCost('gpt-4o-mini', estimatedInputTokens, estimatedOutputTokens),
