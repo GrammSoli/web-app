@@ -310,7 +310,7 @@ function NewHabitModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm">
-      <div className="bg-white dark:bg-zinc-900 w-full max-w-lg rounded-t-3xl p-6 animate-slide-up">
+      <div className="bg-white dark:bg-zinc-900 w-full max-w-lg rounded-t-3xl p-6 pb-24 animate-slide-up max-h-[85vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-gray-900 dark:text-white">Новая привычка</h2>
