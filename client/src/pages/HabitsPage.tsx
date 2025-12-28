@@ -956,7 +956,9 @@ export default function HabitsPage() {
             </>
           ) : habits.length === 0 ? (
             <div className="text-center py-12">
-              <div className="text-6xl mb-4">✨</div>
+              <div className="flex justify-center mb-4">
+                <Sparkles className="w-16 h-16 text-amber-400" />
+              </div>
               <p className="text-gray-500 dark:text-gray-400 mb-4">
                 У тебя пока нет привычек
               </p>
