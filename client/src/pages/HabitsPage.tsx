@@ -11,9 +11,9 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { format, addDays, subDays, isToday, isSameDay, startOfWeek } from 'date-fns';
+import { format, addDays, subDays, isToday, isSameDay, startOfWeek, startOfDay } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { Plus, Flame, Check, ChevronLeft, ChevronRight, X, Clock, Trash2 } from 'lucide-react';
+import { Plus, Flame, Check, ChevronLeft, ChevronRight, X, Clock, Trash2, Lock } from 'lucide-react';
 import {
   SwipeableList,
   SwipeableListItem,
@@ -194,16 +194,25 @@ function HabitCard({
   habit, 
   onToggle, 
   isTogglingId,
+  isFutureDate,
+  onFutureTap,
 }: { 
   habit: Habit; 
   onToggle: () => void;
   isTogglingId: string | null;
+  isFutureDate?: boolean;
+  onFutureTap?: () => void;
 }) {
   const { haptic } = useTelegram();
   const isToggling = isTogglingId === habit.id;
   const [justCompleted, setJustCompleted] = useState(false);
 
   const handleToggle = () => {
+    if (isFutureDate) {
+      haptic.light();
+      onFutureTap?.();
+      return;
+    }
     haptic.medium();
     if (!habit.completedToday) {
       setJustCompleted(true);
@@ -216,7 +225,7 @@ function HabitCard({
     <div 
       className={`bg-white dark:bg-zinc-900 rounded-2xl p-4 shadow-sm transition-all duration-200 ${
         habit.completedToday ? 'opacity-80' : ''
-      }`}
+      } ${isFutureDate ? 'opacity-60' : ''}`}
     >
       <div className="flex items-center gap-4">
         {/* Emoji Icon */}
@@ -249,6 +258,13 @@ function HabitCard({
                 <span className="text-xs">{habit.reminderTime}</span>
               </div>
             )}
+            {/* Future date indicator */}
+            {isFutureDate && (
+              <div className="flex items-center gap-1 text-gray-400">
+                <Lock className="w-3 h-3" />
+                <span className="text-xs">Будущее</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -257,13 +273,17 @@ function HabitCard({
           onClick={handleToggle}
           disabled={isToggling}
           className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-200 ${
-            habit.completedToday 
-              ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/30' 
-              : 'bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700'
+            isFutureDate 
+              ? 'bg-gray-100 dark:bg-zinc-800 cursor-not-allowed opacity-50'
+              : habit.completedToday 
+                ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/30' 
+                : 'bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700'
           } ${isToggling ? 'animate-pulse' : ''} ${justCompleted ? 'animate-check-pop' : ''}`}
-          style={habit.completedToday ? {} : { borderColor: habit.color, borderWidth: 2 }}
+          style={habit.completedToday && !isFutureDate ? {} : isFutureDate ? {} : { borderColor: habit.color, borderWidth: 2 }}
         >
-          {habit.completedToday ? (
+          {isFutureDate ? (
+            <Lock className="w-5 h-5 text-gray-400" />
+          ) : habit.completedToday ? (
             <Check className="w-6 h-6" />
           ) : (
             <div className="w-6 h-6" />
@@ -451,6 +471,27 @@ function NewHabitModal({
   );
 }
 
+// Toast notification component
+function Toast({ message, isVisible, onClose }: { message: string; isVisible: boolean; onClose: () => void }) {
+  useEffect(() => {
+    if (isVisible) {
+      const timer = setTimeout(onClose, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [isVisible, onClose]);
+
+  if (!isVisible) return null;
+
+  return (
+    <div className="fixed bottom-32 left-4 right-4 z-50 animate-slide-up">
+      <div className="bg-gray-900 dark:bg-zinc-800 text-white px-4 py-3 rounded-xl shadow-lg flex items-center gap-3">
+        <Lock className="w-5 h-5 text-amber-400 flex-shrink-0" />
+        <p className="text-sm">{message}</p>
+      </div>
+    </div>
+  );
+}
+
 // Skeleton loading
 function HabitCardSkeleton() {
   return (
@@ -483,6 +524,16 @@ export default function HabitsPage() {
   const [isTogglingId, setIsTogglingId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Check if selected date is in the future
+  const isFutureDate = startOfDay(selectedDate) > startOfDay(new Date());
+
+  // Show toast for future date tap
+  const handleFutureTap = useCallback(() => {
+    const today = format(new Date(), 'd', { locale: ru });
+    setToastMessage(`Будущее еще не наступило. Сегодня ${today}-е — живи в моменте!`);
+  }, []);
 
   // Admin-only check
   useEffect(() => {
@@ -697,6 +748,8 @@ export default function HabitsPage() {
                     habit={habit}
                     onToggle={() => handleToggle(habit.id)}
                     isTogglingId={isTogglingId}
+                    isFutureDate={isFutureDate}
+                    onFutureTap={handleFutureTap}
                   />
                 </SwipeableListItem>
               ))}
@@ -707,10 +760,23 @@ export default function HabitsPage() {
         {/* Limit info */}
         {!isLoading && habits.length > 0 && (
           <p className="text-center text-sm text-gray-400">
-            {stats.totalHabits} из {stats.maxHabits} привычек
+            {isFutureDate ? (
+              <span className="flex items-center justify-center gap-1">
+                <Lock className="w-3 h-3" /> Просмотр будущего дня
+              </span>
+            ) : (
+              `${stats.totalHabits} из ${stats.maxHabits} привычек`
+            )}
           </p>
         )}
       </div>
+
+      {/* Toast notification */}
+      <Toast 
+        message={toastMessage || ''} 
+        isVisible={!!toastMessage} 
+        onClose={() => setToastMessage(null)} 
+      />
 
       {/* FAB */}
       {stats.canCreateMore && !isLoading && (

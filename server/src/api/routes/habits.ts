@@ -428,6 +428,17 @@ router.post('/:id/toggle', async (req: Request, res: Response) => {
     
     // Target date - use user timezone if not specified
     const targetDateStr = date || getTodayInTimezone(userTimezone);
+    const todayStr = getTodayInTimezone(userTimezone);
+    
+    // Block completion for future dates
+    if (targetDateStr > todayStr) {
+      return res.status(400).json({ 
+        error: 'Cannot mark habits as completed for future dates',
+        code: 'FUTURE_DATE',
+        message: 'Будущее еще не наступило. Вернитесь в этот день, чтобы отметить выполнение!',
+      });
+    }
+    
     const targetDate = new Date(targetDateStr + 'T12:00:00Z'); // noon UTC to avoid timezone issues
     
     // Check ownership
