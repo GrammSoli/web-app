@@ -13,7 +13,11 @@ import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format, addDays, subDays, isToday, isSameDay, startOfWeek, startOfDay } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { Plus, Flame, Check, ChevronLeft, ChevronRight, X, Clock, Trash2, Lock } from 'lucide-react';
+import { 
+  Plus, Flame, Check, ChevronLeft, ChevronRight, X, Clock, Trash2, Lock,
+  Sparkles, Dumbbell, BookOpen, PersonStanding, Droplets, Bike, Target, Moon,
+  Salad, Brain, Palette, Music, Heart, Pill, Coffee, Cigarette, type LucideIcon
+} from 'lucide-react';
 import {
   SwipeableList,
   SwipeableListItem,
@@ -26,6 +30,66 @@ import { useTelegram } from '@/hooks/useTelegram';
 import { api } from '@/lib/api';
 import type { Habit, HabitsResponse, CreateHabitInput } from '@/types/api';
 import confetti from 'canvas-confetti';
+
+// ============================================
+// ICON MAPPING
+// ============================================
+
+// Map icon names to Lucide components
+const HABIT_ICONS: Record<string, LucideIcon> = {
+  Sparkles,
+  Dumbbell,
+  BookOpen,
+  PersonStanding,
+  Droplets,
+  Bike,
+  Target,
+  Moon,
+  Salad,
+  Brain,
+  Palette,
+  Music,
+  Heart,
+  Pill,
+  Coffee,
+  Cigarette,
+};
+
+// Icon options for the picker
+const ICON_OPTIONS = [
+  { name: 'Sparkles', label: 'Магия' },
+  { name: 'Dumbbell', label: 'Спорт' },
+  { name: 'BookOpen', label: 'Чтение' },
+  { name: 'PersonStanding', label: 'Йога' },
+  { name: 'Droplets', label: 'Вода' },
+  { name: 'Bike', label: 'Бег' },
+  { name: 'Target', label: 'Цель' },
+  { name: 'Moon', label: 'Сон' },
+  { name: 'Salad', label: 'Еда' },
+  { name: 'Brain', label: 'Медитация' },
+  { name: 'Palette', label: 'Творчество' },
+  { name: 'Music', label: 'Музыка' },
+  { name: 'Heart', label: 'Здоровье' },
+  { name: 'Pill', label: 'Лекарства' },
+  { name: 'Coffee', label: 'Утро' },
+  { name: 'Cigarette', label: 'Бросить' },
+];
+
+// Helper to render habit icon
+function HabitIcon({ 
+  name, 
+  color, 
+  size = 'md' 
+}: { 
+  name: string; 
+  color: string;
+  size?: 'sm' | 'md' | 'lg';
+}) {
+  const Icon = HABIT_ICONS[name] || Sparkles;
+  const sizeClass = size === 'sm' ? 'w-5 h-5' : size === 'lg' ? 'w-8 h-8' : 'w-6 h-6';
+  
+  return <Icon className={sizeClass} style={{ color }} />;
+}
 
 // ============================================
 // COMPONENTS
@@ -228,12 +292,12 @@ function HabitCard({
       } ${isFutureDate ? 'opacity-60' : ''}`}
     >
       <div className="flex items-center gap-4">
-        {/* Emoji Icon */}
+        {/* Icon */}
         <div 
-          className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
+          className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0"
           style={{ backgroundColor: `${habit.color}20` }}
         >
-          {habit.emoji}
+          <HabitIcon name={habit.emoji} color={habit.color} size="lg" />
         </div>
 
         {/* Content */}
@@ -297,11 +361,11 @@ function HabitCard({
 // Live Preview Card for New Habit Modal
 function HabitPreviewCard({ 
   name, 
-  emoji, 
+  icon, 
   color 
 }: { 
   name: string; 
-  emoji: string; 
+  icon: string; 
   color: string;
 }) {
   const displayName = name.trim() || 'Название привычки';
@@ -314,10 +378,10 @@ function HabitPreviewCard({
       <div className="flex items-center gap-4">
         {/* Icon */}
         <div 
-          className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl shadow-lg transition-all duration-300"
+          className="w-14 h-14 rounded-xl flex items-center justify-center shadow-lg transition-all duration-300"
           style={{ backgroundColor: `${color}20`, boxShadow: `0 4px 14px ${color}30` }}
         >
-          {emoji}
+          <HabitIcon name={icon} color={color} size="lg" />
         </div>
         {/* Info */}
         <div className="flex-1 min-w-0">
@@ -352,7 +416,7 @@ function NewHabitModal({
   onCreate: (data: CreateHabitInput) => void;
 }) {
   const [name, setName] = useState('');
-  const [emoji, setEmoji] = useState('✨');
+  const [icon, setIcon] = useState('Sparkles');
   const [color, setColor] = useState('#6366f1');
   const [selectedDays, setSelectedDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]); // All days by default
   const [reminderEnabled, setReminderEnabled] = useState(false);
@@ -360,7 +424,6 @@ function NewHabitModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const colors = ['#6366f1', '#ec4899', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#84cc16'];
-  const emojis = ['✨', '💪', '📚', '🧘', '💧', '🏃', '🎯', '💤', '🥗', '🧠', '🎨', '🎵'];
   
   // Day names (Mon-Sun, 0=Monday)
   const dayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
@@ -402,14 +465,14 @@ function NewHabitModal({
       const { frequency, customDays } = getFrequencyData();
       await onCreate({ 
         name, 
-        emoji, 
+        emoji: icon, // Store icon name in emoji field for backward compatibility
         color, 
         frequency, 
         customDays,
         reminderTime: reminderEnabled ? reminderTime : undefined,
       });
       setName('');
-      setEmoji('✨');
+      setIcon('Sparkles');
       setColor('#6366f1');
       setSelectedDays([0, 1, 2, 3, 4, 5, 6]);
       setReminderEnabled(false);
@@ -486,10 +549,10 @@ function NewHabitModal({
 
             {/* Live Preview Card */}
             <div className="py-2">
-              <HabitPreviewCard name={name} emoji={emoji} color={color} />
+              <HabitPreviewCard name={name} icon={icon} color={color} />
             </div>
 
-            {/* Color & Emoji Section */}
+            {/* Color & Icon Section */}
             <div className="space-y-4">
               <p className="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center gap-2">
                 🎨 Цвет и иконка
@@ -514,25 +577,35 @@ function NewHabitModal({
                 ))}
               </div>
               
-              {/* Emojis - larger grid */}
-              <div className="grid grid-cols-6 gap-2">
-                {emojis.map((e) => (
-                  <button
-                    key={e}
-                    onClick={() => setEmoji(e)}
-                    className={`w-12 h-12 rounded-xl text-2xl flex items-center justify-center transition-all ${
-                      emoji === e 
-                        ? 'scale-105' 
-                        : 'bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700'
-                    }`}
-                    style={emoji === e ? { 
-                      backgroundColor: `${color}20`, 
-                      boxShadow: `0 0 0 2px ${color}`,
-                    } : {}}
-                  >
-                    {e}
-                  </button>
-                ))}
+              {/* Icons - larger grid with Lucide icons */}
+              <div className="grid grid-cols-4 gap-2">
+                {ICON_OPTIONS.map((opt) => {
+                  const IconComponent = HABIT_ICONS[opt.name] || Sparkles;
+                  const isSelected = icon === opt.name;
+                  return (
+                    <button
+                      key={opt.name}
+                      onClick={() => setIcon(opt.name)}
+                      className={`h-14 rounded-xl flex flex-col items-center justify-center gap-1 transition-all ${
+                        isSelected 
+                          ? 'scale-105' 
+                          : 'bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700'
+                      }`}
+                      style={isSelected ? { 
+                        backgroundColor: `${color}20`, 
+                        boxShadow: `0 0 0 2px ${color}`,
+                      } : {}}
+                    >
+                      <IconComponent 
+                        className="w-6 h-6" 
+                        style={{ color: isSelected ? color : 'currentColor' }} 
+                      />
+                      <span className={`text-[10px] ${isSelected ? '' : 'text-gray-500 dark:text-gray-400'}`} style={isSelected ? { color } : {}}>
+                        {opt.label}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
