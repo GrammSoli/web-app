@@ -282,12 +282,14 @@ function ProgressRing({
 function HabitCard({ 
   habit, 
   onToggle, 
+  onEdit,
   isTogglingId,
   isFutureDate,
   onFutureTap,
 }: { 
   habit: Habit; 
   onToggle: () => void;
+  onEdit: () => void;
   isTogglingId: string | null;
   isFutureDate?: boolean;
   onFutureTap?: () => void;
@@ -310,6 +312,11 @@ function HabitCard({
     onToggle();
   };
 
+  const handleEdit = () => {
+    haptic.light();
+    onEdit();
+  };
+
   return (
     <div 
       className={`bg-white dark:bg-zinc-900 rounded-2xl p-4 shadow-sm transition-all duration-200 ${
@@ -317,43 +324,49 @@ function HabitCard({
       } ${isFutureDate ? 'opacity-60' : ''}`}
     >
       <div className="flex items-center gap-4">
-        {/* Icon */}
+        {/* Clickable area for editing */}
         <div 
-          className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0"
-          style={{ backgroundColor: `${habit.color}20` }}
+          className="flex items-center gap-4 flex-1 min-w-0 cursor-pointer active:opacity-70"
+          onClick={handleEdit}
         >
-          <HabitIcon name={habit.emoji} color={habit.color} size="lg" />
-        </div>
+          {/* Icon */}
+          <div 
+            className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ backgroundColor: `${habit.color}20` }}
+          >
+            <HabitIcon name={habit.emoji} color={habit.color} size="lg" />
+          </div>
 
-        {/* Content */}
-        <div className="flex-1 min-w-0">
-          <h4 className={`font-semibold text-gray-900 dark:text-white truncate ${
-            habit.completedToday ? 'line-through text-gray-400' : ''
-          }`}>
-            {habit.name}
-          </h4>
-          <div className="flex items-center gap-3 mt-1">
-            {/* Streak */}
-            {habit.currentStreak > 0 && (
-              <div className="flex items-center gap-1 text-orange-500">
-                <Flame className="w-4 h-4" />
-                <span className="text-sm font-medium">{habit.currentStreak}</span>
-              </div>
-            )}
-            {/* Reminder time */}
-            {habit.reminderTime && (
-              <div className="flex items-center gap-1 text-gray-400">
-                <Clock className="w-3 h-3" />
-                <span className="text-xs">{habit.reminderTime}</span>
-              </div>
-            )}
-            {/* Future date indicator */}
-            {isFutureDate && (
-              <div className="flex items-center gap-1 text-gray-400">
-                <Lock className="w-3 h-3" />
-                <span className="text-xs">Будущее</span>
-              </div>
-            )}
+          {/* Content */}
+          <div className="flex-1 min-w-0">
+            <h4 className={`font-semibold text-gray-900 dark:text-white truncate ${
+              habit.completedToday ? 'line-through text-gray-400' : ''
+            }`}>
+              {habit.name}
+            </h4>
+            <div className="flex items-center gap-3 mt-1">
+              {/* Streak */}
+              {habit.currentStreak > 0 && (
+                <div className="flex items-center gap-1 text-orange-500">
+                  <Flame className="w-4 h-4" />
+                  <span className="text-sm font-medium">{habit.currentStreak}</span>
+                </div>
+              )}
+              {/* Reminder time */}
+              {habit.reminderTime && (
+                <div className="flex items-center gap-1 text-gray-400">
+                  <Clock className="w-3 h-3" />
+                  <span className="text-xs">{habit.reminderTime}</span>
+                </div>
+              )}
+              {/* Future date indicator */}
+              {isFutureDate && (
+                <div className="flex items-center gap-1 text-gray-400">
+                  <Lock className="w-3 h-3" />
+                  <span className="text-xs">Будущее</span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -361,7 +374,7 @@ function HabitCard({
         <button
           onClick={handleToggle}
           disabled={isToggling}
-          className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-200 ${
+          className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-200 flex-shrink-0 ${
             isFutureDate 
               ? 'bg-gray-100 dark:bg-zinc-800 cursor-not-allowed opacity-50'
               : habit.completedToday 
@@ -430,16 +443,22 @@ function HabitPreviewCard({
   );
 }
 
-// New Habit Bottom Sheet
-function NewHabitModal({ 
+// Habit Modal (Create/Edit)
+function HabitModal({ 
   isOpen, 
   onClose, 
-  onCreate 
+  onCreate,
+  onUpdate,
+  editingHabit,
 }: { 
   isOpen: boolean; 
   onClose: () => void;
   onCreate: (data: CreateHabitInput) => void;
+  onUpdate: (id: string, data: Partial<CreateHabitInput>) => void;
+  editingHabit: Habit | null;
 }) {
+  const isEditMode = !!editingHabit;
+  
   const [name, setName] = useState('');
   const [icon, setIcon] = useState('Sparkles');
   const [color, setColor] = useState('#6366f1');
@@ -452,6 +471,37 @@ function NewHabitModal({
   
   // Day names (Mon-Sun, 0=Monday)
   const dayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+
+  // Populate form when editing
+  useEffect(() => {
+    if (editingHabit) {
+      setName(editingHabit.name);
+      setIcon(editingHabit.emoji || 'Sparkles');
+      setColor(editingHabit.color);
+      
+      // Reconstruct selected days from frequency
+      if (editingHabit.frequency === 'daily') {
+        setSelectedDays([0, 1, 2, 3, 4, 5, 6]);
+      } else if (editingHabit.frequency === 'weekdays') {
+        setSelectedDays([0, 1, 2, 3, 4]);
+      } else if (editingHabit.frequency === 'weekends') {
+        setSelectedDays([5, 6]);
+      } else if (editingHabit.customDays) {
+        setSelectedDays(editingHabit.customDays);
+      }
+      
+      setReminderEnabled(!!editingHabit.reminderTime);
+      setReminderTime(editingHabit.reminderTime || '09:00');
+    } else {
+      // Reset to defaults for new habit
+      setName('');
+      setIcon('Sparkles');
+      setColor('#6366f1');
+      setSelectedDays([0, 1, 2, 3, 4, 5, 6]);
+      setReminderEnabled(false);
+      setReminderTime('09:00');
+    }
+  }, [editingHabit, isOpen]);
 
   const toggleDay = (dayIndex: number) => {
     setSelectedDays(prev => {
@@ -488,20 +538,20 @@ function NewHabitModal({
     setIsSubmitting(true);
     try {
       const { frequency, customDays } = getFrequencyData();
-      await onCreate({ 
+      const data = { 
         name, 
         emoji: icon, // Store icon name in emoji field for backward compatibility
         color, 
         frequency, 
         customDays,
         reminderTime: reminderEnabled ? reminderTime : undefined,
-      });
-      setName('');
-      setIcon('Sparkles');
-      setColor('#6366f1');
-      setSelectedDays([0, 1, 2, 3, 4, 5, 6]);
-      setReminderEnabled(false);
-      setReminderTime('09:00');
+      };
+      
+      if (isEditMode && editingHabit) {
+        await onUpdate(editingHabit.id, data);
+      } else {
+        await onCreate(data);
+      }
       onClose();
     } finally {
       setIsSubmitting(false);
@@ -547,7 +597,7 @@ function NewHabitModal({
             <X className="w-5 h-5" />
           </button>
           <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-            Новая привычка
+            {isEditMode ? 'Редактирование' : 'Новая привычка'}
           </h3>
           <button
             onClick={handleSubmit}
@@ -768,6 +818,7 @@ export default function HabitsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isTogglingId, setIsTogglingId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -877,6 +928,21 @@ export default function HabitsPage() {
       if (error.limit) {
         alert(`Достигнут лимит: максимум ${error.limit} привычек`);
       }
+      throw err;
+    }
+  };
+
+  // Update habit
+  const handleUpdate = async (habitId: string, data: Partial<CreateHabitInput>) => {
+    try {
+      const updatedHabit = await api.habits.update(habitId, data);
+      setHabits(prev => prev.map(h => 
+        h.id === habitId ? { ...h, ...updatedHabit } : h
+      ));
+      setEditingHabit(null);
+      haptic.success();
+    } catch (err) {
+      console.error('Failed to update habit:', err);
       throw err;
     }
   };
@@ -994,6 +1060,10 @@ export default function HabitsPage() {
                   <HabitCard
                     habit={habit}
                     onToggle={() => handleToggle(habit.id)}
+                    onEdit={() => {
+                      setEditingHabit(habit);
+                      setIsModalOpen(true);
+                    }}
                     isTogglingId={isTogglingId}
                     isFutureDate={isFutureDate}
                     onFutureTap={handleFutureTap}
@@ -1035,11 +1105,16 @@ export default function HabitsPage() {
         </button>
       )}
 
-      {/* New Habit Modal */}
-      <NewHabitModal
+      {/* Habit Modal (Create/Edit) */}
+      <HabitModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingHabit(null);
+        }}
         onCreate={handleCreate}
+        onUpdate={handleUpdate}
+        editingHabit={editingHabit}
       />
 
       {/* CSS for modal animation */}
