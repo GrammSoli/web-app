@@ -16,7 +16,8 @@ import { ru } from 'date-fns/locale';
 import { 
   Plus, Flame, Check, ChevronLeft, ChevronRight, X, Clock, Trash2, Lock,
   Sparkles, Dumbbell, BookOpen, PersonStanding, Droplets, Bike, Target, Moon,
-  Salad, Brain, Palette, Music, Heart, Pill, Coffee, Cigarette, type LucideIcon
+  Salad, Brain, Palette, Music, Heart, Pill, Coffee, Cigarette, Bell, CalendarDays,
+  type LucideIcon
 } from 'lucide-react';
 import {
   SwipeableList,
@@ -555,7 +556,7 @@ function NewHabitModal({
             {/* Color & Icon Section */}
             <div className="space-y-4">
               <p className="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center gap-2">
-                🎨 Цвет и иконка
+                <Palette className="w-4 h-4" /> Цвет и иконка
               </p>
               
               {/* Colors - circles with check mark */}
@@ -586,7 +587,7 @@ function NewHabitModal({
                     <button
                       key={opt.name}
                       onClick={() => setIcon(opt.name)}
-                      className={`h-14 rounded-xl flex flex-col items-center justify-center gap-1 transition-all ${
+                      className={`w-full aspect-square rounded-xl flex items-center justify-center transition-all ${
                         isSelected 
                           ? 'scale-105' 
                           : 'bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700'
@@ -600,9 +601,6 @@ function NewHabitModal({
                         className="w-6 h-6" 
                         style={{ color: isSelected ? color : 'currentColor' }} 
                       />
-                      <span className={`text-[10px] ${isSelected ? '' : 'text-gray-500 dark:text-gray-400'}`} style={isSelected ? { color } : {}}>
-                        {opt.label}
-                      </span>
                     </button>
                   );
                 })}
@@ -612,7 +610,7 @@ function NewHabitModal({
             {/* Frequency - Day circles */}
             <div className="space-y-3">
               <p className="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center gap-2">
-                📅 Дни недели
+                <CalendarDays className="w-4 h-4" /> Дни недели
               </p>
               <div className="flex justify-between">
                 {dayNames.map((day, index) => {
@@ -651,7 +649,7 @@ function NewHabitModal({
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center gap-2">
-                  🔔 Напоминание
+                  <Bell className="w-4 h-4" /> Напоминание
                 </p>
                 <button
                   onClick={() => setReminderEnabled(!reminderEnabled)}
