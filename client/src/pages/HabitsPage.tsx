@@ -752,6 +752,19 @@ export default function HabitsPage() {
         .animate-check-pop {
           animation: check-pop 0.3s ease-out;
         }
+        /* Swipeable list full width fix */
+        .swipeable-list {
+          width: 100% !important;
+        }
+        .swipeable-list-item {
+          width: 100% !important;
+        }
+        .swipeable-list-item__content {
+          width: 100% !important;
+        }
+        .swipeable-list-item__content > div {
+          width: 100% !important;
+        }
       `}</style>
     </div>
   );
