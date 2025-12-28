@@ -3,7 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import * as Sentry from '@sentry/node';
 import { apiLimiter } from './middleware/index.js';
-import { userRoutes, adminRoutes, internalRoutes } from './routes/index.js';
+import { userRoutes, adminRoutes, internalRoutes, habitsRoutes } from './routes/index.js';
 import { apiLogger } from '../utils/logger.js';
 import { cryptoPayService } from '../services/cryptopay.js';
 import { plategaService } from '../services/platega.js';
@@ -285,11 +285,13 @@ export function createApp() {
   // Rate limiting для публичных API
   app.use('/api/user', apiLimiter);
   app.use('/api/admin', apiLimiter);
+  app.use('/api/habits', apiLimiter);
   
   // Routes
   app.use('/api/user', userRoutes);
   app.use('/api/admin', adminRoutes);
   app.use('/api/internal', internalRoutes);
+  app.use('/api/habits', habitsRoutes);
   
   // Health check (публичный) - расширенная версия
   app.get('/health', async (_req, res) => {

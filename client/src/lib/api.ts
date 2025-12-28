@@ -1,4 +1,4 @@
-import type { User, JournalEntry, UserStats, PaginatedResponse, UserSettings } from '@/types/api';
+import type { User, JournalEntry, UserStats, PaginatedResponse, UserSettings, Habit, HabitsResponse, HabitToggleResponse, CreateHabitInput } from '@/types/api';
 import { APP_CONFIG } from '@/config/app';
 
 const API_BASE = '/api';
@@ -231,6 +231,49 @@ export async function updateUserSettings(data: Partial<UserSettings>): Promise<U
 }
 
 // ============================================
+// HABITS API
+// ============================================
+
+export async function getHabits(date?: string): Promise<HabitsResponse> {
+  const params = date ? `?date=${date}` : '';
+  return apiFetch<HabitsResponse>(`/habits${params}`);
+}
+
+export async function createHabit(data: CreateHabitInput): Promise<Habit> {
+  return apiFetch<Habit>('/habits', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateHabit(id: string, data: Partial<CreateHabitInput>): Promise<Habit> {
+  return apiFetch<Habit>(`/habits/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteHabit(id: string): Promise<void> {
+  await apiFetch(`/habits/${id}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function toggleHabit(id: string, date?: string): Promise<HabitToggleResponse> {
+  return apiFetch<HabitToggleResponse>(`/habits/${id}/toggle`, {
+    method: 'POST',
+    body: JSON.stringify({ date }),
+  });
+}
+
+export async function reorderHabits(order: string[]): Promise<void> {
+  await apiFetch('/habits/reorder', {
+    method: 'POST',
+    body: JSON.stringify({ order }),
+  });
+}
+
+// ============================================
 // EXPORT API
 // ============================================
 
@@ -279,6 +322,14 @@ export const api = {
     createCryptoInvoice,
     getCardPrices,
     createCardPayment,
+  },
+  habits: {
+    getAll: getHabits,
+    create: createHabit,
+    update: updateHabit,
+    delete: deleteHabit,
+    toggle: toggleHabit,
+    reorder: reorderHabits,
   },
   export: {
     download: exportData,

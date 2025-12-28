@@ -64,6 +64,15 @@ enum SegmentType {
   @@map("segment_type")
 }
 
+enum HabitFrequency {
+  daily
+  weekdays
+  weekends
+  custom
+
+  @@map("habit_frequency")
+}
+
 enum TransactionType {
   stars_payment
   card_payment
@@ -118,6 +127,7 @@ model User {
   usageLogs           UsageLog[]
   transactions        Transaction[]
   subscriptions       Subscription[]
+  habits              Habit[]
 
   @@index([reminderEnabled, status])
   @@map("users")
@@ -382,4 +392,68 @@ model TrafficSource {
   @@index([slug])
   @@index([isActive])
   @@map("traffic_sources")
+}
+
+// ============================================
+// HABITS TRACKER
+// ============================================
+
+model Habit {
+  id                  String            @id @default(uuid()) @db.Uuid
+  userId              String            @map("user_id") @db.Uuid
+  
+  // Habit details
+  name                String            @db.VarChar(100)
+  emoji               String            @default("✨") @db.VarChar(10)
+  color               String            @default("#6366f1") @db.VarChar(20) // Brand color
+  
+  // Schedule
+  frequency           HabitFrequency    @default(daily)
+  customDays          Int[]             @default([]) @map("custom_days") // 0=Sun, 1=Mon, etc.
+  reminderTime        String?           @map("reminder_time") @db.VarChar(5) // HH:MM
+  
+  // Stats (cached for performance)
+  currentStreak       Int               @default(0) @map("current_streak")
+  longestStreak       Int               @default(0) @map("longest_streak")
+  totalCompletions    Int               @default(0) @map("total_completions")
+  
+  // Order & Status
+  sortOrder           Int               @default(0) @map("sort_order")
+  isActive            Boolean           @default(true) @map("is_active")
+  isArchived          Boolean           @default(false) @map("is_archived")
+  
+  // Timestamps
+  dateCreated         DateTime          @default(now()) @map("date_created") @db.Timestamptz
+  dateUpdated         DateTime          @updatedAt @map("date_updated") @db.Timestamptz
+
+  // Relations
+  user                User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  completions         HabitCompletion[]
+
+  @@index([userId, isActive])
+  @@index([userId, isArchived])
+  @@map("habits")
+}
+
+model HabitCompletion {
+  id                  String            @id @default(uuid()) @db.Uuid
+  habitId             String            @map("habit_id") @db.Uuid
+  userId              String            @map("user_id") @db.Uuid
+  
+  // Completion date (without time, for easy querying)
+  completedDate       DateTime          @map("completed_date") @db.Date
+  
+  // Optional note
+  note                String?           @db.VarChar(500)
+  
+  // Timestamp
+  dateCreated         DateTime          @default(now()) @map("date_created") @db.Timestamptz
+
+  // Relations
+  habit               Habit             @relation(fields: [habitId], references: [id], onDelete: Cascade)
+
+  @@unique([habitId, completedDate]) // One completion per habit per day
+  @@index([habitId, completedDate])
+  @@index([userId, completedDate])
+  @@map("habit_completions")
 }

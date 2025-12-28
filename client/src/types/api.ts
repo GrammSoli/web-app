@@ -119,3 +119,53 @@ export interface PaginatedResponse<T> {
   pageSize: number;
   hasMore: boolean;
 }
+
+// ============================================
+// HABITS
+// ============================================
+
+export interface Habit {
+  id: string;
+  name: string;
+  emoji: string;
+  color: string;
+  frequency: 'daily' | 'weekdays' | 'weekends' | 'custom';
+  customDays: number[];
+  reminderTime: string | null;
+  currentStreak: number;
+  longestStreak: number;
+  totalCompletions: number;
+  sortOrder: number;
+  isActive: boolean;
+  completedToday: boolean;
+  completedDates: string[]; // YYYY-MM-DD format
+}
+
+export interface HabitsResponse {
+  habits: Habit[];
+  stats: {
+    totalHabits: number;
+    completedToday: number;
+    maxHabits: number;
+    canCreateMore: boolean;
+  };
+  weekDates: string[];
+}
+
+export interface HabitToggleResponse {
+  completed: boolean;
+  currentStreak: number;
+  longestStreak: number;
+  totalCompletions: number;
+  allCompleted: boolean; // For triggering confetti
+}
+
+export interface CreateHabitInput {
+  name: string;
+  emoji?: string;
+  color?: string;
+  frequency?: 'daily' | 'weekdays' | 'weekends' | 'custom';
+  customDays?: number[];
+  reminderTime?: string;
+}
+

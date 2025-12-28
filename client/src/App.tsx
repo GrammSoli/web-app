@@ -13,6 +13,7 @@ import PremiumPage from './pages/PremiumPage';
 import EntryDetailPage from './pages/EntryDetailPage';
 import ProfilePage from './pages/ProfilePage';
 import EntriesPage from './pages/EntriesPage';
+import HabitsPage from './pages/HabitsPage';
 
 // Hooks
 import { useTelegram } from './hooks/useTelegram';
@@ -103,6 +104,7 @@ export default function App() {
               <Route path="/premium" element={<PremiumPage />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/entry/:id" element={<EntryDetailPage />} />
+              <Route path="/habits" element={<HabitsPage />} />
             </Routes>
           </ErrorBoundary>
         </div>
