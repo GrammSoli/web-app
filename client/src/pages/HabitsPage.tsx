@@ -272,7 +272,7 @@ function HabitCard({
   );
 }
 
-// New Habit Modal
+// New Habit Bottom Sheet
 function NewHabitModal({ 
   isOpen, 
   onClose, 
@@ -306,111 +306,143 @@ function NewHabitModal({
     }
   };
 
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm">
-      <div className="bg-white dark:bg-zinc-900 w-full max-w-lg rounded-t-3xl p-6 pb-24 animate-slide-up max-h-[85vh] overflow-y-auto">
+    <div className="fixed inset-0 z-[100]">
+      {/* Backdrop */}
+      <div 
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity animate-fade-in"
+        onClick={onClose}
+      />
+      {/* Sheet */}
+      <div 
+        className="absolute bottom-0 left-0 right-0 bg-white dark:bg-zinc-900 rounded-t-3xl shadow-2xl transform transition-transform duration-300 ease-out animate-slide-up safe-area-bottom"
+        style={{ maxHeight: '80vh' }}
+      >
+        {/* Handle */}
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-12 h-1.5 bg-gray-300 dark:bg-zinc-600 rounded-full" />
+        </div>
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Новая привычка</h2>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-full">
-            <X className="w-6 h-6 text-gray-500" />
+        <div className="flex items-center justify-between px-5 py-3">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+            <Plus className="w-5 h-5 text-indigo-500" /> Новая привычка
+          </h3>
+          <button 
+            onClick={onClose}
+            className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 dark:bg-zinc-800 text-gray-500 dark:text-gray-400 active:bg-gray-200 dark:active:bg-zinc-700 transition-colors"
+          >
+            <X className="w-5 h-5" />
           </button>
         </div>
-
-        {/* Form */}
-        <div className="space-y-6">
-          {/* Name */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Название
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Например: Медитация"
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
-              maxLength={100}
-            />
-          </div>
-
-          {/* Emoji */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Иконка
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {emojis.map((e) => (
-                <button
-                  key={e}
-                  onClick={() => setEmoji(e)}
-                  className={`w-10 h-10 rounded-xl text-xl flex items-center justify-center transition-all ${
-                    emoji === e 
-                      ? 'bg-indigo-100 dark:bg-indigo-900/50 ring-2 ring-indigo-500' 
-                      : 'bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200'
-                  }`}
-                >
-                  {e}
-                </button>
-              ))}
+        {/* Divider */}
+        <div className="h-px bg-gray-100 dark:bg-zinc-800 mx-5" />
+        {/* Content */}
+        <div className="p-5 pb-10 overflow-y-auto" style={{ maxHeight: 'calc(80vh - 100px)' }}>
+          <div className="space-y-5">
+            {/* Name */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Название
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Например: Медитация"
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                maxLength={100}
+              />
             </div>
-          </div>
 
-          {/* Color */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Цвет
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {colors.map((c) => (
-                <button
-                  key={c}
-                  onClick={() => setColor(c)}
-                  className={`w-10 h-10 rounded-xl transition-all ${
-                    color === c ? 'ring-2 ring-offset-2 ring-gray-400 scale-110' : ''
-                  }`}
-                  style={{ backgroundColor: c }}
-                />
-              ))}
+            {/* Emoji */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Иконка
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {emojis.map((e) => (
+                  <button
+                    key={e}
+                    onClick={() => setEmoji(e)}
+                    className={`w-10 h-10 rounded-xl text-xl flex items-center justify-center transition-all ${
+                      emoji === e 
+                        ? 'bg-indigo-100 dark:bg-indigo-900/50 ring-2 ring-indigo-500' 
+                        : 'bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200'
+                    }`}
+                  >
+                    {e}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
 
-          {/* Frequency */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Регулярность
-            </label>
-            <div className="flex gap-2">
-              {[
-                { value: 'daily', label: 'Каждый день' },
-                { value: 'weekdays', label: 'По будням' },
-                { value: 'weekends', label: 'Выходные' },
-              ].map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => setFrequency(opt.value as 'daily' | 'weekdays' | 'weekends')}
-                  className={`flex-1 py-2 px-3 rounded-xl text-sm font-medium transition-all ${
-                    frequency === opt.value
-                      ? 'bg-indigo-500 text-white'
-                      : 'bg-gray-100 dark:bg-zinc-800 text-gray-600 dark:text-gray-400'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
+            {/* Color */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Цвет
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {colors.map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => setColor(c)}
+                    className={`w-10 h-10 rounded-xl transition-all ${
+                      color === c ? 'ring-2 ring-offset-2 ring-gray-400 scale-110' : ''
+                    }`}
+                    style={{ backgroundColor: c }}
+                  />
+                ))}
+              </div>
             </div>
-          </div>
 
-          {/* Submit */}
-          <button
-            onClick={handleSubmit}
-            disabled={!name.trim() || isSubmitting}
-            className="w-full py-4 rounded-xl bg-indigo-500 text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-indigo-600 transition-colors"
-          >
-            {isSubmitting ? 'Создание...' : 'Создать привычку'}
-          </button>
+            {/* Frequency */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Регулярность
+              </label>
+              <div className="flex gap-2">
+                {[
+                  { value: 'daily', label: 'Каждый день' },
+                  { value: 'weekdays', label: 'По будням' },
+                  { value: 'weekends', label: 'Выходные' },
+                ].map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setFrequency(opt.value as 'daily' | 'weekdays' | 'weekends')}
+                    className={`flex-1 py-2.5 px-3 rounded-xl text-sm font-medium transition-all ${
+                      frequency === opt.value
+                        ? 'bg-indigo-500 text-white'
+                        : 'bg-gray-100 dark:bg-zinc-800 text-gray-600 dark:text-gray-400'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Submit */}
+            <button
+              onClick={handleSubmit}
+              disabled={!name.trim() || isSubmitting}
+              className="w-full py-4 rounded-xl bg-indigo-500 text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-indigo-600 active:bg-indigo-700 transition-colors"
+            >
+              {isSubmitting ? 'Создание...' : 'Создать привычку'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
