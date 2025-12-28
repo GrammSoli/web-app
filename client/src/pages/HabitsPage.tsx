@@ -294,6 +294,53 @@ function HabitCard({
   );
 }
 
+// Live Preview Card for New Habit Modal
+function HabitPreviewCard({ 
+  name, 
+  emoji, 
+  color 
+}: { 
+  name: string; 
+  emoji: string; 
+  color: string;
+}) {
+  const displayName = name.trim() || 'Название привычки';
+  
+  return (
+    <div 
+      className="bg-white dark:bg-zinc-800 rounded-2xl p-4 shadow-lg border-2 transition-all duration-300"
+      style={{ borderColor: color }}
+    >
+      <div className="flex items-center gap-4">
+        {/* Icon */}
+        <div 
+          className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl shadow-lg transition-all duration-300"
+          style={{ backgroundColor: `${color}20`, boxShadow: `0 4px 14px ${color}30` }}
+        >
+          {emoji}
+        </div>
+        {/* Info */}
+        <div className="flex-1 min-w-0">
+          <h3 className="font-semibold text-gray-900 dark:text-white truncate">
+            {displayName}
+          </h3>
+          <div className="flex items-center gap-2 mt-1">
+            <div className="flex items-center gap-1 text-orange-500">
+              <Flame className="w-4 h-4" />
+              <span className="text-sm font-medium">0</span>
+            </div>
+          </div>
+        </div>
+        {/* Checkbox */}
+        <div 
+          className="w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300"
+          style={{ borderColor: color, borderWidth: 2, backgroundColor: 'transparent' }}
+        />
+      </div>
+    </div>
+  );
+}
+
 // New Habit Bottom Sheet
 function NewHabitModal({ 
   isOpen, 
@@ -307,21 +354,55 @@ function NewHabitModal({
   const [name, setName] = useState('');
   const [emoji, setEmoji] = useState('✨');
   const [color, setColor] = useState('#6366f1');
-  const [frequency, setFrequency] = useState<'daily' | 'weekdays' | 'weekends'>('daily');
+  const [selectedDays, setSelectedDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]); // All days by default
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const colors = ['#6366f1', '#ec4899', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#84cc16'];
   const emojis = ['✨', '💪', '📚', '🧘', '💧', '🏃', '🎯', '💤', '🥗', '🧠', '🎨', '🎵'];
+  
+  // Day names (Mon-Sun, 0=Monday)
+  const dayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+
+  const toggleDay = (dayIndex: number) => {
+    setSelectedDays(prev => {
+      if (prev.includes(dayIndex)) {
+        // Don't allow removing all days
+        if (prev.length === 1) return prev;
+        return prev.filter(d => d !== dayIndex);
+      }
+      return [...prev, dayIndex].sort((a, b) => a - b);
+    });
+  };
+
+  // Determine frequency type based on selected days
+  const getFrequencyData = (): { frequency: 'daily' | 'weekdays' | 'weekends' | 'custom'; customDays?: number[] } => {
+    const sorted = [...selectedDays].sort((a, b) => a - b);
+    const weekdays = [0, 1, 2, 3, 4]; // Mon-Fri
+    const weekends = [5, 6]; // Sat-Sun
+    const allDays = [0, 1, 2, 3, 4, 5, 6];
+    
+    if (JSON.stringify(sorted) === JSON.stringify(allDays)) {
+      return { frequency: 'daily' };
+    }
+    if (JSON.stringify(sorted) === JSON.stringify(weekdays)) {
+      return { frequency: 'weekdays' };
+    }
+    if (JSON.stringify(sorted) === JSON.stringify(weekends)) {
+      return { frequency: 'weekends' };
+    }
+    return { frequency: 'custom', customDays: sorted };
+  };
 
   const handleSubmit = async () => {
     if (!name.trim()) return;
     setIsSubmitting(true);
     try {
-      await onCreate({ name, emoji, color, frequency });
+      const { frequency, customDays } = getFrequencyData();
+      await onCreate({ name, emoji, color, frequency, customDays });
       setName('');
       setEmoji('✨');
       setColor('#6366f1');
-      setFrequency('daily');
+      setSelectedDays([0, 1, 2, 3, 4, 5, 6]);
       onClose();
     } finally {
       setIsSubmitting(false);
@@ -351,59 +432,92 @@ function NewHabitModal({
       {/* Sheet */}
       <div 
         className="absolute bottom-0 left-0 right-0 bg-white dark:bg-zinc-900 rounded-t-3xl shadow-2xl transform transition-transform duration-300 ease-out animate-slide-up safe-area-bottom"
-        style={{ maxHeight: '80vh' }}
+        style={{ maxHeight: '85vh' }}
       >
         {/* Handle */}
         <div className="flex justify-center pt-3 pb-1">
           <div className="w-12 h-1.5 bg-gray-300 dark:bg-zinc-600 rounded-full" />
         </div>
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3">
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-            <Plus className="w-5 h-5 text-indigo-500" /> Новая привычка
-          </h3>
+        
+        {/* Header with Save button */}
+        <div className="flex items-center justify-between px-5 py-2">
           <button 
             onClick={onClose}
             className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 dark:bg-zinc-800 text-gray-500 dark:text-gray-400 active:bg-gray-200 dark:active:bg-zinc-700 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+            Новая привычка
+          </h3>
+          <button
+            onClick={handleSubmit}
+            disabled={!name.trim() || isSubmitting}
+            className="px-4 py-2 rounded-xl bg-indigo-500 text-white text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-indigo-600 active:bg-indigo-700 transition-colors"
+          >
+            {isSubmitting ? '...' : 'Сохранить'}
+          </button>
         </div>
-        {/* Divider */}
-        <div className="h-px bg-gray-100 dark:bg-zinc-800 mx-5" />
+
         {/* Content */}
-        <div className="p-5 pb-10 overflow-y-auto" style={{ maxHeight: 'calc(80vh - 100px)' }}>
+        <div className="px-5 pb-10 overflow-y-auto" style={{ maxHeight: 'calc(85vh - 80px)' }}>
           <div className="space-y-5">
-            {/* Name */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Название
-              </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Например: Медитация"
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
-                maxLength={100}
-              />
+            {/* Name Input - clean, no label */}
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Название привычки..."
+              className="w-full px-4 py-3.5 rounded-xl border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none text-lg"
+              maxLength={100}
+              autoFocus
+            />
+
+            {/* Live Preview Card */}
+            <div className="py-2">
+              <HabitPreviewCard name={name} emoji={emoji} color={color} />
             </div>
 
-            {/* Emoji */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Иконка
-              </label>
-              <div className="flex flex-wrap gap-2">
+            {/* Color & Emoji Section */}
+            <div className="space-y-4">
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                🎨 Цвет и иконка
+              </p>
+              
+              {/* Colors - circles with check mark */}
+              <div className="flex justify-between px-2">
+                {colors.map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => setColor(c)}
+                    className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${
+                      color === c ? 'scale-110' : 'hover:scale-105'
+                    }`}
+                    style={{ 
+                      backgroundColor: c,
+                      boxShadow: color === c ? `0 0 0 2px white, 0 0 0 4px ${c}` : 'none' 
+                    }}
+                  >
+                    {color === c && <Check className="w-5 h-5 text-white" />}
+                  </button>
+                ))}
+              </div>
+              
+              {/* Emojis - larger grid */}
+              <div className="grid grid-cols-6 gap-2">
                 {emojis.map((e) => (
                   <button
                     key={e}
                     onClick={() => setEmoji(e)}
-                    className={`w-10 h-10 rounded-xl text-xl flex items-center justify-center transition-all ${
+                    className={`w-12 h-12 rounded-xl text-2xl flex items-center justify-center transition-all ${
                       emoji === e 
-                        ? 'bg-indigo-100 dark:bg-indigo-900/50 ring-2 ring-indigo-500' 
-                        : 'bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200'
+                        ? 'scale-105' 
+                        : 'bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700'
                     }`}
+                    style={emoji === e ? { 
+                      backgroundColor: `${color}20`, 
+                      boxShadow: `0 0 0 2px ${color}`,
+                    } : {}}
                   >
                     {e}
                   </button>
@@ -411,59 +525,43 @@ function NewHabitModal({
               </div>
             </div>
 
-            {/* Color */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Цвет
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {colors.map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => setColor(c)}
-                    className={`w-10 h-10 rounded-xl transition-all ${
-                      color === c ? 'ring-2 ring-offset-2 ring-gray-400 scale-110' : ''
-                    }`}
-                    style={{ backgroundColor: c }}
-                  />
-                ))}
+            {/* Frequency - Day circles */}
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                📅 Дни недели
+              </p>
+              <div className="flex justify-between">
+                {dayNames.map((day, index) => {
+                  const isSelected = selectedDays.includes(index);
+                  return (
+                    <button
+                      key={index}
+                      onClick={() => toggleDay(index)}
+                      className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-all ${
+                        isSelected 
+                          ? 'text-white shadow-lg' 
+                          : 'bg-gray-100 dark:bg-zinc-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-700'
+                      }`}
+                      style={isSelected ? { 
+                        backgroundColor: color, 
+                        boxShadow: `0 4px 12px ${color}40` 
+                      } : {}}
+                    >
+                      {day}
+                    </button>
+                  );
+                })}
               </div>
+              <p className="text-xs text-gray-400 dark:text-gray-500 text-center">
+                {selectedDays.length === 7 && 'Каждый день'}
+                {selectedDays.length === 5 && JSON.stringify([...selectedDays].sort()) === JSON.stringify([0,1,2,3,4]) && 'По будням'}
+                {selectedDays.length === 2 && JSON.stringify([...selectedDays].sort()) === JSON.stringify([5,6]) && 'Выходные'}
+                {![7, 5, 2].includes(selectedDays.length) || 
+                  (selectedDays.length === 5 && JSON.stringify([...selectedDays].sort()) !== JSON.stringify([0,1,2,3,4])) ||
+                  (selectedDays.length === 2 && JSON.stringify([...selectedDays].sort()) !== JSON.stringify([5,6]))
+                  ? `${selectedDays.length} ${selectedDays.length === 1 ? 'день' : selectedDays.length < 5 ? 'дня' : 'дней'} в неделю` : ''}
+              </p>
             </div>
-
-            {/* Frequency */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Регулярность
-              </label>
-              <div className="flex gap-2">
-                {[
-                  { value: 'daily', label: 'Каждый день' },
-                  { value: 'weekdays', label: 'По будням' },
-                  { value: 'weekends', label: 'Выходные' },
-                ].map((opt) => (
-                  <button
-                    key={opt.value}
-                    onClick={() => setFrequency(opt.value as 'daily' | 'weekdays' | 'weekends')}
-                    className={`flex-1 py-2.5 px-3 rounded-xl text-sm font-medium transition-all ${
-                      frequency === opt.value
-                        ? 'bg-indigo-500 text-white'
-                        : 'bg-gray-100 dark:bg-zinc-800 text-gray-600 dark:text-gray-400'
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Submit */}
-            <button
-              onClick={handleSubmit}
-              disabled={!name.trim() || isSubmitting}
-              className="w-full py-4 rounded-xl bg-indigo-500 text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-indigo-600 active:bg-indigo-700 transition-colors"
-            >
-              {isSubmitting ? 'Создание...' : 'Создать привычку'}
-            </button>
           </div>
         </div>
       </div>
