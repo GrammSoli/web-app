@@ -120,9 +120,20 @@ function calculateHabitStreak(completions: { completedDate: Date }[]): { current
 
 /**
  * Get dates for the current week (for completion dots)
+ * Uses user's timezone to determine "today"
  */
-function getWeekDates(): string[] {
-  const today = new Date();
+function getWeekDates(timezone: string = 'UTC'): string[] {
+  // Get current date in user's timezone
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat('en-CA', { 
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  const todayStr = formatter.format(now); // YYYY-MM-DD format
+  const today = new Date(todayStr + 'T12:00:00Z'); // noon UTC to avoid timezone issues
+  
   const dates: string[] = [];
   
   // Get last 7 days including today
@@ -133,6 +144,20 @@ function getWeekDates(): string[] {
   }
   
   return dates;
+}
+
+/**
+ * Get "today" date string in user's timezone
+ */
+function getTodayInTimezone(timezone: string = 'UTC'): string {
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat('en-CA', { 
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  return formatter.format(now); // YYYY-MM-DD format
 }
 
 // ============================================
@@ -146,17 +171,16 @@ function getWeekDates(): string[] {
 router.get('/', async (req: Request, res: Response) => {
   try {
     const user = req.user!;
+    const userTimezone = req.userTimezone || 'UTC';
     const dateParam = req.query.date as string | undefined;
     
-    // Target date (default: today)
-    const targetDate = dateParam ? new Date(dateParam) : new Date();
-    targetDate.setHours(0, 0, 0, 0);
+    // Target date - use user timezone if not specified
+    const todayStr = dateParam || getTodayInTimezone(userTimezone);
     
-    // Get week dates for completion dots
-    const weekDates = getWeekDates();
-    const weekStart = new Date(weekDates[0]);
-    const weekEnd = new Date(weekDates[weekDates.length - 1]);
-    weekEnd.setHours(23, 59, 59, 999);
+    // Get week dates for completion dots (in user's timezone)
+    const weekDates = getWeekDates(userTimezone);
+    const weekStart = new Date(weekDates[0] + 'T00:00:00Z');
+    const weekEnd = new Date(weekDates[weekDates.length - 1] + 'T23:59:59Z');
     
     // Get habits with completions for the week
     const habits = await prisma.habit.findMany({
@@ -194,7 +218,7 @@ router.get('/', async (req: Request, res: Response) => {
         new Date(c.completedDate).toISOString().split('T')[0]
       );
       
-      const completedToday = completedDates.includes(targetDate.toISOString().split('T')[0]);
+      const completedToday = completedDates.includes(todayStr);
       
       return {
         id: habit.id,
@@ -398,12 +422,13 @@ router.delete('/:id', async (req: Request, res: Response) => {
 router.post('/:id/toggle', async (req: Request, res: Response) => {
   try {
     const user = req.user!;
+    const userTimezone = req.userTimezone || 'UTC';
     const { id } = req.params;
-    const { date } = req.body; // Optional, defaults to today
+    const { date } = req.body; // Optional, defaults to today in user's timezone
     
-    // Target date
-    const targetDate = date ? new Date(date) : new Date();
-    targetDate.setHours(0, 0, 0, 0);
+    // Target date - use user timezone if not specified
+    const targetDateStr = date || getTodayInTimezone(userTimezone);
+    const targetDate = new Date(targetDateStr + 'T12:00:00Z'); // noon UTC to avoid timezone issues
     
     // Check ownership
     const habit = await prisma.habit.findFirst({
@@ -414,12 +439,16 @@ router.post('/:id/toggle', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Habit not found' });
     }
     
-    // Check if already completed
-    const existing = await prisma.habitCompletion.findUnique({
+    // Check if already completed (use date range for the day)
+    const dayStart = new Date(targetDateStr + 'T00:00:00Z');
+    const dayEnd = new Date(targetDateStr + 'T23:59:59Z');
+    
+    const existing = await prisma.habitCompletion.findFirst({
       where: {
-        habitId_completedDate: {
-          habitId: id,
-          completedDate: targetDate,
+        habitId: id,
+        completedDate: {
+          gte: dayStart,
+          lte: dayEnd,
         },
       },
     });
@@ -464,12 +493,7 @@ router.post('/:id/toggle', async (req: Request, res: Response) => {
     });
     
     // Check if all habits completed for the target date (for confetti)
-    // Use targetDate instead of today to support checking past/future dates
-    const targetDateStart = new Date(targetDate);
-    targetDateStart.setHours(0, 0, 0, 0);
-    const targetDateEnd = new Date(targetDate);
-    targetDateEnd.setHours(23, 59, 59, 999);
-    
+    // Use date strings for consistent comparison
     const allHabits = await prisma.habit.findMany({
       where: {
         userId: user.id,
@@ -480,8 +504,8 @@ router.post('/:id/toggle', async (req: Request, res: Response) => {
         completions: {
           where: {
             completedDate: {
-              gte: targetDateStart,
-              lte: targetDateEnd,
+              gte: dayStart,
+              lte: dayEnd,
             },
           },
         },
