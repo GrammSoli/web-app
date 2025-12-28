@@ -147,8 +147,8 @@ function WeekStrip({
         >
           <ChevronLeft className="w-5 h-5 text-gray-500" />
         </button>
-        <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-          {format(weekStart, 'MMMM yyyy', { locale: ru })}
+        <span className="text-sm font-medium text-gray-600 dark:text-gray-400 capitalize">
+          {format(weekStart, 'LLLL yyyy', { locale: ru })}
         </span>
         <button 
           onClick={goToNextWeek}
@@ -165,6 +165,11 @@ function WeekStrip({
           const isSelected = isSameDay(day, selectedDate);
           const isTodayDate = isToday(day);
           const dotCount = completionDots[dateStr] || 0;
+          
+          // Short day names: Пн, Вт, Ср, Чт, Пт, Сб, Вс
+          const dayOfWeek = day.getDay();
+          const shortDayNames = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+          const shortDayName = shortDayNames[dayOfWeek];
 
           return (
             <button
@@ -179,7 +184,7 @@ function WeekStrip({
               }`}
             >
               <span className={`text-[10px] uppercase ${isSelected ? 'text-white/80' : 'text-gray-400'}`}>
-                {format(day, 'EEE', { locale: ru })}
+                {shortDayName}
               </span>
               <span className={`text-lg font-semibold ${isSelected ? '' : 'text-gray-800 dark:text-white'}`}>
                 {format(day, 'd')}
