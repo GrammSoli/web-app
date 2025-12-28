@@ -14,6 +14,13 @@ import { useNavigate } from 'react-router-dom';
 import { format, addDays, subDays, isToday, isSameDay, startOfWeek } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { Plus, Flame, Check, ChevronLeft, ChevronRight, X, Clock, Trash2 } from 'lucide-react';
+import {
+  SwipeableList,
+  SwipeableListItem,
+  SwipeAction,
+  TrailingActions,
+} from 'react-swipeable-list';
+import 'react-swipeable-list/dist/styles.css';
 import { useAppStore } from '@/store/useAppStore';
 import { useTelegram } from '@/hooks/useTelegram';
 import { api } from '@/lib/api';
@@ -186,19 +193,22 @@ function ProgressRing({
 function HabitCard({ 
   habit, 
   onToggle, 
-  onDelete,
   isTogglingId,
 }: { 
   habit: Habit; 
   onToggle: () => void;
-  onDelete: () => void;
   isTogglingId: string | null;
 }) {
   const { haptic } = useTelegram();
   const isToggling = isTogglingId === habit.id;
+  const [justCompleted, setJustCompleted] = useState(false);
 
   const handleToggle = () => {
     haptic.medium();
+    if (!habit.completedToday) {
+      setJustCompleted(true);
+      setTimeout(() => setJustCompleted(false), 300);
+    }
     onToggle();
   };
 
@@ -242,23 +252,15 @@ function HabitCard({
           </div>
         </div>
 
-        {/* Delete button */}
-        <button
-          onClick={onDelete}
-          className="p-2 text-gray-300 hover:text-red-500 transition-colors"
-        >
-          <Trash2 className="w-5 h-5" />
-        </button>
-
-        {/* Checkbox */}
+        {/* Checkbox with animation */}
         <button
           onClick={handleToggle}
           disabled={isToggling}
-          className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 transform active:scale-90 ${
+          className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-200 ${
             habit.completedToday 
-              ? 'bg-green-500 text-white shadow-lg shadow-green-500/30' 
-              : 'bg-gray-100 dark:bg-zinc-800 text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-700'
-          } ${isToggling ? 'animate-pulse' : ''}`}
+              ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/30' 
+              : 'bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700'
+          } ${isToggling ? 'animate-pulse' : ''} ${justCompleted ? 'animate-check-pop' : ''}`}
           style={habit.completedToday ? {} : { borderColor: habit.color, borderWidth: 2 }}
         >
           {habit.completedToday ? (
@@ -673,15 +675,32 @@ export default function HabitsPage() {
               </button>
             </div>
           ) : (
-            habits.map(habit => (
-              <HabitCard
-                key={habit.id}
-                habit={habit}
-                onToggle={() => handleToggle(habit.id)}
-                onDelete={() => handleDelete(habit.id)}
-                isTogglingId={isTogglingId}
-              />
-            ))
+            <SwipeableList threshold={0.25}>
+              {habits.map(habit => (
+                <SwipeableListItem
+                  key={habit.id}
+                  trailingActions={
+                    <TrailingActions>
+                      <SwipeAction
+                        destructive={false}
+                        onClick={() => handleDelete(habit.id)}
+                      >
+                        <div className="bg-red-500 text-white flex items-center justify-center w-20 h-full rounded-r-2xl ml-[-10px]">
+                          <Trash2 className="w-6 h-6" />
+                        </div>
+                      </SwipeAction>
+                    </TrailingActions>
+                  }
+                  className="mb-3 block"
+                >
+                  <HabitCard
+                    habit={habit}
+                    onToggle={() => handleToggle(habit.id)}
+                    isTogglingId={isTogglingId}
+                  />
+                </SwipeableListItem>
+              ))}
+            </SwipeableList>
           )}
         </div>
 
@@ -724,6 +743,14 @@ export default function HabitsPage() {
         }
         .animate-slide-up {
           animation: slide-up 0.3s ease-out;
+        }
+        @keyframes check-pop {
+          0% { transform: scale(1); }
+          50% { transform: scale(1.2); }
+          100% { transform: scale(1); }
+        }
+        .animate-check-pop {
+          animation: check-pop 0.3s ease-out;
         }
       `}</style>
     </div>
