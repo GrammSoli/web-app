@@ -675,7 +675,7 @@ export default function HabitsPage() {
               </button>
             </div>
           ) : (
-            <SwipeableList threshold={0.25}>
+            <SwipeableList threshold={0.25} className="w-full">
               {habits.map(habit => (
                 <SwipeableListItem
                   key={habit.id}
@@ -691,7 +691,7 @@ export default function HabitsPage() {
                       </SwipeAction>
                     </TrailingActions>
                   }
-                  className="mb-3 block"
+                  className="mb-3 block w-full"
                 >
                   <HabitCard
                     habit={habit}
