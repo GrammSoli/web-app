@@ -463,8 +463,13 @@ router.post('/:id/toggle', async (req: Request, res: Response) => {
       },
     });
     
-    // Check if all habits completed today (for confetti)
-    const todayStr = new Date().toISOString().split('T')[0];
+    // Check if all habits completed for the target date (for confetti)
+    // Use targetDate instead of today to support checking past/future dates
+    const targetDateStart = new Date(targetDate);
+    targetDateStart.setHours(0, 0, 0, 0);
+    const targetDateEnd = new Date(targetDate);
+    targetDateEnd.setHours(23, 59, 59, 999);
+    
     const allHabits = await prisma.habit.findMany({
       where: {
         userId: user.id,
@@ -474,13 +479,16 @@ router.post('/:id/toggle', async (req: Request, res: Response) => {
       include: {
         completions: {
           where: {
-            completedDate: new Date(todayStr),
+            completedDate: {
+              gte: targetDateStart,
+              lte: targetDateEnd,
+            },
           },
         },
       },
     });
     
-    const allCompleted = allHabits.every(h => h.completions.length > 0);
+    const allCompleted = allHabits.length > 0 && allHabits.every(h => h.completions.length > 0);
     
     apiLogger.info({ 
       userId: user.id, 
