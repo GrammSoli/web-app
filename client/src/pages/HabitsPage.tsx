@@ -17,6 +17,7 @@ import {
   Plus, Flame, Check, ChevronLeft, ChevronRight, X, Clock, Trash2, Lock,
   Sparkles, Dumbbell, BookOpen, PersonStanding, Droplets, Bike, Target, Moon,
   Salad, Brain, Palette, Music, Heart, Pill, Coffee, Cigarette, Bell, CalendarDays,
+  Footprints, Smile, Sun, Zap, Leaf, Apple, Pencil, Gamepad2, Languages, Bed,
   type LucideIcon
 } from 'lucide-react';
 import {
@@ -54,26 +55,46 @@ const HABIT_ICONS: Record<string, LucideIcon> = {
   Pill,
   Coffee,
   Cigarette,
+  Footprints,
+  Smile,
+  Sun,
+  Zap,
+  Leaf,
+  Apple,
+  Pencil,
+  Gamepad2,
+  Languages,
+  Bed,
 };
 
 // Icon options for the picker
 const ICON_OPTIONS = [
-  { name: 'Sparkles', label: 'Магия' },
-  { name: 'Dumbbell', label: 'Спорт' },
-  { name: 'BookOpen', label: 'Чтение' },
-  { name: 'PersonStanding', label: 'Йога' },
-  { name: 'Droplets', label: 'Вода' },
-  { name: 'Bike', label: 'Бег' },
-  { name: 'Target', label: 'Цель' },
-  { name: 'Moon', label: 'Сон' },
-  { name: 'Salad', label: 'Еда' },
-  { name: 'Brain', label: 'Медитация' },
-  { name: 'Palette', label: 'Творчество' },
-  { name: 'Music', label: 'Музыка' },
-  { name: 'Heart', label: 'Здоровье' },
-  { name: 'Pill', label: 'Лекарства' },
-  { name: 'Coffee', label: 'Утро' },
-  { name: 'Cigarette', label: 'Бросить' },
+  { name: 'Sparkles' },
+  { name: 'Dumbbell' },
+  { name: 'BookOpen' },
+  { name: 'PersonStanding' },
+  { name: 'Droplets' },
+  { name: 'Bike' },
+  { name: 'Target' },
+  { name: 'Moon' },
+  { name: 'Salad' },
+  { name: 'Brain' },
+  { name: 'Palette' },
+  { name: 'Music' },
+  { name: 'Heart' },
+  { name: 'Pill' },
+  { name: 'Coffee' },
+  { name: 'Cigarette' },
+  { name: 'Footprints' },
+  { name: 'Smile' },
+  { name: 'Sun' },
+  { name: 'Zap' },
+  { name: 'Leaf' },
+  { name: 'Apple' },
+  { name: 'Pencil' },
+  { name: 'Gamepad2' },
+  { name: 'Languages' },
+  { name: 'Bed' },
 ];
 
 // Helper to render habit icon
@@ -578,8 +599,8 @@ function NewHabitModal({
                 ))}
               </div>
               
-              {/* Icons - larger grid with Lucide icons */}
-              <div className="grid grid-cols-4 gap-2">
+              {/* Icons - grid with Lucide icons */}
+              <div className="grid grid-cols-5 gap-2">
                 {ICON_OPTIONS.map((opt) => {
                   const IconComponent = HABIT_ICONS[opt.name] || Sparkles;
                   const isSelected = icon === opt.name;
@@ -587,7 +608,7 @@ function NewHabitModal({
                     <button
                       key={opt.name}
                       onClick={() => setIcon(opt.name)}
-                      className={`w-full aspect-square rounded-xl flex items-center justify-center transition-all ${
+                      className={`h-11 rounded-xl flex items-center justify-center transition-all ${
                         isSelected 
                           ? 'scale-105' 
                           : 'bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700'
@@ -598,7 +619,7 @@ function NewHabitModal({
                       } : {}}
                     >
                       <IconComponent 
-                        className="w-6 h-6" 
+                        className="w-5 h-5" 
                         style={{ color: isSelected ? color : 'currentColor' }} 
                       />
                     </button>
