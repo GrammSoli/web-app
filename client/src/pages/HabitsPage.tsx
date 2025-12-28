@@ -217,46 +217,45 @@ function ProgressRing({
   total: number;
 }) {
   const percentage = total > 0 ? (completed / total) * 100 : 0;
-  const circumference = 2 * Math.PI * 45; // radius = 45
+  const circumference = 2 * Math.PI * 28; // radius = 28 (smaller ring)
   const strokeDashoffset = circumference - (percentage / 100) * circumference;
 
   const motivationalPhrases = [
-    "Маленькие шаги ведут к большим переменам",
-    "Каждый день — новая возможность",
-    "Привычки формируют характер",
-    "Ты на правильном пути!",
+    "Шаг за шагом к цели",
+    "Каждый день — новый шанс",
+    "Ты на верном пути!",
     "Постоянство — ключ к успеху",
   ];
 
   const phrase = total === 0 
-    ? "Добавь свою первую привычку!" 
+    ? "Добавь первую привычку!" 
     : completed === total && total > 0
-      ? "🎉 Все выполнено! Отличная работа!"
+      ? "🎉 Всё выполнено!"
       : motivationalPhrases[Math.floor(Math.random() * motivationalPhrases.length)];
 
   return (
-    <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-6 shadow-lg shadow-indigo-500/20">
-      <div className="flex items-center gap-6">
-        {/* Ring */}
-        <div className="relative w-24 h-24 flex-shrink-0">
-          <svg className="w-24 h-24 transform -rotate-90">
+    <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-4 shadow-lg shadow-indigo-500/20">
+      <div className="flex items-center gap-4">
+        {/* Ring - smaller */}
+        <div className="relative w-16 h-16 flex-shrink-0">
+          <svg className="w-16 h-16 transform -rotate-90">
             {/* Background circle */}
             <circle
-              cx="48"
-              cy="48"
-              r="45"
+              cx="32"
+              cy="32"
+              r="28"
               fill="none"
               stroke="rgba(255,255,255,0.2)"
-              strokeWidth="6"
+              strokeWidth="5"
             />
             {/* Progress circle */}
             <circle
-              cx="48"
-              cy="48"
-              r="45"
+              cx="32"
+              cy="32"
+              r="28"
               fill="none"
               stroke="white"
-              strokeWidth="6"
+              strokeWidth="5"
               strokeLinecap="round"
               strokeDasharray={circumference}
               strokeDashoffset={strokeDashoffset}
@@ -265,15 +264,14 @@ function ProgressRing({
           </svg>
           {/* Center text */}
           <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
-            <span className="text-2xl font-bold">{completed}</span>
-            <span className="text-xs opacity-80">из {total}</span>
+            <span className="text-lg font-bold leading-none">{completed}/{total}</span>
           </div>
         </div>
 
         {/* Text */}
         <div className="flex-1 text-white">
-          <h3 className="text-lg font-semibold mb-1">Прогресс дня</h3>
-          <p className="text-sm opacity-90 leading-snug">{phrase}</p>
+          <h3 className="text-base font-semibold">Прогресс дня</h3>
+          <p className="text-xs opacity-80 leading-tight">{phrase}</p>
         </div>
       </div>
     </div>
