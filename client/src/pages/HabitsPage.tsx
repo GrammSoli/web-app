@@ -355,6 +355,8 @@ function NewHabitModal({
   const [emoji, setEmoji] = useState('✨');
   const [color, setColor] = useState('#6366f1');
   const [selectedDays, setSelectedDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]); // All days by default
+  const [reminderEnabled, setReminderEnabled] = useState(false);
+  const [reminderTime, setReminderTime] = useState('09:00');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const colors = ['#6366f1', '#ec4899', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#84cc16'];
@@ -398,11 +400,20 @@ function NewHabitModal({
     setIsSubmitting(true);
     try {
       const { frequency, customDays } = getFrequencyData();
-      await onCreate({ name, emoji, color, frequency, customDays });
+      await onCreate({ 
+        name, 
+        emoji, 
+        color, 
+        frequency, 
+        customDays,
+        reminderTime: reminderEnabled ? reminderTime : undefined,
+      });
       setName('');
       setEmoji('✨');
       setColor('#6366f1');
       setSelectedDays([0, 1, 2, 3, 4, 5, 6]);
+      setReminderEnabled(false);
+      setReminderTime('09:00');
       onClose();
     } finally {
       setIsSubmitting(false);
@@ -561,6 +572,47 @@ function NewHabitModal({
                   (selectedDays.length === 2 && JSON.stringify([...selectedDays].sort()) !== JSON.stringify([5,6]))
                   ? `${selectedDays.length} ${selectedDays.length === 1 ? 'день' : selectedDays.length < 5 ? 'дня' : 'дней'} в неделю` : ''}
               </p>
+            </div>
+
+            {/* Reminder - Optional */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                  🔔 Напоминание
+                </p>
+                <button
+                  onClick={() => setReminderEnabled(!reminderEnabled)}
+                  className={`w-12 h-7 rounded-full transition-all relative ${
+                    reminderEnabled 
+                      ? 'bg-indigo-500' 
+                      : 'bg-gray-200 dark:bg-zinc-700'
+                  }`}
+                >
+                  <div 
+                    className={`absolute top-1 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+                      reminderEnabled ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
+              
+              {reminderEnabled && (
+                <div className="flex items-center gap-3">
+                  <Clock className="w-5 h-5 text-gray-400" />
+                  <input
+                    type="time"
+                    value={reminderTime}
+                    onChange={(e) => setReminderTime(e.target.value)}
+                    className="flex-1 px-4 py-3 rounded-xl border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none text-lg"
+                  />
+                </div>
+              )}
+              
+              {reminderEnabled && (
+                <p className="text-xs text-gray-400 dark:text-gray-500 text-center">
+                  Напоминание придёт в выбранное время по вашему часовому поясу
+                </p>
+              )}
             </div>
           </div>
         </div>

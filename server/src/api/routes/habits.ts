@@ -65,42 +65,55 @@ async function getHabitLimit(tier: string): Promise<number> {
 
 /**
  * Calculate streak for a habit
+ * Uses date strings for comparison to avoid timezone issues
  */
-function calculateHabitStreak(completions: { completedDate: Date }[]): { current: number; longest: number } {
+function calculateHabitStreak(
+  completions: { completedDate: Date }[], 
+  timezone: string = 'UTC'
+): { current: number; longest: number } {
   if (completions.length === 0) {
     return { current: 0, longest: 0 };
   }
 
-  // Sort by date descending
-  const dates = completions
-    .map(c => new Date(c.completedDate))
-    .sort((a, b) => b.getTime() - a.getTime());
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  // Get today in user's timezone
+  const todayStr = getTodayInTimezone(timezone);
   
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
+  // Convert completions to date strings in user's timezone
+  const formatter = new Intl.DateTimeFormat('en-CA', { 
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  
+  // Get unique date strings, sorted descending
+  const dateStrings = [...new Set(
+    completions.map(c => formatter.format(new Date(c.completedDate)))
+  )].sort((a, b) => b.localeCompare(a));
+  
+  // Get yesterday string
+  const todayDate = new Date(todayStr + 'T12:00:00Z');
+  const yesterdayDate = new Date(todayDate);
+  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+  const yesterdayStr = yesterdayDate.toISOString().split('T')[0];
 
   let currentStreak = 0;
   let longestStreak = 0;
-  let tempStreak = 1;
+  let tempStreak = 0;
   
-  // Check if completed today or yesterday to start streak
-  const lastCompletion = dates[0];
-  lastCompletion.setHours(0, 0, 0, 0);
+  // Check if last completion was today or yesterday
+  const lastCompletionStr = dateStrings[0];
   
-  if (lastCompletion.getTime() === today.getTime() || lastCompletion.getTime() === yesterday.getTime()) {
+  if (lastCompletionStr === todayStr || lastCompletionStr === yesterdayStr) {
     currentStreak = 1;
+    tempStreak = 1;
     
-    // Count consecutive days
-    for (let i = 1; i < dates.length; i++) {
-      const current = dates[i];
-      const prev = dates[i - 1];
-      current.setHours(0, 0, 0, 0);
-      prev.setHours(0, 0, 0, 0);
+    // Count consecutive days backwards
+    for (let i = 1; i < dateStrings.length; i++) {
+      const currentDate = new Date(dateStrings[i - 1] + 'T12:00:00Z');
+      const prevDate = new Date(dateStrings[i] + 'T12:00:00Z');
       
-      const diffDays = Math.floor((prev.getTime() - current.getTime()) / (1000 * 60 * 60 * 24));
+      const diffDays = Math.floor((currentDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
       
       if (diffDays === 1) {
         currentStreak++;
@@ -109,6 +122,22 @@ function calculateHabitStreak(completions: { completedDate: Date }[]): { current
         longestStreak = Math.max(longestStreak, tempStreak);
         tempStreak = 1;
         break;
+      }
+    }
+  } else {
+    // Streak broken, but still calculate longest
+    tempStreak = 1;
+    for (let i = 1; i < dateStrings.length; i++) {
+      const currentDate = new Date(dateStrings[i - 1] + 'T12:00:00Z');
+      const prevDate = new Date(dateStrings[i] + 'T12:00:00Z');
+      
+      const diffDays = Math.floor((currentDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
+      
+      if (diffDays === 1) {
+        tempStreak++;
+      } else {
+        longestStreak = Math.max(longestStreak, tempStreak);
+        tempStreak = 1;
       }
     }
   }
@@ -491,7 +520,7 @@ router.post('/:id/toggle', async (req: Request, res: Response) => {
       orderBy: { completedDate: 'desc' },
     });
     
-    const { current, longest } = calculateHabitStreak(allCompletions);
+    const { current, longest } = calculateHabitStreak(allCompletions, userTimezone);
     
     // Update habit stats
     await prisma.habit.update({
