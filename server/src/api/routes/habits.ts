@@ -94,7 +94,8 @@ function calculateHabitStreak(
   timezone: string = 'UTC',
   frequency: string = 'daily',
   customDays: number[] = [],
-  freezesRemaining: number = 0
+  freezesRemaining: number = 0,
+  habitCreatedAt?: Date
 ): { current: number; longest: number; freezeUsed: boolean } {
   if (completions.length === 0) {
     return { current: 0, longest: 0, freezeUsed: false };
@@ -110,6 +111,9 @@ function calculateHabitStreak(
     month: '2-digit',
     day: '2-digit',
   });
+  
+  // Get habit created date string (to not count days before creation as "missed")
+  const habitCreatedStr = habitCreatedAt ? formatter.format(new Date(habitCreatedAt)) : '2020-01-01';
   
   // Get unique date strings, sorted descending
   const completedDateStrings = new Set(
@@ -159,7 +163,11 @@ function calculateHabitStreak(
         lastScheduledDay = getPrevDay(lastScheduledDay);
       }
       
-      if (completedDateStrings.has(lastScheduledDay)) {
+      // Don't count days before habit was created as "missed"
+      if (lastScheduledDay < habitCreatedStr) {
+        // Habit didn't exist yet, no streak to calculate
+        streakDate = todayStr;
+      } else if (completedDateStrings.has(lastScheduledDay)) {
         // Yesterday was completed, today can still be done
         currentStreak = 1;
         streakDate = getPrevDay(lastScheduledDay);
@@ -171,7 +179,11 @@ function calculateHabitStreak(
           dayBeforeYesterday = getPrevDay(dayBeforeYesterday);
         }
         
-        if (completedDateStrings.has(dayBeforeYesterday)) {
+        // Don't apply freeze if day before yesterday is before habit creation
+        if (dayBeforeYesterday < habitCreatedStr) {
+          // Habit was just created yesterday or today, no freeze needed
+          streakDate = lastScheduledDay;
+        } else if (completedDateStrings.has(dayBeforeYesterday)) {
           // Use freeze to bridge the gap
           freezeUsedCount++;
           freezeUsed = true;
@@ -196,23 +208,28 @@ function calculateHabitStreak(
   
   // Continue counting backwards for current streak (with freeze)
   if (currentStreak > 0) {
-    while (streakDate > '2020-01-01') {
+    while (streakDate > '2020-01-01' && streakDate >= habitCreatedStr) {
       // Find the previous scheduled day
       while (!isScheduledDay(streakDate) && streakDate > '2020-01-01') {
         streakDate = getPrevDay(streakDate);
       }
       
-      if (streakDate <= '2020-01-01') break;
+      // Stop if we've gone before habit creation
+      if (streakDate < habitCreatedStr || streakDate <= '2020-01-01') break;
       
       if (completedDateStrings.has(streakDate)) {
         currentStreak++;
         streakDate = getPrevDay(streakDate);
       } else if (freezesRemaining > freezeUsedCount) {
-        // Try to use freeze for this gap
-        freezeUsedCount++;
-        freezeUsed = true;
-        // Don't increment streak for frozen day, just skip it
-        streakDate = getPrevDay(streakDate);
+        // Try to use freeze for this gap (but only if not before habit creation)
+        if (streakDate >= habitCreatedStr) {
+          freezeUsedCount++;
+          freezeUsed = true;
+          // Don't increment streak for frozen day, just skip it
+          streakDate = getPrevDay(streakDate);
+        } else {
+          break;
+        }
       } else {
         break; // Streak broken
       }
@@ -806,7 +823,8 @@ router.post('/:id/toggle', async (req: Request, res: Response) => {
       userTimezone,
       habit.frequency,
       habit.customDays,
-      freezesRemaining
+      freezesRemaining,
+      habit.createdAt
     );
     
     // If freeze was used, update user's freeze count (using raw SQL)
