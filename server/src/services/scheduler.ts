@@ -247,6 +247,109 @@ async function processHabitReminders(): Promise<void> {
 let scheduledTask: cron.ScheduledTask | null = null;
 
 /**
+ * Отправить уведомление о использованной заморозке
+ */
+async function sendFreezeNotification(
+  telegramId: bigint, 
+  habitName: string, 
+  streak: number, 
+  freezesRemaining: number
+): Promise<boolean> {
+  try {
+    const bot = getBot();
+    if (!bot) {
+      dbLogger.warn('Bot not initialized, cannot send freeze notification');
+      return false;
+    }
+
+    const webAppUrl = await configService.getString('bot.webapp_url') || 'https://mindful-journal.com';
+    
+    const message = `❄️ Вчера был трудный день? Я использовал заморозку, чтобы сохранить твой прогресс в привычке "${habitName}" (🔥 ${streak} ${streak === 1 ? 'день' : streak < 5 ? 'дня' : 'дней'}). Осталось заморозок: ${freezesRemaining}.`;
+    
+    const keyboard = new InlineKeyboard()
+      .webApp('📊 Открыть трекер', webAppUrl + '/habits');
+
+    await bot.api.sendMessage(telegramId.toString(), message, {
+      reply_markup: keyboard,
+    });
+
+    dbLogger.info({ telegramId: telegramId.toString(), habitName, streak }, 'Freeze notification sent');
+    return true;
+  } catch (error) {
+    dbLogger.error({ error, telegramId: telegramId.toString() }, 'Failed to send freeze notification');
+    return false;
+  }
+}
+
+/**
+ * Обработать утренние уведомления о заморозках (запускается в 09:00 по таймзоне пользователя)
+ */
+async function processFreezeNotifications(): Promise<void> {
+  try {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+    // Получаем пользователей, у которых вчера была использована заморозка
+    const usersWithFreezeUsed = await prisma.$queryRaw<Array<{
+      telegram_id: bigint;
+      timezone: string;
+      habit_name: string;
+      last_freeze_streak: number;
+      freezes_remaining: number;
+    }>>`
+      SELECT 
+        u.telegram_id,
+        u.timezone,
+        h.name as habit_name,
+        u.last_freeze_streak,
+        (
+          COALESCE((
+            SELECT CAST(value AS INTEGER) 
+            FROM app.app_config 
+            WHERE key = 'limits.' || u.subscription_tier || '.habit_freezes'
+          ), 1) - u.habit_freezes_used
+        ) as freezes_remaining
+      FROM app.users u
+      LEFT JOIN app.habits h ON h.id = u.last_freeze_habit_id
+      WHERE u.last_freeze_notification_date = ${yesterdayStr}::date
+        AND u.status = 'active'
+    `;
+
+    if (usersWithFreezeUsed.length === 0) {
+      return;
+    }
+
+    dbLogger.debug({ count: usersWithFreezeUsed.length }, 'Checking freeze notifications');
+
+    // Отправляем уведомления в 09:00 по таймзоне пользователя
+    for (const user of usersWithFreezeUsed) {
+      const currentTime = getCurrentTimeInTimezone(user.timezone);
+      
+      if (currentTime === '09:00') {
+        await sendFreezeNotification(
+          user.telegram_id,
+          user.habit_name || 'привычки',
+          user.last_freeze_streak || 0,
+          user.freezes_remaining || 0
+        );
+        
+        // Сбрасываем дату уведомления чтобы не отправлять повторно
+        await prisma.$executeRaw`
+          UPDATE app.users 
+          SET last_freeze_notification_date = NULL
+          WHERE telegram_id = ${user.telegram_id}
+        `;
+        
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+  } catch (error) {
+    dbLogger.error({ error }, 'Error processing freeze notifications');
+  }
+}
+
+/**
  * Запустить scheduler
  */
 export function startScheduler(): void {
@@ -254,6 +357,7 @@ export function startScheduler(): void {
   scheduledTask = cron.schedule('* * * * *', async () => {
     await processReminders();
     await processHabitReminders();
+    await processFreezeNotifications();
   });
 
   dbLogger.info('✅ Reminder scheduler started (every minute)');

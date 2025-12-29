@@ -827,14 +827,18 @@ router.post('/:id/toggle', async (req: Request, res: Response) => {
       habit.dateCreated
     );
     
-    // If freeze was used, update user's freeze count (using raw SQL)
+    // If freeze was used, update user's freeze count and notification tracking
     if (freezeUsed && freezesRemaining > 0) {
       const newFreezesUsed = needsReset ? 1 : freezesUsed + 1;
+      const todayDate = new Date(new Date().toISOString().split('T')[0]);
       await prisma.$executeRaw`
         UPDATE app.users SET 
           habit_freezes_used = ${newFreezesUsed},
           habit_freezes_reset_month = ${currentMonthStart},
-          habit_freezes_available = ${freezeLimit}
+          habit_freezes_available = ${freezeLimit},
+          last_freeze_notification_date = ${todayDate}::date,
+          last_freeze_habit_id = ${id}::uuid,
+          last_freeze_streak = ${current}
         WHERE id = ${user.id}::uuid
       `;
       freezesUsed = newFreezesUsed;
