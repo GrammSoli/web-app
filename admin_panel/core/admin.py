@@ -11,7 +11,7 @@ from django.contrib import admin, messages
 from unfold.admin import ModelAdmin
 from unfold.decorators import display
 
-from .models import User, JournalEntry, Transaction, Subscription, Broadcast, UsageLog, AppConfig, UserSegment, TrafficSource
+from .models import User, JournalEntry, Transaction, Subscription, Broadcast, UsageLog, AppConfig, UserSegment, TrafficSource, Habit, HabitCompletion
 from .actions import (
     send_broadcast_action, 
     send_welcome_message,
@@ -38,6 +38,7 @@ class UserAdmin(ModelAdmin):
         'first_name',
         'display_subscription',
         'total_entries_count',
+        'display_habits_count',
         'date_created',
     ]
     
@@ -170,6 +171,12 @@ class UserAdmin(ModelAdmin):
             'pro': '💎 Pro',
         }
         return tier_labels.get(obj.subscription_tier, obj.subscription_tier or '🆓 Free')
+    
+    @display(description="Привычки")
+    def display_habits_count(self, obj):
+        """Отображение количества привычек пользователя."""
+        count = Habit.objects.filter(user_id=obj.id, is_archived=False).count()
+        return f"📊 {count}" if count > 0 else "—"
 
 
 @admin.register(JournalEntry)
@@ -898,3 +905,113 @@ class TrafficSourceAdmin(ModelAdmin):
                 updated += 1
         
         self.message_user(request, f"✅ Обновлено источников: {updated}", messages.SUCCESS)
+
+
+# ============================================================================
+# ПРИВЫЧКИ (Habit Tracker)
+# ============================================================================
+
+@admin.register(Habit)
+class HabitAdmin(ModelAdmin):
+    """Админ-класс для управления привычками."""
+    
+    list_display = [
+        'id',
+        'display_habit_name',
+        'user',
+        'frequency',
+        'display_streak',
+        'total_completions',
+        'is_active',
+        'date_created',
+    ]
+    
+    search_fields = [
+        'name',
+        'user__telegram_id',
+        'user__username',
+    ]
+    
+    list_filter = [
+        'frequency',
+        'is_active',
+        'is_archived',
+        'date_created',
+    ]
+    
+    readonly_fields = [
+        'id',
+        'user',
+        'current_streak',
+        'longest_streak',
+        'total_completions',
+        'date_created',
+        'date_updated',
+    ]
+    
+    ordering = ['-date_created']
+    list_per_page = 50
+    
+    fieldsets = (
+        ('Основное', {
+            'fields': ('user', 'name', 'emoji', 'color', 'frequency', 'custom_days')
+        }),
+        ('Статистика', {
+            'fields': ('current_streak', 'longest_streak', 'total_completions'),
+        }),
+        ('Настройки', {
+            'fields': ('reminder_time', 'is_active', 'is_archived', 'sort_order'),
+        }),
+        ('Метаданные', {
+            'fields': ('date_created', 'date_updated'),
+            'classes': ('collapse',),
+        }),
+    )
+    
+    @display(description="Привычка")
+    def display_habit_name(self, obj):
+        return f"{obj.emoji} {obj.name}"
+    
+    @display(description="Стрик")
+    def display_streak(self, obj):
+        if obj.current_streak > 0:
+            return f"🔥 {obj.current_streak} (макс: {obj.longest_streak})"
+        return f"— (макс: {obj.longest_streak})"
+
+
+@admin.register(HabitCompletion)
+class HabitCompletionAdmin(ModelAdmin):
+    """Админ-класс для выполнений привычек."""
+    
+    list_display = [
+        'id',
+        'display_habit',
+        'user',
+        'completed_date',
+        'date_created',
+    ]
+    
+    search_fields = [
+        'habit__name',
+        'user__telegram_id',
+        'user__username',
+    ]
+    
+    list_filter = [
+        'completed_date',
+        'date_created',
+    ]
+    
+    readonly_fields = [
+        'id',
+        'habit',
+        'user',
+        'date_created',
+    ]
+    
+    ordering = ['-completed_date']
+    list_per_page = 100
+    
+    @display(description="Привычка")
+    def display_habit(self, obj):
+        return f"{obj.habit.emoji} {obj.habit.name}" if obj.habit else "—"
