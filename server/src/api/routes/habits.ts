@@ -380,6 +380,29 @@ router.get('/', async (req: Request, res: Response) => {
     // Total habits count for limits (all habits, not filtered)
     const totalHabitsForLimit = habits.length;
     
+    // Calculate completion dots for week strip (considering frequency)
+    const completionDots: Record<string, number> = {};
+    for (const dateStr of weekDates) {
+      const dayOfWeek = getDayOfWeekFromDateStr(dateStr);
+      let count = 0;
+      
+      for (const habit of habits) {
+        // Only count if habit is scheduled for this day
+        if (shouldShowHabitOnDay(habit.frequency, habit.customDays, dayOfWeek)) {
+          const hasCompletion = habit.completions.some(c => 
+            new Date(c.completedDate).toISOString().split('T')[0] === dateStr
+          );
+          if (hasCompletion) {
+            count++;
+          }
+        }
+      }
+      
+      if (count > 0) {
+        completionDots[dateStr] = count;
+      }
+    }
+    
     return res.json({
       habits: habitsWithStats,
       stats: {
@@ -390,6 +413,7 @@ router.get('/', async (req: Request, res: Response) => {
         totalHabitsAll: totalHabitsForLimit, // Total habits for UI info
       },
       weekDates,
+      completionDots, // Pre-calculated with frequency in mind
     });
   } catch (error) {
     apiLogger.error({ error }, 'Failed to get habits');
@@ -647,8 +671,9 @@ router.post('/:id/toggle', async (req: Request, res: Response) => {
       },
     });
     
-    // Check if all habits completed for the target date (for confetti)
-    // Use date strings for consistent comparison
+    // Check if all habits scheduled for the target day are completed (for confetti)
+    const targetDayOfWeek = getDayOfWeekFromDateStr(targetDateStr);
+    
     const allHabits = await prisma.habit.findMany({
       where: {
         userId: user.id,
@@ -667,7 +692,12 @@ router.post('/:id/toggle', async (req: Request, res: Response) => {
       },
     });
     
-    const allCompleted = allHabits.length > 0 && allHabits.every(h => h.completions.length > 0);
+    // Filter to only habits scheduled for this day
+    const scheduledHabits = allHabits.filter(h => 
+      shouldShowHabitOnDay(h.frequency, h.customDays, targetDayOfWeek)
+    );
+    
+    const allCompleted = scheduledHabits.length > 0 && scheduledHabits.every(h => h.completions.length > 0);
     
     apiLogger.info({ 
       userId: user.id, 
@@ -675,6 +705,7 @@ router.post('/:id/toggle', async (req: Request, res: Response) => {
       completed, 
       streak: current,
       allCompleted,
+      scheduledCount: scheduledHabits.length,
     }, 'Habit toggled');
     
     return res.json({
@@ -727,9 +758,13 @@ router.post('/reorder', async (req: Request, res: Response) => {
 router.get('/stats', async (req: Request, res: Response) => {
   try {
     const user = req.user!;
+    const userTimezone = req.userTimezone || 'UTC';
     const days = parseInt(req.query.days as string) || 30;
     
-    const startDate = new Date();
+    const todayStr = getTodayInTimezone(userTimezone);
+    const todayDate = new Date(todayStr + 'T12:00:00Z');
+    
+    const startDate = new Date(todayDate);
     startDate.setDate(startDate.getDate() - days);
     startDate.setHours(0, 0, 0, 0);
     
@@ -741,7 +776,7 @@ router.get('/stats', async (req: Request, res: Response) => {
       },
       include: {
         habit: {
-          select: { name: true, emoji: true },
+          select: { name: true, emoji: true, frequency: true, customDays: true },
         },
       },
     });
@@ -753,7 +788,7 @@ router.get('/stats', async (req: Request, res: Response) => {
       byDate[dateStr] = (byDate[dateStr] || 0) + 1;
     });
     
-    // Calculate completion rate
+    // Calculate completion rate (considering frequency)
     const habits = await prisma.habit.findMany({
       where: {
         userId: user.id,
@@ -762,7 +797,21 @@ router.get('/stats', async (req: Request, res: Response) => {
       },
     });
     
-    const totalPossible = habits.length * days;
+    // Calculate total possible completions (sum of scheduled days per habit)
+    let totalPossible = 0;
+    for (let i = 0; i < days; i++) {
+      const checkDate = new Date(todayDate);
+      checkDate.setDate(checkDate.getDate() - i);
+      const dateStr = checkDate.toISOString().split('T')[0];
+      const dayOfWeek = getDayOfWeekFromDateStr(dateStr);
+      
+      for (const habit of habits) {
+        if (shouldShowHabitOnDay(habit.frequency, habit.customDays, dayOfWeek)) {
+          totalPossible++;
+        }
+      }
+    }
+    
     const totalCompleted = completions.length;
     const completionRate = totalPossible > 0 ? (totalCompleted / totalPossible) * 100 : 0;
     
@@ -777,6 +826,7 @@ router.get('/stats', async (req: Request, res: Response) => {
     return res.json({
       days,
       totalCompletions: totalCompleted,
+      totalPossible,
       completionRate: Math.round(completionRate * 10) / 10,
       byDate,
       bestDay,

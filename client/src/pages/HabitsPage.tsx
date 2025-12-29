@@ -821,6 +821,7 @@ export default function HabitsPage() {
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [completionDots, setCompletionDots] = useState<Record<string, number>>({});
 
   // Check if selected date is in the future
   const isFutureDate = startOfDay(selectedDate) > startOfDay(new Date());
@@ -843,9 +844,13 @@ export default function HabitsPage() {
     try {
       setError(null);
       const dateStr = format(selectedDate, 'yyyy-MM-dd');
-      const response: HabitsResponse = await api.habits.getAll(dateStr);
+      const response = await api.habits.getAll(dateStr) as HabitsResponse & { completionDots?: Record<string, number> };
       setHabits(response.habits);
       setStats(response.stats);
+      // Use server-calculated completionDots if available
+      if (response.completionDots) {
+        setCompletionDots(response.completionDots);
+      }
     } catch (err) {
       console.error('Failed to fetch habits:', err);
       setError('Не удалось загрузить привычки');
@@ -857,14 +862,6 @@ export default function HabitsPage() {
   useEffect(() => {
     fetchHabits();
   }, [fetchHabits]);
-
-  // Calculate completion dots for week strip
-  const completionDots = habits.reduce((acc, habit) => {
-    habit.completedDates.forEach(date => {
-      acc[date] = (acc[date] || 0) + 1;
-    });
-    return acc;
-  }, {} as Record<string, number>);
 
   // Toggle habit
   const handleToggle = async (habitId: string) => {
