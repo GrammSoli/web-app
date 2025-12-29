@@ -10,7 +10,7 @@ from django.db.models import Count, Sum, Avg, F
 from django.db.models.functions import TruncDate
 from django.utils import timezone
 
-from .models import User, JournalEntry, Transaction, Subscription, UsageLog
+from .models import User, JournalEntry, Transaction, Subscription, UsageLog, Habit, HabitCompletion
 
 
 def get_date_range(period: str = 'today', start_date=None, end_date=None):
@@ -448,6 +448,160 @@ def get_entries_chart_data(days=14):
 
 
 # ============================================================================
+# БЛОК 4: ПРИВЫЧКИ (Habit Tracker) 📊
+# ============================================================================
+
+def get_habits_stats(start_date=None, end_date=None):
+    """
+    Общая статистика по привычкам.
+    """
+    from django.db.models import Max
+    
+    now = timezone.now()
+    today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    # Если даты не заданы, берём за последние 30 дней
+    if not start_date:
+        start_date = today - timedelta(days=30)
+    if not end_date:
+        end_date = now
+    
+    # Общее количество привычек
+    total_habits = Habit.objects.filter(is_archived=False).count()
+    active_habits = Habit.objects.filter(is_active=True, is_archived=False).count()
+    
+    # Пользователей с привычками
+    users_with_habits = Habit.objects.filter(
+        is_archived=False
+    ).values('user_id').distinct().count()
+    
+    # Всего пользователей
+    total_users = User.objects.count()
+    
+    # Привычек на пользователя (в среднем)
+    habits_per_user = round(total_habits / users_with_habits, 2) if users_with_habits > 0 else 0
+    
+    # Процент пользователей с привычками
+    adoption_rate = round(users_with_habits / total_users * 100, 1) if total_users > 0 else 0
+    
+    # Выполнения за период
+    completions_in_period = HabitCompletion.objects.filter(
+        completed_date__gte=start_date,
+        completed_date__lt=end_date
+    ).count()
+    
+    # Выполнения сегодня
+    completions_today = HabitCompletion.objects.filter(
+        completed_date__gte=today
+    ).count()
+    
+    # Активных юзеров с привычками сегодня
+    active_users_today = HabitCompletion.objects.filter(
+        completed_date__gte=today
+    ).values('user_id').distinct().count()
+    
+    # Топ-5 привычек по выполнениям
+    top_habits = Habit.objects.filter(
+        is_archived=False
+    ).order_by('-total_completions')[:5]
+    
+    top_habits_list = [
+        {
+            'name': h.name,
+            'emoji': h.emoji,
+            'completions': h.total_completions,
+            'streak': h.current_streak,
+        }
+        for h in top_habits
+    ]
+    
+    # Средний стрик
+    avg_streak = Habit.objects.filter(
+        is_active=True,
+        is_archived=False
+    ).aggregate(avg=Avg('current_streak'))['avg'] or 0
+    
+    # Максимальный стрик
+    max_streak = Habit.objects.filter(
+        is_archived=False
+    ).aggregate(max=Max('longest_streak'))['max'] or 0
+    
+    # Распределение по частоте
+    frequency_distribution = Habit.objects.filter(
+        is_archived=False
+    ).values('frequency').annotate(
+        count=Count('id')
+    ).order_by('-count')
+    
+    frequency_stats = {item['frequency']: item['count'] for item in frequency_distribution}
+    
+    return {
+        'total_habits': total_habits,
+        'active_habits': active_habits,
+        'users_with_habits': users_with_habits,
+        'habits_per_user': habits_per_user,
+        'adoption_rate': adoption_rate,
+        'completions_in_period': completions_in_period,
+        'completions_today': completions_today,
+        'active_users_today': active_users_today,
+        'top_habits': top_habits_list,
+        'avg_streak': round(avg_streak, 1),
+        'max_streak': max_streak,
+        'frequency_distribution': frequency_stats,
+    }
+
+
+def get_habits_chart_data(days=14):
+    """
+    Данные для графика: Выполнения привычек по дням.
+    """
+    now = timezone.now()
+    today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    labels = []
+    completions_data = []
+    users_data = []
+    
+    for i in range(days - 1, -1, -1):
+        day_start = today - timedelta(days=i)
+        day_end = day_start + timedelta(days=1)
+        
+        labels.append(day_start.strftime('%d.%m'))
+        
+        # Выполнений за день
+        completions = HabitCompletion.objects.filter(
+            completed_date__gte=day_start,
+            completed_date__lt=day_end
+        ).count()
+        completions_data.append(completions)
+        
+        # Активных пользователей с привычками за день
+        active = HabitCompletion.objects.filter(
+            completed_date__gte=day_start,
+            completed_date__lt=day_end
+        ).values('user_id').distinct().count()
+        users_data.append(active)
+    
+    return {
+        'labels': labels,
+        'datasets': [
+            {
+                'label': 'Выполнений привычек',
+                'data': completions_data,
+                'borderColor': '#22C55E',
+                'backgroundColor': 'rgba(34, 197, 94, 0.1)',
+            },
+            {
+                'label': 'Активных пользователей',
+                'data': users_data,
+                'borderColor': '#8B5CF6',
+                'backgroundColor': 'rgba(139, 92, 246, 0.1)',
+            }
+        ]
+    }
+
+
+# ============================================================================
 # ВОРОНКА КОНВЕРСИИ
 # ============================================================================
 
@@ -590,11 +744,15 @@ def get_dashboard_data(period='today', start_date=None, end_date=None):
         # Блок 4: Воронка конверсии
         'funnel': get_conversion_funnel(30),
         
+        # Блок 5: Привычки
+        'habits': get_habits_stats(date_start, date_end),
+        
         # Графики
         'charts': {
             'users': get_users_chart_data(14),
             'revenue': get_revenue_chart_data(14),
             'entries': get_entries_chart_data(14),
+            'habits': get_habits_chart_data(14),
         },
         
         # Метаданные

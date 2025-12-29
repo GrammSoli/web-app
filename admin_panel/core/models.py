@@ -476,3 +476,85 @@ class TrafficSource(models.Model):
     def deep_link(self):
         """Ссылка для привлечения."""
         return f"t.me/MindfulJournalBot?start={self.slug}"
+
+
+class Habit(models.Model):
+    """
+    Модель привычки.
+    Соответствует таблице app.habits.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        db_column='user_id',
+        related_name='habits',
+        verbose_name='Пользователь'
+    )
+    name = models.CharField(max_length=100, verbose_name='Название')
+    emoji = models.CharField(max_length=10, default='✨', verbose_name='Эмодзи')
+    color = models.CharField(max_length=20, default='#6366f1', verbose_name='Цвет')
+    frequency = models.CharField(max_length=20, default='daily', verbose_name='Частота')
+    custom_days = ArrayField(
+        models.IntegerField(),
+        blank=True,
+        null=True,
+        default=list,
+        verbose_name='Дни недели'
+    )
+    reminder_time = models.CharField(max_length=5, blank=True, null=True, verbose_name='Время напоминания')
+    
+    current_streak = models.IntegerField(default=0, verbose_name='Текущий стрик')
+    longest_streak = models.IntegerField(default=0, verbose_name='Лучший стрик')
+    total_completions = models.IntegerField(default=0, verbose_name='Всего выполнений')
+    
+    sort_order = models.IntegerField(default=0, verbose_name='Порядок')
+    is_active = models.BooleanField(default=True, verbose_name='Активна')
+    is_archived = models.BooleanField(default=False, verbose_name='В архиве')
+    
+    date_created = models.DateTimeField(auto_now_add=True, verbose_name='Создана')
+    date_updated = models.DateTimeField(auto_now=True, verbose_name='Обновлена')
+    
+    class Meta:
+        managed = False
+        db_table = 'habits'
+        verbose_name = 'Привычка'
+        verbose_name_plural = 'Привычки'
+        ordering = ['-date_created']
+
+    def __str__(self):
+        return f"{self.emoji} {self.name} ({self.user})"
+
+
+class HabitCompletion(models.Model):
+    """
+    Модель выполнения привычки.
+    Соответствует таблице app.habit_completions.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    habit = models.ForeignKey(
+        Habit,
+        on_delete=models.CASCADE,
+        db_column='habit_id',
+        related_name='completions',
+        verbose_name='Привычка'
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        db_column='user_id',
+        related_name='habit_completions',
+        verbose_name='Пользователь'
+    )
+    completed_date = models.DateTimeField(verbose_name='Дата выполнения')
+    date_created = models.DateTimeField(auto_now_add=True, verbose_name='Создано')
+    
+    class Meta:
+        managed = False
+        db_table = 'habit_completions'
+        verbose_name = 'Выполнение привычки'
+        verbose_name_plural = 'Выполнения привычек'
+        ordering = ['-completed_date']
+
+    def __str__(self):
+        return f"{self.habit.name} - {self.completed_date.strftime('%d.%m.%Y') if self.completed_date else 'N/A'}"

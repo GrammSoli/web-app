@@ -546,7 +546,70 @@
         </div>
     </div>
     
-    <!-- БЛОК 4: ВОРОНКА КОНВЕРСИИ -->
+    <!-- БЛОК 4: ПРИВЫЧКИ -->
+    {% if dashboard.habits %}
+    <div class="dashboard-section">
+        <h2 class="section-title">📊 Привычки (Habit Tracker)</h2>
+        <div class="kpi-grid">
+            <div class="kpi-card" style="border-top: 4px solid #22C55E;">
+                <div class="kpi-label">Всего привычек</div>
+                <div class="kpi-value">{{ dashboard.habits.total_habits }}</div>
+                <div class="kpi-subtitle">{{ dashboard.habits.active_habits }} активных</div>
+            </div>
+            
+            <div class="kpi-card" style="border-top: 4px solid #8B5CF6;">
+                <div class="kpi-label">Пользователей с привычками</div>
+                <div class="kpi-value">{{ dashboard.habits.users_with_habits }}</div>
+                <div class="kpi-subtitle">{{ dashboard.habits.adoption_rate }}% от всех пользователей</div>
+            </div>
+            
+            <div class="kpi-card" style="border-top: 4px solid #F59E0B;">
+                <div class="kpi-label">Привычек на пользователя</div>
+                <div class="kpi-value">{{ dashboard.habits.habits_per_user }}</div>
+                <div class="kpi-subtitle">в среднем</div>
+            </div>
+            
+            <div class="kpi-card" style="border-top: 4px solid #3B82F6;">
+                <div class="kpi-label">Выполнений сегодня</div>
+                <div class="kpi-value">{{ dashboard.habits.completions_today }}</div>
+                <div class="kpi-subtitle">{{ dashboard.habits.active_users_today }} активных пользователей</div>
+            </div>
+            
+            <div class="kpi-card" style="border-top: 4px solid #EC4899;">
+                <div class="kpi-label">Средний стрик</div>
+                <div class="kpi-value">{{ dashboard.habits.avg_streak }}</div>
+                <div class="kpi-subtitle">Макс. стрик: {{ dashboard.habits.max_streak }} дней 🔥</div>
+            </div>
+            
+            <div class="kpi-card" style="border-top: 4px solid #10B981;">
+                <div class="kpi-label">Выполнений за период</div>
+                <div class="kpi-value">{{ dashboard.habits.completions_in_period }}</div>
+                <div class="kpi-subtitle">выполнений привычек</div>
+            </div>
+        </div>
+        
+        {% if dashboard.habits.top_habits %}
+        <div style="margin-top: 20px;">
+            <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 12px; color: var(--color-text-primary);">🏆 Топ привычек</h3>
+            <div style="display: flex; flex-wrap: wrap; gap: 12px;">
+                {% for habit in dashboard.habits.top_habits %}
+                <div style="background: var(--color-bg-primary); padding: 12px 16px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 24px;">{{ habit.emoji }}</span>
+                    <div>
+                        <div style="font-weight: 600;">{{ habit.name }}</div>
+                        <div style="font-size: 12px; color: var(--color-text-secondary);">
+                            {{ habit.completions }} выполнений • 🔥 {{ habit.streak }} дней
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+    
+    <!-- БЛОК 5: ВОРОНКА КОНВЕРСИИ -->
     <div class="dashboard-section">
         <h2 class="section-title">🎯 Воронка конверсии ({{ dashboard.funnel.period_days }} дней)</h2>
         <div class="funnel-container">
@@ -606,6 +669,15 @@
                     <canvas id="revenueChart"></canvas>
                 </div>
             </div>
+            
+            {% if dashboard.charts.habits %}
+            <div class="chart-card">
+                <div class="chart-title">📊 Привычки (14 дней)</div>
+                <div class="chart-container">
+                    <canvas id="habitsChart"></canvas>
+                </div>
+            </div>
+            {% endif %}
         </div>
     </div>
     
@@ -744,6 +816,30 @@
                 }
             }
         });
+        
+        // График привычек
+        const habitsCanvas = document.getElementById('habitsChart');
+        if (habitsCanvas && dashboardData.charts.habits) {
+            const habitsCtx = habitsCanvas.getContext('2d');
+            new Chart(habitsCtx, {
+                type: 'line',
+                data: dashboardData.charts.habits,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
     });
     
     // Функции фильтра периода

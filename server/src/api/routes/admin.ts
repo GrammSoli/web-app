@@ -280,4 +280,110 @@ router.get('/transactions', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * GET /api/admin/habits-stats
+ * Статистика по привычкам для админ-дашборда
+ */
+router.get('/habits-stats', async (_req: Request, res: Response) => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const weekAgo = new Date(today);
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    
+    const [
+      totalHabits,
+      totalCompletions,
+      activeHabitsUsers,
+      todayCompletions,
+      weekCompletions,
+      topHabits,
+      avgHabitsPerUser,
+      completionsByDay,
+    ] = await Promise.all([
+      // Всего привычек
+      prisma.habit.count({
+        where: { isArchived: false },
+      }),
+      // Всего выполнений
+      prisma.habitCompletion.count(),
+      // Пользователей с активными привычками
+      prisma.habit.groupBy({
+        by: ['userId'],
+        where: { isArchived: false, isActive: true },
+        _count: true,
+      }),
+      // Выполнений сегодня
+      prisma.habitCompletion.count({
+        where: { completedDate: { gte: today } },
+      }),
+      // Выполнений за неделю
+      prisma.habitCompletion.count({
+        where: { completedDate: { gte: weekAgo } },
+      }),
+      // Топ-5 привычек по выполнениям
+      prisma.habit.findMany({
+        where: { isArchived: false },
+        select: {
+          id: true,
+          name: true,
+          emoji: true,
+          totalCompletions: true,
+          currentStreak: true,
+          user: {
+            select: { firstName: true, username: true },
+          },
+        },
+        orderBy: { totalCompletions: 'desc' },
+        take: 5,
+      }),
+      // Среднее кол-во привычек на пользователя
+      prisma.$queryRaw<[{ avg: number }]>`
+        SELECT AVG(habit_count)::float as avg FROM (
+          SELECT COUNT(*) as habit_count FROM app.habits 
+          WHERE is_archived = false AND is_active = true
+          GROUP BY user_id
+        ) counts
+      `,
+      // Выполнения по дням за неделю
+      prisma.$queryRaw<Array<{ date: Date; count: bigint }>>`
+        SELECT DATE(completed_date) as date, COUNT(*) as count
+        FROM app.habit_completions
+        WHERE completed_date >= ${weekAgo}
+        GROUP BY DATE(completed_date)
+        ORDER BY date ASC
+      `,
+    ]);
+    
+    res.json({
+      overview: {
+        totalHabits,
+        totalCompletions,
+        usersWithHabits: activeHabitsUsers.length,
+        avgHabitsPerUser: avgHabitsPerUser[0]?.avg || 0,
+      },
+      activity: {
+        todayCompletions,
+        weekCompletions,
+        completionsByDay: completionsByDay.map(d => ({
+          date: d.date.toISOString().split('T')[0],
+          count: Number(d.count),
+        })),
+      },
+      topHabits: topHabits.map(h => ({
+        id: h.id,
+        name: h.name,
+        emoji: h.emoji,
+        totalCompletions: h.totalCompletions,
+        currentStreak: h.currentStreak,
+        user: h.user.firstName || h.user.username || 'Unknown',
+      })),
+    });
+  } catch (error) {
+    apiLogger.error({ error }, 'Failed to get habits stats');
+    res.status(500).json({ error: 'Failed to get habits stats' });
+  }
+});
+
 export default router;
