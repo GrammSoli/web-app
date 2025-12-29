@@ -925,10 +925,6 @@ export default function HabitsPage() {
           limit: response.freezeInfo.limit,
           remaining: response.freezeInfo.remaining,
         });
-        // Show toast if freeze was applied
-        if (response.freezeInfo.freezeApplied) {
-          setToastMessage('❄️ Право на ошибку использовано! Стрик сохранён');
-        }
       }
 
       // Confetti if all completed!

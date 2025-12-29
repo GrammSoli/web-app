@@ -168,7 +168,6 @@ export interface HabitToggleResponse {
     used: number;
     limit: number;
     remaining: number;
-    freezeApplied?: boolean;
   };
 }
 
