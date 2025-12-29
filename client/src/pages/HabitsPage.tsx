@@ -20,6 +20,7 @@ import {
   Sparkles, Dumbbell, BookOpen, PersonStanding, Droplets, Bike, Target, Moon,
   Salad, Brain, Palette, Music, Heart, Pill, Coffee, Cigarette, Bell, CalendarDays,
   Footprints, Smile, Sun, Zap, Leaf, Apple, Pencil, Gamepad2, Languages, Bed,
+  Snowflake,
   type LucideIcon
 } from 'lucide-react';
 import {
@@ -819,6 +820,7 @@ export default function HabitsPage() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [habits, setHabits] = useState<Habit[]>([]);
   const [stats, setStats] = useState({ totalHabits: 0, completedToday: 0, maxHabits: 6, canCreateMore: true });
+  const [freezeInfo, setFreezeInfo] = useState<{ used: number; limit: number; remaining: number } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isTogglingId, setIsTogglingId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -853,6 +855,10 @@ export default function HabitsPage() {
       setStats(response.stats);
       // Use server-calculated completionDots
       setCompletionDots(response.completionDots || {});
+      // Update freeze info
+      if (response.freezeInfo) {
+        setFreezeInfo(response.freezeInfo);
+      }
     } catch (err) {
       console.error('Failed to fetch habits:', err);
       setError('Не удалось загрузить привычки');
@@ -910,6 +916,19 @@ export default function HabitsPage() {
         }
         return newDots;
       });
+
+      // Update freeze info if returned
+      if (response.freezeInfo) {
+        setFreezeInfo({
+          used: response.freezeInfo.used,
+          limit: response.freezeInfo.limit,
+          remaining: response.freezeInfo.remaining,
+        });
+        // Show toast if freeze was applied
+        if (response.freezeInfo.freezeApplied) {
+          setToastMessage('❄️ Право на ошибку использовано! Стрик сохранён');
+        }
+      }
 
       // Confetti if all completed!
       if (response.allCompleted) {
@@ -1018,9 +1037,23 @@ export default function HabitsPage() {
       <div className="min-h-screen bg-gray-50 dark:bg-zinc-950 pb-24">
         {/* Header */}
         <div className="bg-gradient-to-b from-indigo-500/10 to-transparent px-4 pt-4 pb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-          Трекер привычек
-        </h1>
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            Трекер привычек
+          </h1>
+          {/* Freeze Info Badge */}
+          {freezeInfo && freezeInfo.limit > 0 && (
+            <div 
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-100 dark:bg-cyan-900/40 rounded-full"
+              title="Право на ошибку: пропуски без потери стрика"
+            >
+              <Snowflake className="w-4 h-4 text-cyan-500" />
+              <span className="text-sm font-medium text-cyan-700 dark:text-cyan-300">
+                {freezeInfo.remaining}
+              </span>
+            </div>
+          )}
+        </div>
         
         {/* Week Strip */}
         <WeekStrip 

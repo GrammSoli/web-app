@@ -64,18 +64,40 @@ async function getHabitLimit(tier: string): Promise<number> {
 }
 
 /**
- * Calculate streak for a habit considering frequency
+ * Get habit freeze limit for user's tier
+ */
+async function getFreezeLimit(tier: string): Promise<number> {
+  const bypassTiers = await configService.getBool('feature.bypass_tiers', false);
+  
+  if (bypassTiers) {
+    return configService.getNumber('limits.bypass.habit_freezes', 3);
+  }
+  
+  switch (tier) {
+    case 'premium':
+      return configService.getNumber('limits.premium.habit_freezes', 3);
+    case 'basic':
+      return configService.getNumber('limits.basic.habit_freezes', 2);
+    default:
+      return configService.getNumber('limits.free.habit_freezes', 1);
+  }
+}
+
+/**
+ * Calculate streak for a habit considering frequency and freeze
  * Uses date strings for comparison to avoid timezone issues
  * Skips non-scheduled days when calculating streaks
+ * Uses freeze to allow 1 missed day without breaking streak
  */
 function calculateHabitStreak(
   completions: { completedDate: Date }[], 
   timezone: string = 'UTC',
   frequency: string = 'daily',
-  customDays: number[] = []
-): { current: number; longest: number } {
+  customDays: number[] = [],
+  freezesRemaining: number = 0
+): { current: number; longest: number; freezeUsed: boolean } {
   if (completions.length === 0) {
-    return { current: 0, longest: 0 };
+    return { current: 0, longest: 0, freezeUsed: false };
   }
 
   // Get today in user's timezone
@@ -115,16 +137,13 @@ function calculateHabitStreak(
     checkDate = getPrevDay(checkDate);
   }
   
-  // Calculate current streak going backwards
+  // Calculate current streak going backwards (with freeze support)
   let currentStreak = 0;
+  let freezeUsedCount = 0;
+  let freezeUsed = false;
   let streakDate = checkDate;
   
   // Check if the most recent scheduled day was completed
-  // Allow current streak if:
-  // 1. Today is scheduled and completed, OR
-  // 2. Today is not scheduled and the last scheduled day was completed, OR
-  // 3. Today is scheduled but not completed yet, and yesterday (last scheduled day) was completed
-  
   const todayIsScheduled = isScheduledDay(todayStr);
   const todayCompleted = completedDateStrings.has(todayStr);
   
@@ -141,10 +160,29 @@ function calculateHabitStreak(
       }
       
       if (completedDateStrings.has(lastScheduledDay)) {
+        // Yesterday was completed, today can still be done
         currentStreak = 1;
         streakDate = getPrevDay(lastScheduledDay);
+      } else if (freezesRemaining > freezeUsedCount) {
+        // Yesterday was NOT completed, but we can use freeze
+        // Check if the day before yesterday was completed
+        let dayBeforeYesterday = getPrevDay(lastScheduledDay);
+        while (!isScheduledDay(dayBeforeYesterday) && dayBeforeYesterday > '2020-01-01') {
+          dayBeforeYesterday = getPrevDay(dayBeforeYesterday);
+        }
+        
+        if (completedDateStrings.has(dayBeforeYesterday)) {
+          // Use freeze to bridge the gap
+          freezeUsedCount++;
+          freezeUsed = true;
+          currentStreak = 1; // Start from the frozen day
+          streakDate = getPrevDay(dayBeforeYesterday);
+        } else {
+          // Streak is broken (more than 1 day gap)
+          streakDate = lastScheduledDay;
+        }
       } else {
-        // Streak is broken
+        // Streak is broken, no freeze available
         streakDate = lastScheduledDay;
       }
     }
@@ -156,7 +194,7 @@ function calculateHabitStreak(
     }
   }
   
-  // Continue counting backwards for current streak
+  // Continue counting backwards for current streak (with freeze)
   if (currentStreak > 0) {
     while (streakDate > '2020-01-01') {
       // Find the previous scheduled day
@@ -168,6 +206,12 @@ function calculateHabitStreak(
       
       if (completedDateStrings.has(streakDate)) {
         currentStreak++;
+        streakDate = getPrevDay(streakDate);
+      } else if (freezesRemaining > freezeUsedCount) {
+        // Try to use freeze for this gap
+        freezeUsedCount++;
+        freezeUsed = true;
+        // Don't increment streak for frozen day, just skip it
         streakDate = getPrevDay(streakDate);
       } else {
         break; // Streak broken
@@ -212,7 +256,7 @@ function calculateHabitStreak(
   
   longestStreak = Math.max(longestStreak, tempStreak, currentStreak);
   
-  return { current: currentStreak, longest: longestStreak };
+  return { current: currentStreak, longest: longestStreak, freezeUsed };
 }
 
 /**
@@ -403,6 +447,22 @@ router.get('/', async (req: Request, res: Response) => {
       }
     }
     
+    // Get freeze info (using raw query until Prisma client is regenerated)
+    const freezeData = await prisma.$queryRaw<Array<{
+      habit_freezes_used: number;
+      habit_freezes_reset_month: Date | null;
+    }>>`
+      SELECT habit_freezes_used, habit_freezes_reset_month 
+      FROM app.users WHERE id = ${user.id}::uuid
+    `;
+    
+    const userFreeze = freezeData[0];
+    const currentMonthStart = new Date(new Date().toISOString().slice(0, 7) + '-01');
+    const needsReset = !userFreeze?.habit_freezes_reset_month || 
+      new Date(userFreeze.habit_freezes_reset_month) < currentMonthStart;
+    const freezeLimit = await getFreezeLimit(effectiveTier);
+    const freezesUsed = needsReset ? 0 : (userFreeze?.habit_freezes_used || 0);
+    
     return res.json({
       habits: habitsWithStats,
       stats: {
@@ -414,6 +474,11 @@ router.get('/', async (req: Request, res: Response) => {
       },
       weekDates,
       completionDots, // Pre-calculated with frequency in mind
+      freezeInfo: {
+        used: freezesUsed,
+        limit: freezeLimit,
+        remaining: freezeLimit - freezesUsed,
+      },
     });
   } catch (error) {
     apiLogger.error({ error }, 'Failed to get habits');
@@ -655,19 +720,66 @@ router.post('/:id/toggle', async (req: Request, res: Response) => {
       completed = true;
     }
     
-    // Recalculate streak (considering habit frequency)
+    // Recalculate streak (considering habit frequency and freeze)
     const allCompletions = await prisma.habitCompletion.findMany({
       where: { habitId: id },
       select: { completedDate: true },
       orderBy: { completedDate: 'desc' },
     });
     
-    const { current, longest } = calculateHabitStreak(
+    // Get user freeze info (using raw query until Prisma client is regenerated)
+    const freezeData = await prisma.$queryRaw<Array<{
+      habit_freezes_available: number;
+      habit_freezes_used: number;
+      habit_freezes_reset_month: Date | null;
+    }>>`
+      SELECT habit_freezes_available, habit_freezes_used, habit_freezes_reset_month 
+      FROM app.users WHERE id = ${user.id}::uuid
+    `;
+    
+    const userFreeze = freezeData[0];
+    
+    // Check if we need to reset freeze count (new month)
+    const currentMonthStart = new Date(new Date().toISOString().slice(0, 7) + '-01');
+    const needsReset = !userFreeze?.habit_freezes_reset_month || 
+      new Date(userFreeze.habit_freezes_reset_month) < currentMonthStart;
+    
+    // Get freeze limit for tier
+    const effectiveTier = await getEffectiveTier(user.id);
+    const freezeLimit = await getFreezeLimit(effectiveTier);
+    
+    let freezesUsed = needsReset ? 0 : (userFreeze?.habit_freezes_used || 0);
+    const freezesRemaining = freezeLimit - freezesUsed;
+    
+    const { current, longest, freezeUsed } = calculateHabitStreak(
       allCompletions, 
       userTimezone,
       habit.frequency,
-      habit.customDays
+      habit.customDays,
+      freezesRemaining
     );
+    
+    // If freeze was used, update user's freeze count (using raw SQL)
+    if (freezeUsed && freezesRemaining > 0) {
+      const newFreezesUsed = needsReset ? 1 : freezesUsed + 1;
+      await prisma.$executeRaw`
+        UPDATE app.users SET 
+          habit_freezes_used = ${newFreezesUsed},
+          habit_freezes_reset_month = ${currentMonthStart},
+          habit_freezes_available = ${freezeLimit}
+        WHERE id = ${user.id}::uuid
+      `;
+      freezesUsed = newFreezesUsed;
+    } else if (needsReset) {
+      // Reset freeze count even if not used
+      await prisma.$executeRaw`
+        UPDATE app.users SET 
+          habit_freezes_used = 0,
+          habit_freezes_reset_month = ${currentMonthStart},
+          habit_freezes_available = ${freezeLimit}
+        WHERE id = ${user.id}::uuid
+      `;
+    }
     
     // Update habit stats
     await prisma.habit.update({
@@ -714,6 +826,7 @@ router.post('/:id/toggle', async (req: Request, res: Response) => {
       streak: current,
       allCompleted,
       scheduledCount: scheduledHabits.length,
+      freezeUsed,
     }, 'Habit toggled');
     
     return res.json({
@@ -722,10 +835,68 @@ router.post('/:id/toggle', async (req: Request, res: Response) => {
       longestStreak: Math.max(habit.longestStreak, longest),
       totalCompletions: allCompletions.length,
       allCompleted, // For triggering confetti!
+      freezeInfo: {
+        used: freezesUsed,
+        limit: freezeLimit,
+        remaining: freezeLimit - freezesUsed,
+        freezeApplied: freezeUsed,
+      },
     });
   } catch (error) {
     apiLogger.error({ error }, 'Failed to toggle habit');
     return res.status(500).json({ error: 'Failed to toggle habit' });
+  }
+});
+
+/**
+ * GET /api/habits/freeze
+ * Get user's freeze info
+ */
+router.get('/freeze', async (req: Request, res: Response) => {
+  try {
+    const user = req.user!;
+    
+    // Get freeze info (using raw query until Prisma client is regenerated)
+    const freezeData = await prisma.$queryRaw<Array<{
+      habit_freezes_available: number;
+      habit_freezes_used: number;
+      habit_freezes_reset_month: Date | null;
+    }>>`
+      SELECT habit_freezes_available, habit_freezes_used, habit_freezes_reset_month 
+      FROM app.users WHERE id = ${user.id}::uuid
+    `;
+    
+    const userFreeze = freezeData[0];
+    
+    // Check if we need to reset freeze count (new month)
+    const currentMonthStart = new Date(new Date().toISOString().slice(0, 7) + '-01');
+    const needsReset = !userFreeze?.habit_freezes_reset_month || 
+      new Date(userFreeze.habit_freezes_reset_month) < currentMonthStart;
+    
+    const effectiveTier = await getEffectiveTier(user.id);
+    const freezeLimit = await getFreezeLimit(effectiveTier);
+    const freezesUsed = needsReset ? 0 : (userFreeze?.habit_freezes_used || 0);
+    
+    // Reset if needed
+    if (needsReset) {
+      await prisma.$executeRaw`
+        UPDATE app.users 
+        SET habit_freezes_used = 0,
+            habit_freezes_reset_month = ${currentMonthStart}::date,
+            habit_freezes_available = ${freezeLimit}
+        WHERE id = ${user.id}::uuid
+      `;
+    }
+    
+    return res.json({
+      used: needsReset ? 0 : freezesUsed,
+      limit: freezeLimit,
+      remaining: freezeLimit - (needsReset ? 0 : freezesUsed),
+      tier: effectiveTier,
+    });
+  } catch (error) {
+    apiLogger.error({ error }, 'Failed to get freeze info');
+    return res.status(500).json({ error: 'Failed to get freeze info' });
   }
 });
 

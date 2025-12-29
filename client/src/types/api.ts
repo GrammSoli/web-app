@@ -151,6 +151,11 @@ export interface HabitsResponse {
   };
   weekDates: string[];
   completionDots: Record<string, number>;
+  freezeInfo?: {
+    used: number;
+    limit: number;
+    remaining: number;
+  };
 }
 
 export interface HabitToggleResponse {
@@ -159,6 +164,12 @@ export interface HabitToggleResponse {
   longestStreak: number;
   totalCompletions: number;
   allCompleted: boolean; // For triggering confetti
+  freezeInfo?: {
+    used: number;
+    limit: number;
+    remaining: number;
+    freezeApplied?: boolean;
+  };
 }
 
 export interface CreateHabitInput {
