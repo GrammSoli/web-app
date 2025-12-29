@@ -275,6 +275,23 @@ async function processHabitReminders(): Promise<void> {
 let scheduledTask: cron.ScheduledTask | null = null;
 
 /**
+ * Получить сегодняшнюю дату в timezone пользователя
+ */
+function getTodayInTimezone(timezone: string): string {
+  try {
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+    return formatter.format(new Date());
+  } catch {
+    return new Date().toISOString().split('T')[0];
+  }
+}
+
+/**
  * Получить вчерашнюю дату в timezone пользователя
  */
 function getYesterdayInTimezone(timezone: string): string {
@@ -347,12 +364,12 @@ async function processDailyFreezeCheck(): Promise<void> {
       if (currentTime !== '00:05') continue;
 
       const yesterdayStr = getYesterdayInTimezone(user.timezone);
+      const todayStrUserTz = getTodayInTimezone(user.timezone);
       
-      // Проверяем: не применяли ли уже заморозку сегодня
+      // Проверяем: не применяли ли уже заморозку сегодня (в timezone пользователя)
       if (user.last_freeze_applied_date) {
         const lastAppliedStr = user.last_freeze_applied_date.toISOString().split('T')[0];
-        const todayStr = new Date().toISOString().split('T')[0];
-        if (lastAppliedStr >= todayStr) continue; // Уже применяли
+        if (lastAppliedStr >= todayStrUserTz) continue; // Уже применяли
       }
 
       // Проверяем месячный reset
@@ -411,6 +428,7 @@ async function processDailyFreezeCheck(): Promise<void> {
       if (actuallyMissed.length === 0) continue;
 
       // Применяем заморозку! (атомарно)
+      // Используем todayStrUserTz вместо CURRENT_DATE для корректной работы с timezone
       const updateResult = await prisma.$executeRaw`
         UPDATE app.users 
         SET 
@@ -420,12 +438,12 @@ async function processDailyFreezeCheck(): Promise<void> {
             ELSE habit_freezes_used + 1 
           END,
           habit_freezes_reset_month = ${currentMonthStart}::date,
-          last_freeze_applied_date = CURRENT_DATE,
-          last_freeze_notification_date = CURRENT_DATE,
+          last_freeze_applied_date = ${todayStrUserTz}::date,
+          last_freeze_notification_date = ${todayStrUserTz}::date,
           last_freeze_habit_id = ${actuallyMissed[0].habit_id}::uuid,
           last_freeze_streak = ${actuallyMissed[0].current_streak}
         WHERE id = ${user.user_id}::uuid
-          AND (last_freeze_applied_date IS NULL OR last_freeze_applied_date < CURRENT_DATE)
+          AND (last_freeze_applied_date IS NULL OR last_freeze_applied_date < ${todayStrUserTz}::date)
           AND (
             (habit_freezes_reset_month IS NULL OR habit_freezes_reset_month < ${currentMonthStart}::date)
             OR habit_freezes_used < ${freezeLimit}
@@ -502,11 +520,8 @@ async function sendFreezeNotification(
  */
 async function processFreezeNotifications(): Promise<void> {
   try {
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString().split('T')[0];
-
-    // Получаем пользователей, у которых вчера была использована заморозка
+    // Получаем пользователей, у которых есть pending уведомление о заморозке
+    // (last_freeze_notification_date != NULL означает, что нужно отправить уведомление)
     const usersWithFreezeUsed = await prisma.$queryRaw<Array<{
       telegram_id: bigint;
       timezone: string;
@@ -528,7 +543,7 @@ async function processFreezeNotifications(): Promise<void> {
         ) as freezes_remaining
       FROM app.users u
       LEFT JOIN app.habits h ON h.id = u.last_freeze_habit_id
-      WHERE u.last_freeze_notification_date = ${yesterdayStr}::date
+      WHERE u.last_freeze_notification_date IS NOT NULL
         AND u.status = 'active'
     `;
 
