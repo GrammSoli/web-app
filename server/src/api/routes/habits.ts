@@ -824,7 +824,7 @@ router.post('/:id/toggle', async (req: Request, res: Response) => {
       habit.frequency,
       habit.customDays,
       freezesRemaining,
-      habit.createdAt
+      habit.dateCreated
     );
     
     // If freeze was used, update user's freeze count (using raw SQL)
