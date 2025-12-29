@@ -119,6 +119,124 @@ async function processReminders(): Promise<void> {
   }
 }
 
+// Дефолтные тексты напоминаний для привычек
+const DEFAULT_HABIT_REMINDER_MESSAGES = [
+  '⏰ Время для привычки "{name}"!',
+  '🎯 Не забудь: {name}',
+  '✨ Пора выполнить: {name}',
+  '💪 Напоминание: {name}',
+];
+
+/**
+ * Получить день недели в формате 0-6 (Пн-Вс) для указанной таймзоны
+ */
+function getDayOfWeekInTimezone(timezone: string): number {
+  try {
+    const now = new Date();
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      weekday: 'short',
+    });
+    const dayName = formatter.format(now);
+    // JS weekday: Sun=0, Mon=1, ... Sat=6
+    // Our format: Mon=0, Tue=1, ... Sun=6
+    const mapping: Record<string, number> = {
+      'Mon': 0, 'Tue': 1, 'Wed': 2, 'Thu': 3, 'Fri': 4, 'Sat': 5, 'Sun': 6
+    };
+    return mapping[dayName] ?? 0;
+  } catch {
+    // Fallback to server timezone
+    const day = new Date().getDay();
+    // Convert from JS format (Sun=0) to our format (Mon=0)
+    return day === 0 ? 6 : day - 1;
+  }
+}
+
+/**
+ * Проверить, должна ли привычка выполняться сегодня
+ */
+function shouldHabitRunToday(frequency: string, customDays: number[], dayOfWeek: number): boolean {
+  switch (frequency) {
+    case 'daily':
+      return true;
+    case 'weekdays':
+      return dayOfWeek >= 0 && dayOfWeek <= 4; // Mon-Fri (0-4)
+    case 'weekends':
+      return dayOfWeek === 5 || dayOfWeek === 6; // Sat-Sun (5-6)
+    case 'custom':
+      return customDays.includes(dayOfWeek);
+    default:
+      return true;
+  }
+}
+
+/**
+ * Обработать напоминания для привычек
+ */
+async function processHabitReminders(): Promise<void> {
+  try {
+    // Получаем все активные привычки с напоминаниями
+    const habitsWithReminders = await prisma.$queryRaw<Array<{
+      habit_id: string;
+      habit_name: string;
+      reminder_time: string;
+      frequency: string;
+      custom_days: number[];
+      telegram_id: bigint;
+      timezone: string;
+    }>>`
+      SELECT 
+        h.id as habit_id,
+        h.name as habit_name,
+        h.reminder_time,
+        h.frequency,
+        h.custom_days,
+        u.telegram_id,
+        u.timezone
+      FROM app.habits h
+      JOIN app.users u ON h.user_id = u.id
+      WHERE h.is_active = true 
+        AND h.is_archived = false
+        AND h.reminder_time IS NOT NULL
+        AND u.status = 'active'
+    `;
+
+    if (habitsWithReminders.length === 0) {
+      return;
+    }
+
+    dbLogger.debug({ count: habitsWithReminders.length }, 'Checking habit reminders');
+
+    // Проверяем каждую привычку
+    for (const habit of habitsWithReminders) {
+      const currentTime = getCurrentTimeInTimezone(habit.timezone);
+      const dayOfWeek = getDayOfWeekInTimezone(habit.timezone);
+      
+      // Проверяем время и день недели
+      if (currentTime === habit.reminder_time && 
+          shouldHabitRunToday(habit.frequency, habit.custom_days || [], dayOfWeek)) {
+        
+        // Формируем сообщение
+        const templates = DEFAULT_HABIT_REMINDER_MESSAGES;
+        const template = templates[Math.floor(Math.random() * templates.length)];
+        const message = template.replace('{name}', habit.habit_name);
+        
+        await sendReminder(habit.telegram_id, message);
+        dbLogger.info({ 
+          habitId: habit.habit_id, 
+          habitName: habit.habit_name,
+          telegramId: habit.telegram_id.toString() 
+        }, 'Habit reminder sent');
+        
+        // Небольшая задержка между отправками
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+  } catch (error) {
+    dbLogger.error({ error }, 'Error processing habit reminders');
+  }
+}
+
 let scheduledTask: cron.ScheduledTask | null = null;
 
 /**
@@ -128,6 +246,7 @@ export function startScheduler(): void {
   // Запускаем каждую минуту
   scheduledTask = cron.schedule('* * * * *', async () => {
     await processReminders();
+    await processHabitReminders();
   });
 
   dbLogger.info('✅ Reminder scheduler started (every minute)');
