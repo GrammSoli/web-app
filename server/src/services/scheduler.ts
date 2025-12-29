@@ -79,6 +79,34 @@ async function sendReminder(telegramId: bigint, message: string): Promise<boolea
 }
 
 /**
+ * Отправить напоминание о привычке (с кнопкой на трекер)
+ */
+async function sendHabitReminder(telegramId: bigint, message: string): Promise<boolean> {
+  try {
+    const bot = getBot();
+    if (!bot) {
+      dbLogger.warn('Bot not initialized, cannot send habit reminder');
+      return false;
+    }
+
+    const webAppUrl = await configService.getString('bot.webapp_url') || 'https://mindful-journal.com';
+    
+    const keyboard = new InlineKeyboard()
+      .webApp('📊 Открыть трекер', webAppUrl + '/habits');
+
+    await bot.api.sendMessage(telegramId.toString(), message, {
+      reply_markup: keyboard,
+    });
+
+    dbLogger.info({ telegramId: telegramId.toString() }, 'Habit reminder sent successfully');
+    return true;
+  } catch (error) {
+    dbLogger.error({ error, telegramId: telegramId.toString() }, 'Failed to send habit reminder');
+    return false;
+  }
+}
+
+/**
  * Обработать напоминания для текущей минуты
  */
 async function processReminders(): Promise<void> {
@@ -228,7 +256,7 @@ async function processHabitReminders(): Promise<void> {
         const template = templates[Math.floor(Math.random() * templates.length)];
         const message = template.replace('{name}', habit.habit_name);
         
-        await sendReminder(habit.telegram_id, message);
+        await sendHabitReminder(habit.telegram_id, message);
         dbLogger.info({ 
           habitId: habit.habit_id, 
           habitName: habit.habit_name,
