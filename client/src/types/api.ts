@@ -166,6 +166,6 @@ export interface CreateHabitInput {
   color?: string;
   frequency?: 'daily' | 'weekdays' | 'weekends' | 'custom';
   customDays?: number[];
-  reminderTime?: string;
+  reminderTime?: string | null;
 }
 

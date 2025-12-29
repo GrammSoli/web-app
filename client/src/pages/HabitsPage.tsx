@@ -544,7 +544,7 @@ function HabitModal({
         color, 
         frequency, 
         customDays,
-        reminderTime: reminderEnabled ? reminderTime : undefined,
+        reminderTime: reminderEnabled ? reminderTime : null, // null to disable reminder
       };
       
       if (isEditMode && editingHabit) {

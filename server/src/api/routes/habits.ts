@@ -64,12 +64,15 @@ async function getHabitLimit(tier: string): Promise<number> {
 }
 
 /**
- * Calculate streak for a habit
+ * Calculate streak for a habit considering frequency
  * Uses date strings for comparison to avoid timezone issues
+ * Skips non-scheduled days when calculating streaks
  */
 function calculateHabitStreak(
   completions: { completedDate: Date }[], 
-  timezone: string = 'UTC'
+  timezone: string = 'UTC',
+  frequency: string = 'daily',
+  customDays: number[] = []
 ): { current: number; longest: number } {
   if (completions.length === 0) {
     return { current: 0, longest: 0 };
@@ -87,58 +90,123 @@ function calculateHabitStreak(
   });
   
   // Get unique date strings, sorted descending
-  const dateStrings = [...new Set(
+  const completedDateStrings = new Set(
     completions.map(c => formatter.format(new Date(c.completedDate)))
-  )].sort((a, b) => b.localeCompare(a));
+  );
   
-  // Get yesterday string
-  const todayDate = new Date(todayStr + 'T12:00:00Z');
-  const yesterdayDate = new Date(todayDate);
-  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-  const yesterdayStr = yesterdayDate.toISOString().split('T')[0];
-
+  // Helper to check if a date should have habit scheduled
+  const isScheduledDay = (dateStr: string): boolean => {
+    const dayOfWeek = getDayOfWeekFromDateStr(dateStr);
+    return shouldShowHabitOnDay(frequency, customDays, dayOfWeek);
+  };
+  
+  // Helper to get previous day string
+  const getPrevDay = (dateStr: string): string => {
+    const date = new Date(dateStr + 'T12:00:00Z');
+    date.setDate(date.getDate() - 1);
+    return date.toISOString().split('T')[0];
+  };
+  
+  // Find the most recent scheduled day (today or before)
+  let checkDate = todayStr;
+  
+  // If today is not a scheduled day, find the last scheduled day
+  while (!isScheduledDay(checkDate) && checkDate > '2020-01-01') {
+    checkDate = getPrevDay(checkDate);
+  }
+  
+  // Calculate current streak going backwards
   let currentStreak = 0;
-  let longestStreak = 0;
-  let tempStreak = 0;
+  let streakDate = checkDate;
   
-  // Check if last completion was today or yesterday
-  const lastCompletionStr = dateStrings[0];
+  // Check if the most recent scheduled day was completed
+  // Allow current streak if:
+  // 1. Today is scheduled and completed, OR
+  // 2. Today is not scheduled and the last scheduled day was completed, OR
+  // 3. Today is scheduled but not completed yet, and yesterday (last scheduled day) was completed
   
-  if (lastCompletionStr === todayStr || lastCompletionStr === yesterdayStr) {
-    currentStreak = 1;
-    tempStreak = 1;
-    
-    // Count consecutive days backwards
-    for (let i = 1; i < dateStrings.length; i++) {
-      const currentDate = new Date(dateStrings[i - 1] + 'T12:00:00Z');
-      const prevDate = new Date(dateStrings[i] + 'T12:00:00Z');
+  const todayIsScheduled = isScheduledDay(todayStr);
+  const todayCompleted = completedDateStrings.has(todayStr);
+  
+  if (todayIsScheduled) {
+    if (todayCompleted) {
+      // Today is scheduled and completed - start counting from today
+      currentStreak = 1;
+      streakDate = getPrevDay(todayStr);
+    } else {
+      // Today is scheduled but not completed - check if yesterday's scheduled day was completed
+      let lastScheduledDay = getPrevDay(todayStr);
+      while (!isScheduledDay(lastScheduledDay) && lastScheduledDay > '2020-01-01') {
+        lastScheduledDay = getPrevDay(lastScheduledDay);
+      }
       
-      const diffDays = Math.floor((currentDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
-      
-      if (diffDays === 1) {
-        currentStreak++;
-        tempStreak++;
+      if (completedDateStrings.has(lastScheduledDay)) {
+        currentStreak = 1;
+        streakDate = getPrevDay(lastScheduledDay);
       } else {
-        longestStreak = Math.max(longestStreak, tempStreak);
-        tempStreak = 1;
-        break;
+        // Streak is broken
+        streakDate = lastScheduledDay;
       }
     }
   } else {
-    // Streak broken, but still calculate longest
-    tempStreak = 1;
-    for (let i = 1; i < dateStrings.length; i++) {
-      const currentDate = new Date(dateStrings[i - 1] + 'T12:00:00Z');
-      const prevDate = new Date(dateStrings[i] + 'T12:00:00Z');
+    // Today is not scheduled - check if the last scheduled day was completed
+    if (completedDateStrings.has(checkDate)) {
+      currentStreak = 1;
+      streakDate = getPrevDay(checkDate);
+    }
+  }
+  
+  // Continue counting backwards for current streak
+  if (currentStreak > 0) {
+    while (streakDate > '2020-01-01') {
+      // Find the previous scheduled day
+      while (!isScheduledDay(streakDate) && streakDate > '2020-01-01') {
+        streakDate = getPrevDay(streakDate);
+      }
       
-      const diffDays = Math.floor((currentDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
+      if (streakDate <= '2020-01-01') break;
       
-      if (diffDays === 1) {
+      if (completedDateStrings.has(streakDate)) {
+        currentStreak++;
+        streakDate = getPrevDay(streakDate);
+      } else {
+        break; // Streak broken
+      }
+    }
+  }
+  
+  // Calculate longest streak by iterating through all completions
+  // Sort completions ascending
+  const sortedDates = [...completedDateStrings].sort();
+  let longestStreak = 0;
+  let tempStreak = 0;
+  let lastScheduledCompleted: string | null = null;
+  
+  for (const dateStr of sortedDates) {
+    if (!isScheduledDay(dateStr)) {
+      // This completion was on a non-scheduled day (edge case)
+      continue;
+    }
+    
+    if (lastScheduledCompleted === null) {
+      tempStreak = 1;
+      lastScheduledCompleted = dateStr;
+    } else {
+      // Check if this is the next scheduled day after lastScheduledCompleted
+      // Walk backwards from current date to find if lastScheduledCompleted is the previous scheduled day
+      let prevScheduled = getPrevDay(dateStr);
+      while (!isScheduledDay(prevScheduled) && prevScheduled > '2020-01-01') {
+        prevScheduled = getPrevDay(prevScheduled);
+      }
+      
+      if (prevScheduled === lastScheduledCompleted) {
         tempStreak++;
       } else {
         longestStreak = Math.max(longestStreak, tempStreak);
         tempStreak = 1;
       }
+      
+      lastScheduledCompleted = dateStr;
     }
   }
   
@@ -189,6 +257,38 @@ function getTodayInTimezone(timezone: string = 'UTC'): string {
   return formatter.format(now); // YYYY-MM-DD format
 }
 
+/**
+ * Get day of week (0=Mon, 6=Sun) from a date string (YYYY-MM-DD)
+ */
+function getDayOfWeekFromDateStr(dateStr: string): number {
+  const date = new Date(dateStr + 'T12:00:00Z');
+  const jsDay = date.getUTCDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+  // Convert to our format: 0=Mon, 1=Tue, ..., 6=Sun
+  return jsDay === 0 ? 6 : jsDay - 1;
+}
+
+/**
+ * Check if a habit should be shown on a specific day
+ */
+function shouldShowHabitOnDay(
+  frequency: string, 
+  customDays: number[], 
+  dayOfWeek: number
+): boolean {
+  switch (frequency) {
+    case 'daily':
+      return true;
+    case 'weekdays':
+      return dayOfWeek >= 0 && dayOfWeek <= 4; // Mon-Fri
+    case 'weekends':
+      return dayOfWeek === 5 || dayOfWeek === 6; // Sat-Sun
+    case 'custom':
+      return customDays.includes(dayOfWeek);
+    default:
+      return true;
+  }
+}
+
 // ============================================
 // ROUTES
 // ============================================
@@ -205,6 +305,7 @@ router.get('/', async (req: Request, res: Response) => {
     
     // Target date - use user timezone if not specified
     const todayStr = dateParam || getTodayInTimezone(userTimezone);
+    const targetDayOfWeek = getDayOfWeekFromDateStr(todayStr);
     
     // Get week dates for completion dots (in user's timezone)
     const weekDates = getWeekDates(userTimezone);
@@ -241,8 +342,13 @@ router.get('/', async (req: Request, res: Response) => {
     const effectiveTier = await getEffectiveTier(user.id);
     const maxHabits = await getHabitLimit(effectiveTier);
     
-    // Format response
-    const habitsWithStats: HabitWithStats[] = habits.map(habit => {
+    // Filter habits that should be shown on the target day
+    const filteredHabits = habits.filter(habit => 
+      shouldShowHabitOnDay(habit.frequency, habit.customDays, targetDayOfWeek)
+    );
+    
+    // Format response (only habits scheduled for this day)
+    const habitsWithStats: HabitWithStats[] = filteredHabits.map(habit => {
       const completedDates = habit.completions.map(c => 
         new Date(c.completedDate).toISOString().split('T')[0]
       );
@@ -267,9 +373,12 @@ router.get('/', async (req: Request, res: Response) => {
       };
     });
     
-    // Calculate daily progress
+    // Calculate daily progress (only for habits scheduled today)
     const totalHabits = habitsWithStats.length;
     const completedToday = habitsWithStats.filter(h => h.completedToday).length;
+    
+    // Total habits count for limits (all habits, not filtered)
+    const totalHabitsForLimit = habits.length;
     
     return res.json({
       habits: habitsWithStats,
@@ -277,7 +386,8 @@ router.get('/', async (req: Request, res: Response) => {
         totalHabits,
         completedToday,
         maxHabits,
-        canCreateMore: totalHabits < maxHabits,
+        canCreateMore: totalHabitsForLimit < maxHabits,
+        totalHabitsAll: totalHabitsForLimit, // Total habits for UI info
       },
       weekDates,
     });
@@ -513,14 +623,19 @@ router.post('/:id/toggle', async (req: Request, res: Response) => {
       completed = true;
     }
     
-    // Recalculate streak
+    // Recalculate streak (considering habit frequency)
     const allCompletions = await prisma.habitCompletion.findMany({
       where: { habitId: id },
       select: { completedDate: true },
       orderBy: { completedDate: 'desc' },
     });
     
-    const { current, longest } = calculateHabitStreak(allCompletions, userTimezone);
+    const { current, longest } = calculateHabitStreak(
+      allCompletions, 
+      userTimezone,
+      habit.frequency,
+      habit.customDays
+    );
     
     // Update habit stats
     await prisma.habit.update({
