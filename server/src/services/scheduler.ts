@@ -347,7 +347,6 @@ async function processDailyFreezeCheck(): Promise<void> {
       if (currentTime !== '00:05') continue;
 
       const yesterdayStr = getYesterdayInTimezone(user.timezone);
-      const yesterdayDate = new Date(yesterdayStr);
       
       // Проверяем: не применяли ли уже заморозку сегодня
       if (user.last_freeze_applied_date) {
