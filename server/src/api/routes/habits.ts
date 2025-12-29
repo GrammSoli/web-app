@@ -115,16 +115,6 @@ function calculateHabitStreak(
   // Get habit created date string (to not count days before creation as "missed")
   const habitCreatedStr = habitCreatedAt ? formatter.format(new Date(habitCreatedAt)) : '2020-01-01';
   
-  // DEBUG logging
-  console.log('DEBUG calculateHabitStreak:', {
-    todayStr,
-    habitCreatedAt: habitCreatedAt?.toISOString(),
-    habitCreatedStr,
-    timezone,
-    completionsCount: completions.length,
-    freezesRemaining,
-  });
-  
   // Get unique date strings, sorted descending
   const completedDateStrings = new Set(
     completions.map(c => formatter.format(new Date(c.completedDate)))
