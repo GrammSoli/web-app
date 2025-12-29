@@ -171,11 +171,29 @@ function shouldHabitRunToday(frequency: string, customDays: number[], dayOfWeek:
 }
 
 /**
+ * Получить сегодняшнюю дату в указанной таймзоне в формате YYYY-MM-DD
+ */
+function getTodayDateInTimezone(timezone: string): string {
+  try {
+    const now = new Date();
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+    return formatter.format(now); // Returns YYYY-MM-DD
+  } catch {
+    return new Date().toISOString().slice(0, 10);
+  }
+}
+
+/**
  * Обработать напоминания для привычек
  */
 async function processHabitReminders(): Promise<void> {
   try {
-    // Получаем все активные привычки с напоминаниями
+    // Получаем все активные привычки с напоминаниями, которые еще не выполнены сегодня
     const habitsWithReminders = await prisma.$queryRaw<Array<{
       habit_id: string;
       habit_name: string;
@@ -199,6 +217,13 @@ async function processHabitReminders(): Promise<void> {
         AND h.is_archived = false
         AND h.reminder_time IS NOT NULL
         AND u.status = 'active'
+        AND NOT EXISTS (
+          SELECT 1 FROM app.habit_completions hc 
+          WHERE hc.habit_id = h.id 
+            AND hc.completed_date = (
+              CURRENT_DATE AT TIME ZONE 'UTC' AT TIME ZONE u.timezone
+            )::date
+        )
     `;
 
     if (habitsWithReminders.length === 0) {
