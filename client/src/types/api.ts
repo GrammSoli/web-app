@@ -150,6 +150,7 @@ export interface HabitsResponse {
     canCreateMore: boolean;
   };
   weekDates: string[];
+  completionDots: Record<string, number>;
 }
 
 export interface HabitToggleResponse {

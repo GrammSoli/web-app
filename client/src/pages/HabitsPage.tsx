@@ -11,6 +11,8 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import PullToRefresh from 'react-simple-pull-to-refresh';
+import { Preloader } from 'konsta/react';
 import { format, addDays, subDays, isToday, isSameDay, startOfWeek, startOfDay } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { 
@@ -233,7 +235,7 @@ function ProgressRing({
     if (total === 0) return "Добавь первую привычку!";
     if (completed === total && total > 0) return "🎉 Всё выполнено!";
     return MOTIVATIONAL_PHRASES[Math.floor(Math.random() * MOTIVATIONAL_PHRASES.length)];
-  }, [total, completed === total]);
+  }, [total, completed]);
 
   return (
     <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-4 shadow-lg shadow-indigo-500/20">
@@ -846,13 +848,11 @@ export default function HabitsPage() {
     try {
       setError(null);
       const dateStr = format(selectedDate, 'yyyy-MM-dd');
-      const response = await api.habits.getAll(dateStr) as HabitsResponse & { completionDots?: Record<string, number> };
+      const response: HabitsResponse = await api.habits.getAll(dateStr);
       setHabits(response.habits);
       setStats(response.stats);
-      // Use server-calculated completionDots if available
-      if (response.completionDots) {
-        setCompletionDots(response.completionDots);
-      }
+      // Use server-calculated completionDots
+      setCompletionDots(response.completionDots || {});
     } catch (err) {
       console.error('Failed to fetch habits:', err);
       setError('Не удалось загрузить привычки');
@@ -989,6 +989,11 @@ export default function HabitsPage() {
     }
   };
 
+  // Pull-to-refresh handler
+  const handleRefresh = async (): Promise<void> => {
+    await fetchHabits();
+  };
+
   // Check admin access
   if (user && !user.isAdmin) {
     return (
@@ -1001,9 +1006,18 @@ export default function HabitsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-zinc-950 pb-24">
-      {/* Header */}
-      <div className="bg-gradient-to-b from-indigo-500/10 to-transparent px-4 pt-4 pb-6">
+    <PullToRefresh
+      onRefresh={handleRefresh}
+      pullingContent=""
+      refreshingContent={
+        <div className="w-full flex justify-center py-4">
+          <Preloader className="w-8 h-8 text-indigo-500" />
+        </div>
+      }
+    >
+      <div className="min-h-screen bg-gray-50 dark:bg-zinc-950 pb-24">
+        {/* Header */}
+        <div className="bg-gradient-to-b from-indigo-500/10 to-transparent px-4 pt-4 pb-6">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
           Трекер привычек
         </h1>
@@ -1169,6 +1183,7 @@ export default function HabitsPage() {
           width: 100% !important;
         }
       `}</style>
-    </div>
+      </div>
+    </PullToRefresh>
   );
 }
