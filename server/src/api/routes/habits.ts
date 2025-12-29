@@ -94,11 +94,11 @@ function calculateHabitStreak(
   timezone: string = 'UTC',
   frequency: string = 'daily',
   customDays: number[] = [],
-  freezesRemaining: number = 0,
+  _freezesRemaining: number = 0, // Deprecated: freeze is now applied by scheduler
   habitCreatedAt?: Date
-): { current: number; longest: number; freezeUsed: boolean } {
+): { current: number; longest: number } {
   if (completions.length === 0) {
-    return { current: 0, longest: 0, freezeUsed: false };
+    return { current: 0, longest: 0 };
   }
 
   // Get today in user's timezone
@@ -116,6 +116,7 @@ function calculateHabitStreak(
   const habitCreatedStr = habitCreatedAt ? formatter.format(new Date(habitCreatedAt)) : '2020-01-01';
   
   // Get unique date strings, sorted descending
+  // Note: Frozen days are included as completions (created by scheduler with is_frozen=true)
   const completedDateStrings = new Set(
     completions.map(c => formatter.format(new Date(c.completedDate)))
   );
@@ -141,10 +142,8 @@ function calculateHabitStreak(
     checkDate = getPrevDay(checkDate);
   }
   
-  // Calculate current streak going backwards (with freeze support)
+  // Calculate current streak going backwards
   let currentStreak = 0;
-  let freezeUsedCount = 0;
-  let freezeUsed = false;
   let streakDate = checkDate;
   
   // Check if the most recent scheduled day was completed
@@ -168,33 +167,11 @@ function calculateHabitStreak(
         // Habit didn't exist yet, no streak to calculate
         streakDate = todayStr;
       } else if (completedDateStrings.has(lastScheduledDay)) {
-        // Yesterday was completed, today can still be done
+        // Yesterday was completed (or frozen), today can still be done
         currentStreak = 1;
         streakDate = getPrevDay(lastScheduledDay);
-      } else if (freezesRemaining > freezeUsedCount) {
-        // Yesterday was NOT completed, but we can use freeze
-        // Check if the day before yesterday was completed
-        let dayBeforeYesterday = getPrevDay(lastScheduledDay);
-        while (!isScheduledDay(dayBeforeYesterday) && dayBeforeYesterday > '2020-01-01') {
-          dayBeforeYesterday = getPrevDay(dayBeforeYesterday);
-        }
-        
-        // Don't apply freeze if day before yesterday is before habit creation
-        if (dayBeforeYesterday < habitCreatedStr) {
-          // Habit was just created yesterday or today, no freeze needed
-          streakDate = lastScheduledDay;
-        } else if (completedDateStrings.has(dayBeforeYesterday)) {
-          // Use freeze to bridge the gap
-          freezeUsedCount++;
-          freezeUsed = true;
-          currentStreak = 1; // Start from the frozen day
-          streakDate = getPrevDay(dayBeforeYesterday);
-        } else {
-          // Streak is broken (more than 1 day gap)
-          streakDate = lastScheduledDay;
-        }
       } else {
-        // Streak is broken, no freeze available
+        // Streak is broken
         streakDate = lastScheduledDay;
       }
     }
@@ -206,7 +183,7 @@ function calculateHabitStreak(
     }
   }
   
-  // Continue counting backwards for current streak (with freeze)
+  // Continue counting backwards for current streak
   if (currentStreak > 0) {
     while (streakDate > '2020-01-01' && streakDate >= habitCreatedStr) {
       // Find the previous scheduled day
@@ -220,16 +197,6 @@ function calculateHabitStreak(
       if (completedDateStrings.has(streakDate)) {
         currentStreak++;
         streakDate = getPrevDay(streakDate);
-      } else if (freezesRemaining > freezeUsedCount) {
-        // Try to use freeze for this gap (but only if not before habit creation)
-        if (streakDate >= habitCreatedStr) {
-          freezeUsedCount++;
-          freezeUsed = true;
-          // Don't increment streak for frozen day, just skip it
-          streakDate = getPrevDay(streakDate);
-        } else {
-          break;
-        }
       } else {
         break; // Streak broken
       }
@@ -273,7 +240,7 @@ function calculateHabitStreak(
   
   longestStreak = Math.max(longestStreak, tempStreak, currentStreak);
   
-  return { current: currentStreak, longest: longestStreak, freezeUsed };
+  return { current: currentStreak, longest: longestStreak };
 }
 
 /**
@@ -816,34 +783,19 @@ router.post('/:id/toggle', async (req: Request, res: Response) => {
     const freezeLimit = await getFreezeLimit(effectiveTier);
     
     let freezesUsed = needsReset ? 0 : (userFreeze?.habit_freezes_used || 0);
-    const freezesRemaining = freezeLimit - freezesUsed;
     
-    const { current, longest, freezeUsed } = calculateHabitStreak(
+    // Calculate streak WITHOUT applying freeze (freeze is applied by scheduler at 00:05)
+    const { current, longest } = calculateHabitStreak(
       allCompletions, 
       userTimezone,
       habit.frequency,
       habit.customDays,
-      freezesRemaining,
+      0, // Don't use freeze in toggle - it's handled by daily scheduler
       habit.dateCreated
     );
     
-    // If freeze was used, update user's freeze count and notification tracking
-    if (freezeUsed && freezesRemaining > 0) {
-      const newFreezesUsed = needsReset ? 1 : freezesUsed + 1;
-      const todayDate = new Date(new Date().toISOString().split('T')[0]);
-      await prisma.$executeRaw`
-        UPDATE app.users SET 
-          habit_freezes_used = ${newFreezesUsed},
-          habit_freezes_reset_month = ${currentMonthStart},
-          habit_freezes_available = ${freezeLimit},
-          last_freeze_notification_date = ${todayDate}::date,
-          last_freeze_habit_id = ${id}::uuid,
-          last_freeze_streak = ${current}
-        WHERE id = ${user.id}::uuid
-      `;
-      freezesUsed = newFreezesUsed;
-    } else if (needsReset) {
-      // Reset freeze count even if not used
+    // Reset freeze count if new month (but don't apply freeze here)
+    if (needsReset) {
       await prisma.$executeRaw`
         UPDATE app.users SET 
           habit_freezes_used = 0,
@@ -851,6 +803,7 @@ router.post('/:id/toggle', async (req: Request, res: Response) => {
           habit_freezes_available = ${freezeLimit}
         WHERE id = ${user.id}::uuid
       `;
+      freezesUsed = 0;
     }
     
     // Update habit stats
@@ -898,7 +851,6 @@ router.post('/:id/toggle', async (req: Request, res: Response) => {
       streak: current,
       allCompleted,
       scheduledCount: scheduledHabits.length,
-      freezeUsed,
     }, 'Habit toggled');
     
     return res.json({
@@ -911,7 +863,6 @@ router.post('/:id/toggle', async (req: Request, res: Response) => {
         used: freezesUsed,
         limit: freezeLimit,
         remaining: freezeLimit - freezesUsed,
-        freezeApplied: freezeUsed,
       },
     });
   } catch (error) {

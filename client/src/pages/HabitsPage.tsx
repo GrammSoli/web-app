@@ -1238,7 +1238,7 @@ export default function HabitsPage() {
             </div>
             
             <p className="text-gray-600 dark:text-gray-300 mb-4">
-              У вас есть <span className="font-semibold text-cyan-600 dark:text-cyan-400">{freezeInfo.limit}</span> {freezeInfo.limit === 1 ? 'заряд' : freezeInfo.limit < 5 ? 'заряда' : 'зарядов'}. Они спасают вашу серию, если вы забыли отметить привычку.
+              У вас осталось <span className="font-semibold text-cyan-600 dark:text-cyan-400">{freezeInfo.remaining}</span> {freezeInfo.remaining === 1 ? 'заряд' : freezeInfo.remaining < 5 ? 'заряда' : 'зарядов'} из {freezeInfo.limit}. Они спасают вашу серию, если вы забыли отметить привычку.
             </p>
             
             <div className="bg-gray-100 dark:bg-gray-700/50 rounded-xl p-4 mb-5">

@@ -275,6 +275,195 @@ async function processHabitReminders(): Promise<void> {
 let scheduledTask: cron.ScheduledTask | null = null;
 
 /**
+ * Получить вчерашнюю дату в timezone пользователя
+ */
+function getYesterdayInTimezone(timezone: string): string {
+  try {
+    const now = new Date();
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+    // Get today, then subtract 1 day
+    const todayStr = formatter.format(now);
+    const yesterday = new Date(todayStr + 'T12:00:00Z');
+    yesterday.setDate(yesterday.getDate() - 1);
+    return yesterday.toISOString().split('T')[0];
+  } catch {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    return yesterday.toISOString().split('T')[0];
+  }
+}
+
+/**
+ * Получить лимит заморозок для тарифа
+ */
+async function getFreezeLimit(tier: string): Promise<number> {
+  const limit = await configService.getNumber(`limits.${tier}.habit_freezes`);
+  return limit ?? 1;
+}
+
+/**
+ * ГЛАВНАЯ ФУНКЦИЯ: Ежедневная проверка и применение заморозок
+ * Запускается в 00:05 по timezone каждого пользователя
+ * 
+ * Логика:
+ * 1. Найти пользователей с активными привычками
+ * 2. Для каждого проверить: есть ли невыполненные привычки за вчера?
+ * 3. Если да и есть стрик > 0 и есть заморозки → применить
+ */
+async function processDailyFreezeCheck(): Promise<void> {
+  try {
+    // Получаем пользователей с привычками, для которых сейчас 00:05
+    const usersToCheck = await prisma.$queryRaw<Array<{
+      user_id: string;
+      telegram_id: bigint;
+      timezone: string;
+      subscription_tier: string;
+      habit_freezes_used: number;
+      habit_freezes_reset_month: Date | null;
+      last_freeze_applied_date: Date | null;
+    }>>`
+      SELECT DISTINCT
+        u.id as user_id,
+        u.telegram_id,
+        u.timezone,
+        u.subscription_tier,
+        u.habit_freezes_used,
+        u.habit_freezes_reset_month,
+        u.last_freeze_applied_date
+      FROM app.users u
+      JOIN app.habits h ON h.user_id = u.id AND h.is_active = true AND h.is_archived = false
+      WHERE u.status = 'active'
+    `;
+
+    for (const user of usersToCheck) {
+      const currentTime = getCurrentTimeInTimezone(user.timezone);
+      
+      // Запускаем только в 00:05 по времени пользователя
+      if (currentTime !== '00:05') continue;
+
+      const yesterdayStr = getYesterdayInTimezone(user.timezone);
+      const yesterdayDate = new Date(yesterdayStr);
+      
+      // Проверяем: не применяли ли уже заморозку сегодня
+      if (user.last_freeze_applied_date) {
+        const lastAppliedStr = user.last_freeze_applied_date.toISOString().split('T')[0];
+        const todayStr = new Date().toISOString().split('T')[0];
+        if (lastAppliedStr >= todayStr) continue; // Уже применяли
+      }
+
+      // Проверяем месячный reset
+      const currentMonthStart = new Date(new Date().toISOString().slice(0, 7) + '-01');
+      const needsReset = !user.habit_freezes_reset_month || 
+        new Date(user.habit_freezes_reset_month) < currentMonthStart;
+      
+      const freezeLimit = await getFreezeLimit(user.subscription_tier);
+      const freezesUsed = needsReset ? 0 : user.habit_freezes_used;
+      const freezesRemaining = freezeLimit - freezesUsed;
+      
+      if (freezesRemaining <= 0) continue; // Нет заморозок
+
+      // Получаем привычки пользователя с невыполненными за вчера
+      const habitsWithMissedYesterday = await prisma.$queryRaw<Array<{
+        habit_id: string;
+        habit_name: string;
+        current_streak: number;
+        frequency: string;
+        custom_days: number[];
+      }>>`
+        SELECT 
+          h.id as habit_id,
+          h.name as habit_name,
+          h.current_streak,
+          h.frequency,
+          h.custom_days
+        FROM app.habits h
+        WHERE h.user_id = ${user.user_id}::uuid
+          AND h.is_active = true
+          AND h.is_archived = false
+          AND h.current_streak > 0
+          AND h.date_created::date <= ${yesterdayStr}::date
+          AND NOT EXISTS (
+            SELECT 1 FROM app.habit_completions hc
+            WHERE hc.habit_id = h.id
+              AND hc.completed_date = ${yesterdayStr}::date
+          )
+      `;
+
+      if (habitsWithMissedYesterday.length === 0) continue;
+
+      // Фильтруем по расписанию (только те, что должны были быть выполнены вчера)
+      const yesterdayDayOfWeek = (new Date(yesterdayStr + 'T12:00:00Z').getDay() + 6) % 7; // Mon=0
+      
+      const actuallyMissed = habitsWithMissedYesterday.filter(h => {
+        switch (h.frequency) {
+          case 'daily': return true;
+          case 'weekdays': return yesterdayDayOfWeek >= 0 && yesterdayDayOfWeek <= 4;
+          case 'weekends': return yesterdayDayOfWeek === 5 || yesterdayDayOfWeek === 6;
+          case 'custom': return (h.custom_days || []).includes(yesterdayDayOfWeek);
+          default: return true;
+        }
+      });
+
+      if (actuallyMissed.length === 0) continue;
+
+      // Применяем заморозку! (атомарно)
+      const updateResult = await prisma.$executeRaw`
+        UPDATE app.users 
+        SET 
+          habit_freezes_used = CASE 
+            WHEN habit_freezes_reset_month IS NULL OR habit_freezes_reset_month < ${currentMonthStart}::date 
+            THEN 1 
+            ELSE habit_freezes_used + 1 
+          END,
+          habit_freezes_reset_month = ${currentMonthStart}::date,
+          last_freeze_applied_date = CURRENT_DATE,
+          last_freeze_notification_date = CURRENT_DATE,
+          last_freeze_habit_id = ${actuallyMissed[0].habit_id}::uuid,
+          last_freeze_streak = ${actuallyMissed[0].current_streak}
+        WHERE id = ${user.user_id}::uuid
+          AND (last_freeze_applied_date IS NULL OR last_freeze_applied_date < CURRENT_DATE)
+          AND (
+            (habit_freezes_reset_month IS NULL OR habit_freezes_reset_month < ${currentMonthStart}::date)
+            OR habit_freezes_used < ${freezeLimit}
+          )
+      `;
+
+      if (updateResult > 0) {
+        // Создаём "frozen" записи для пропущенных привычек
+        for (const habit of actuallyMissed) {
+          await prisma.$executeRaw`
+            INSERT INTO app.habit_completions (id, habit_id, user_id, completed_date, is_frozen, date_created)
+            VALUES (
+              gen_random_uuid(),
+              ${habit.habit_id}::uuid,
+              ${user.user_id}::uuid,
+              ${yesterdayStr}::date,
+              true,
+              NOW()
+            )
+            ON CONFLICT (habit_id, completed_date) DO NOTHING
+          `;
+        }
+
+        dbLogger.info({
+          userId: user.user_id,
+          telegramId: user.telegram_id.toString(),
+          habitsCount: actuallyMissed.length,
+          habitNames: actuallyMissed.map(h => h.habit_name),
+        }, 'Freeze applied for missed habits');
+      }
+    }
+  } catch (error) {
+    dbLogger.error({ error }, 'Error processing daily freeze check');
+  }
+}
+
+/**
  * Отправить уведомление о использованной заморозке
  */
 async function sendFreezeNotification(
@@ -385,7 +574,8 @@ export function startScheduler(): void {
   scheduledTask = cron.schedule('* * * * *', async () => {
     await processReminders();
     await processHabitReminders();
-    await processFreezeNotifications();
+    await processDailyFreezeCheck(); // Применение заморозок (в 00:05 по timezone пользователя)
+    await processFreezeNotifications(); // Уведомления (в 09:00)
   });
 
   dbLogger.info('✅ Reminder scheduler started (every minute)');
