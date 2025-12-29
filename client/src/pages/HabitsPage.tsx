@@ -9,7 +9,7 @@
  * - Confetti on all habits completed
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format, addDays, subDays, isToday, isSameDay, startOfWeek, startOfDay } from 'date-fns';
 import { ru } from 'date-fns/locale';
@@ -208,6 +208,14 @@ function WeekStrip({
   );
 }
 
+// Motivational phrases (outside component to avoid recreation)
+const MOTIVATIONAL_PHRASES = [
+  "Шаг за шагом к цели",
+  "Каждый день — новый шанс",
+  "Ты на верном пути!",
+  "Постоянство — ключ к успеху",
+];
+
 // Daily Progress Ring
 function ProgressRing({ 
   completed, 
@@ -220,18 +228,12 @@ function ProgressRing({
   const circumference = 2 * Math.PI * 28; // radius = 28 (smaller ring)
   const strokeDashoffset = circumference - (percentage / 100) * circumference;
 
-  const motivationalPhrases = [
-    "Шаг за шагом к цели",
-    "Каждый день — новый шанс",
-    "Ты на верном пути!",
-    "Постоянство — ключ к успеху",
-  ];
-
-  const phrase = total === 0 
-    ? "Добавь первую привычку!" 
-    : completed === total && total > 0
-      ? "🎉 Всё выполнено!"
-      : motivationalPhrases[Math.floor(Math.random() * motivationalPhrases.length)];
+  // Memoize phrase to prevent flashing on re-renders
+  const phrase = useMemo(() => {
+    if (total === 0) return "Добавь первую привычку!";
+    if (completed === total && total > 0) return "🎉 Всё выполнено!";
+    return MOTIVATIONAL_PHRASES[Math.floor(Math.random() * MOTIVATIONAL_PHRASES.length)];
+  }, [total, completed === total]);
 
   return (
     <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-4 shadow-lg shadow-indigo-500/20">

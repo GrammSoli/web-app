@@ -439,6 +439,14 @@ router.post('/', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Name too long (max 100 chars)' });
     }
     
+    // Validate customDays if provided
+    if (customDays && Array.isArray(customDays)) {
+      const invalidDays = customDays.filter((d: unknown) => typeof d !== 'number' || d < 0 || d > 6);
+      if (invalidDays.length > 0) {
+        return res.status(400).json({ error: 'Invalid day values in customDays (must be 0-6)' });
+      }
+    }
+    
     // Check limit
     const effectiveTier = await getEffectiveTier(user.id);
     const maxHabits = await getHabitLimit(effectiveTier);
@@ -802,8 +810,16 @@ router.get('/stats', async (req: Request, res: Response) => {
       },
     });
     
+    // Formatter to convert dateCreated to user's timezone
+    const createdDateFormatter = new Intl.DateTimeFormat('en-CA', { 
+      timeZone: userTimezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+    
     // Calculate total possible completions (sum of scheduled days per habit)
-    // Only count days since habit was created
+    // Only count days since habit was created (in user's timezone)
     let totalPossible = 0;
     for (let i = 0; i < days; i++) {
       const checkDate = new Date(todayDate);
@@ -812,8 +828,8 @@ router.get('/stats', async (req: Request, res: Response) => {
       const dayOfWeek = getDayOfWeekFromDateStr(dateStr);
       
       for (const habit of habits) {
-        // Skip days before habit was created
-        const habitCreatedDate = new Date(habit.dateCreated).toISOString().split('T')[0];
+        // Skip days before habit was created (using user's timezone)
+        const habitCreatedDate = createdDateFormatter.format(new Date(habit.dateCreated));
         if (dateStr < habitCreatedDate) {
           continue;
         }
