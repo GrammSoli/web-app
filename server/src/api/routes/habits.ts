@@ -512,6 +512,23 @@ router.post('/', async (req: Request, res: Response) => {
       }
     }
     
+    // Validate frequency
+    const VALID_FREQUENCIES = ['daily', 'weekdays', 'weekends', 'custom'];
+    if (frequency && !VALID_FREQUENCIES.includes(frequency)) {
+      return res.status(400).json({ error: 'Invalid frequency (must be daily, weekdays, weekends, or custom)' });
+    }
+    
+    // Validate color (hex format)
+    const COLOR_REGEX = /^#[0-9a-fA-F]{6}$/;
+    if (color && !COLOR_REGEX.test(color)) {
+      return res.status(400).json({ error: 'Invalid color format (must be #RRGGBB)' });
+    }
+    
+    // Validate emoji (max 10 chars, only emoji characters)
+    if (emoji && (typeof emoji !== 'string' || emoji.length > 10)) {
+      return res.status(400).json({ error: 'Invalid emoji (max 10 characters)' });
+    }
+    
     // Check limit
     const effectiveTier = await getEffectiveTier(user.id);
     const maxHabits = await getHabitLimit(effectiveTier);
@@ -596,6 +613,39 @@ router.put('/:id', async (req: Request, res: Response) => {
     
     if (!habit) {
       return res.status(404).json({ error: 'Habit not found' });
+    }
+    
+    // Validate name length
+    if (name && (typeof name !== 'string' || name.trim().length === 0)) {
+      return res.status(400).json({ error: 'Name cannot be empty' });
+    }
+    if (name && name.length > 100) {
+      return res.status(400).json({ error: 'Name too long (max 100 chars)' });
+    }
+    
+    // Validate frequency
+    const VALID_FREQUENCIES = ['daily', 'weekdays', 'weekends', 'custom'];
+    if (frequency && !VALID_FREQUENCIES.includes(frequency)) {
+      return res.status(400).json({ error: 'Invalid frequency (must be daily, weekdays, weekends, or custom)' });
+    }
+    
+    // Validate color (hex format)
+    const COLOR_REGEX = /^#[0-9a-fA-F]{6}$/;
+    if (color && !COLOR_REGEX.test(color)) {
+      return res.status(400).json({ error: 'Invalid color format (must be #RRGGBB)' });
+    }
+    
+    // Validate emoji
+    if (emoji && (typeof emoji !== 'string' || emoji.length > 10)) {
+      return res.status(400).json({ error: 'Invalid emoji (max 10 characters)' });
+    }
+    
+    // Validate customDays if provided
+    if (customDays && Array.isArray(customDays)) {
+      const invalidDays = customDays.filter((d: unknown) => typeof d !== 'number' || d < 0 || d > 6);
+      if (invalidDays.length > 0) {
+        return res.status(400).json({ error: 'Invalid day values in customDays (must be 0-6)' });
+      }
     }
     
     // Update
@@ -938,7 +988,8 @@ router.get('/stats', async (req: Request, res: Response) => {
   try {
     const user = req.user!;
     const userTimezone = req.userTimezone || 'UTC';
-    const days = parseInt(req.query.days as string) || 30;
+    const daysParam = parseInt(req.query.days as string) || 30;
+    const days = Math.min(Math.max(daysParam, 1), 365); // Limit to 1-365 days
     
     const todayStr = getTodayInTimezone(userTimezone);
     const todayDate = new Date(todayStr + 'T12:00:00Z');
