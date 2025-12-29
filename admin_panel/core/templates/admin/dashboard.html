@@ -588,21 +588,7 @@
             </div>
         </div>
         
-        {% if dashboard.habits.top_habits %}
-        <div style="margin-top: 20px;">
-            <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 12px; color: var(--color-text-primary);">🏆 Топ привычек</h3>
-            <div style="display: flex; flex-wrap: wrap; gap: 12px;">
-                {% for habit in dashboard.habits.top_habits %}
-                <div style="background: var(--color-bg-primary); padding: 12px 16px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                    <div style="font-weight: 600;">{{ habit.name }}</div>
-                    <div style="font-size: 12px; color: var(--color-text-secondary); margin-top: 4px;">
-                        {{ habit.completions }} выполнений • 🔥 {{ habit.streak }} дней
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-        {% endif %}
+
     </div>
     {% endif %}
     

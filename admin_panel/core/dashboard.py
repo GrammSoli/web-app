@@ -500,20 +500,6 @@ def get_habits_stats(start_date=None, end_date=None):
         completed_date__gte=today
     ).values('user_id').distinct().count()
     
-    # Топ-5 привычек по выполнениям
-    top_habits = Habit.objects.filter(
-        is_archived=False
-    ).order_by('-total_completions')[:5]
-    
-    top_habits_list = [
-        {
-            'name': h.name,
-            'completions': h.total_completions,
-            'streak': h.current_streak,
-        }
-        for h in top_habits
-    ]
-    
     # Средний стрик
     avg_streak = Habit.objects.filter(
         is_active=True,
@@ -543,7 +529,7 @@ def get_habits_stats(start_date=None, end_date=None):
         'completions_in_period': completions_in_period,
         'completions_today': completions_today,
         'active_users_today': active_users_today,
-        'top_habits': top_habits_list,
+
         'avg_streak': round(avg_streak, 1),
         'max_streak': max_streak,
         'frequency_distribution': frequency_stats,
