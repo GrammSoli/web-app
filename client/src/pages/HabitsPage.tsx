@@ -821,6 +821,7 @@ export default function HabitsPage() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [stats, setStats] = useState({ totalHabits: 0, completedToday: 0, maxHabits: 6, canCreateMore: true });
   const [freezeInfo, setFreezeInfo] = useState<{ used: number; limit: number; remaining: number } | null>(null);
+  const [showFreezeModal, setShowFreezeModal] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isTogglingId, setIsTogglingId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -1043,15 +1044,15 @@ export default function HabitsPage() {
           </h1>
           {/* Freeze Info Badge */}
           {freezeInfo && freezeInfo.limit > 0 && (
-            <div 
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-100 dark:bg-cyan-900/40 rounded-full"
-              title="Право на ошибку: пропуски без потери стрика"
+            <button 
+              onClick={() => setShowFreezeModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-100 dark:bg-cyan-900/40 rounded-full hover:bg-cyan-200 dark:hover:bg-cyan-800/50 transition-colors"
             >
               <Snowflake className="w-4 h-4 text-cyan-500" />
               <span className="text-sm font-medium text-cyan-700 dark:text-cyan-300">
                 {freezeInfo.remaining}
               </span>
-            </div>
+            </button>
           )}
         </div>
         
@@ -1216,6 +1217,62 @@ export default function HabitsPage() {
           width: 100% !important;
         }
       `}</style>
+
+      {/* Freeze Info Modal */}
+      {showFreezeModal && freezeInfo && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+          onClick={() => setShowFreezeModal(false)}
+        >
+          <div 
+            className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-sm w-full shadow-xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-full bg-cyan-100 dark:bg-cyan-900/40 flex items-center justify-center">
+                <Snowflake className="w-6 h-6 text-cyan-500" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                Заморозка стрика
+              </h3>
+            </div>
+            
+            <p className="text-gray-600 dark:text-gray-300 mb-4">
+              У вас есть <span className="font-semibold text-cyan-600 dark:text-cyan-400">{freezeInfo.limit}</span> {freezeInfo.limit === 1 ? 'заряд' : freezeInfo.limit < 5 ? 'заряда' : 'зарядов'}. Они спасают вашу серию, если вы забыли отметить привычку.
+            </p>
+            
+            <div className="bg-gray-100 dark:bg-gray-700/50 rounded-xl p-4 mb-5">
+              <p className="text-sm text-gray-600 dark:text-gray-400 font-medium mb-2">Как это работает:</p>
+              <ul className="text-sm text-gray-500 dark:text-gray-400 space-y-1.5">
+                <li className="flex items-start gap-2">
+                  <span className="text-cyan-500">•</span>
+                  Пропустили день — заряд автоматически активируется
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-cyan-500">•</span>
+                  Стрик сохранится, заряд спишется
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-cyan-500">•</span>
+                  Заряды обновляются каждый месяц
+                </li>
+              </ul>
+            </div>
+            
+            <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400 mb-5">
+              <span>Использовано:</span>
+              <span className="font-medium">{freezeInfo.used} / {freezeInfo.limit}</span>
+            </div>
+            
+            <button
+              onClick={() => setShowFreezeModal(false)}
+              className="w-full py-3 bg-cyan-500 hover:bg-cyan-600 text-white font-semibold rounded-xl transition-colors"
+            >
+              Понятно
+            </button>
+          </div>
+        </div>
+      )}
       </div>
     </PullToRefresh>
   );
