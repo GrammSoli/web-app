@@ -508,7 +508,6 @@ def get_habits_stats(start_date=None, end_date=None):
     top_habits_list = [
         {
             'name': h.name,
-            'emoji': h.emoji,
             'completions': h.total_completions,
             'streak': h.current_streak,
         }
