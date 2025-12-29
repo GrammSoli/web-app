@@ -203,7 +203,7 @@ async function processHabitReminders(): Promise<void> {
           SELECT 1 FROM app.habit_completions hc 
           WHERE hc.habit_id = h.id 
             AND hc.completed_date = (
-              CURRENT_DATE AT TIME ZONE 'UTC' AT TIME ZONE u.timezone
+              CURRENT_TIMESTAMP AT TIME ZONE u.timezone
             )::date
         )
     `;

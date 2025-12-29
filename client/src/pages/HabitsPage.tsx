@@ -892,6 +892,22 @@ export default function HabitsPage() {
           ? prev.completedToday + 1 
           : prev.completedToday - 1,
       }));
+      
+      // Update completionDots for week strip
+      setCompletionDots(prev => {
+        const newDots = { ...prev };
+        const currentCount = newDots[dateStr] || 0;
+        if (response.completed) {
+          newDots[dateStr] = currentCount + 1;
+        } else {
+          if (currentCount <= 1) {
+            delete newDots[dateStr];
+          } else {
+            newDots[dateStr] = currentCount - 1;
+          }
+        }
+        return newDots;
+      });
 
       // Confetti if all completed!
       if (response.allCompleted) {

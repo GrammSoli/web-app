@@ -795,9 +795,15 @@ router.get('/stats', async (req: Request, res: Response) => {
         isActive: true,
         isArchived: false,
       },
+      select: {
+        frequency: true,
+        customDays: true,
+        dateCreated: true,
+      },
     });
     
     // Calculate total possible completions (sum of scheduled days per habit)
+    // Only count days since habit was created
     let totalPossible = 0;
     for (let i = 0; i < days; i++) {
       const checkDate = new Date(todayDate);
@@ -806,6 +812,12 @@ router.get('/stats', async (req: Request, res: Response) => {
       const dayOfWeek = getDayOfWeekFromDateStr(dateStr);
       
       for (const habit of habits) {
+        // Skip days before habit was created
+        const habitCreatedDate = new Date(habit.dateCreated).toISOString().split('T')[0];
+        if (dateStr < habitCreatedDate) {
+          continue;
+        }
+        
         if (shouldShowHabitOnDay(habit.frequency, habit.customDays, dayOfWeek)) {
           totalPossible++;
         }

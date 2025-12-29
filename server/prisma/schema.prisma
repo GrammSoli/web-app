@@ -409,7 +409,7 @@ model Habit {
   
   // Schedule
   frequency           HabitFrequency    @default(daily)
-  customDays          Int[]             @default([]) @map("custom_days") // 0=Sun, 1=Mon, etc.
+  customDays          Int[]             @default([]) @map("custom_days") // 0=Mon, 1=Tue, ..., 6=Sun
   reminderTime        String?           @map("reminder_time") @db.VarChar(5) // HH:MM
   
   // Stats (cached for performance)
