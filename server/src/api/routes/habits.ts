@@ -819,10 +819,11 @@ router.post('/:id/toggle', async (req: Request, res: Response) => {
     const result = await prisma.$transaction(async (tx) => {
       if (existing) {
         // Remove completion (atomic check via WHERE id)
-        const deleted = await tx.habitCompletion.deleteMany({
+        await tx.habitCompletion.deleteMany({
           where: { id: existing.id },
         });
-        return { completed: deleted.count === 0 }; // If nothing deleted, someone else did it
+        // Whether we deleted or someone else did, the goal is: completed = false
+        return { completed: false };
       } else {
         // Add completion with conflict handling
         try {
