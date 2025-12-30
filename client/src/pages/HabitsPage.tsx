@@ -868,7 +868,7 @@ function HabitCardSkeleton() {
 export default function HabitsPage() {
   const navigate = useNavigate();
   const { user } = useAppStore();
-  const { haptic } = useTelegram();
+  const { haptic, disableVerticalSwipes, enableVerticalSwipes } = useTelegram();
   
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [habits, setHabits] = useState<Habit[]>([]);
@@ -1076,8 +1076,21 @@ export default function HabitsPage() {
     })
   );
 
+  // Handle drag start - disable Telegram's close gesture
+  const handleDragStart = () => {
+    disableVerticalSwipes();
+    haptic.selection();
+  };
+
+  // Handle drag cancel - re-enable Telegram's close gesture
+  const handleDragCancel = () => {
+    enableVerticalSwipes();
+  };
+
   // Handle drag end - reorder habits
   const handleDragEnd = async (event: DragEndEvent) => {
+    enableVerticalSwipes(); // Re-enable Telegram's close gesture
+    
     const { active, over } = event;
     
     if (over && active.id !== over.id) {
@@ -1198,7 +1211,9 @@ export default function HabitsPage() {
             <DndContext
               sensors={sensors}
               collisionDetection={closestCenter}
+              onDragStart={handleDragStart}
               onDragEnd={handleDragEnd}
+              onDragCancel={handleDragCancel}
             >
               <SortableContext
                 items={habits.map(h => h.id)}

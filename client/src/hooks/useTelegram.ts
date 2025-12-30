@@ -90,6 +90,15 @@ export function useTelegram() {
     }
   }, [webApp]);
 
+  // Vertical swipes control (for drag & drop)
+  const disableVerticalSwipes = useCallback(() => {
+    webApp?.disableVerticalSwipes?.();
+  }, [webApp]);
+
+  const enableVerticalSwipes = useCallback(() => {
+    webApp?.enableVerticalSwipes?.();
+  }, [webApp]);
+
   // Main button helpers
   const mainButton = useMemo(() => ({
     show: (text: string, onClick: () => void) => {
@@ -128,6 +137,8 @@ export function useTelegram() {
     openLink,
     openTelegramLink,
     mainButton,
+    disableVerticalSwipes,
+    enableVerticalSwipes,
     isReady: !!webApp,
   };
 }
