@@ -448,6 +448,9 @@ model HabitCompletion {
   // Completion date (without time, for easy querying)
   completedDate       DateTime          @map("completed_date") @db.Date
   
+  // Frozen flag - true if this day was saved by streak freeze (no actual completion)
+  isFrozen            Boolean           @default(false) @map("is_frozen")
+  
   // Optional note
   note                String?           @db.VarChar(500)
   

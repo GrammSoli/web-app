@@ -288,6 +288,16 @@ function getTodayInTimezone(timezone: string = 'UTC'): string {
 }
 
 /**
+ * Get "yesterday" date string in user's timezone
+ */
+function getYesterdayInTimezone(timezone: string = 'UTC'): string {
+  const todayStr = getTodayInTimezone(timezone);
+  const yesterday = new Date(todayStr + 'T12:00:00Z');
+  yesterday.setDate(yesterday.getDate() - 1);
+  return yesterday.toISOString().split('T')[0];
+}
+
+/**
  * Get day of week (0=Mon, 6=Sun) from a date string (YYYY-MM-DD)
  */
 function getDayOfWeekFromDateStr(dateStr: string): number {
@@ -377,9 +387,11 @@ router.get('/', async (req: Request, res: Response) => {
       shouldShowHabitOnDay(habit.frequency, habit.customDays, targetDayOfWeek)
     );
     
-    // Get actual today for comparison
+    // Get actual today and yesterday for comparison
     const actualToday = getTodayInTimezone(userTimezone);
+    const yesterdayStr = getYesterdayInTimezone(userTimezone);
     const isPastDate = todayStr < actualToday;
+    const isYesterday = todayStr === yesterdayStr;
     
     // Format response (only habits scheduled for this day)
     const habitsWithStats: HabitWithStats[] = filteredHabits.map(habit => {
@@ -392,8 +404,10 @@ router.get('/', async (req: Request, res: Response) => {
       // Get habit creation date as YYYY-MM-DD string
       const habitCreatedDate = new Date(habit.dateCreated).toISOString().split('T')[0];
       
-      // isMissed = past date + habit existed then + no completion + was scheduled for that day
+      // isMissed = past date (not yesterday) + habit existed then + no completion
+      // Yesterday is editable, so not "missed" yet
       const isMissed = isPastDate && 
+        !isYesterday &&
         habitCreatedDate <= todayStr && 
         !completedOnDate;
       
@@ -762,11 +776,15 @@ router.post('/:id/toggle', async (req: Request, res: Response) => {
     });
     
     // Block marking missed days (past date with no existing completion)
+    // Allow toggle for today and yesterday only (so user can fix accidental taps)
     const isPastDate = targetDateStr < todayStr;
+    const yesterdayStr = getYesterdayInTimezone(userTimezone);
+    const isYesterday = targetDateStr === yesterdayStr;
     const habitCreatedDate = new Date(habit.dateCreated).toISOString().split('T')[0];
     const habitExistedOnDate = habitCreatedDate <= targetDateStr;
     
-    if (isPastDate && !existing && habitExistedOnDate) {
+    // Block adding completion to old dates (before yesterday), but allow removing existing
+    if (isPastDate && !isYesterday && !existing && habitExistedOnDate) {
       return res.status(400).json({ 
         error: 'Cannot mark habits as completed for missed dates',
         code: 'MISSED_DATE',
