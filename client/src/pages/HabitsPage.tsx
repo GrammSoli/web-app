@@ -11,6 +11,7 @@
  */
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import PullToRefresh from 'react-simple-pull-to-refresh';
 import { Preloader } from 'konsta/react';
@@ -627,7 +628,7 @@ function HabitModal({
 
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[100]">
       {/* Backdrop */}
       <div 
@@ -818,7 +819,8 @@ function HabitModal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -1304,9 +1306,9 @@ export default function HabitsPage() {
       `}</style>
 
       {/* Freeze Info Modal */}
-      {showFreezeModal && freezeInfo && (
+      {showFreezeModal && freezeInfo && createPortal(
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 px-4"
           onClick={() => setShowFreezeModal(false)}
         >
           <div 
@@ -1356,7 +1358,8 @@ export default function HabitsPage() {
               Понятно
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
       </div>
     </PullToRefresh>
