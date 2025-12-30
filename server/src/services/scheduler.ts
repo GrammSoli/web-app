@@ -609,19 +609,21 @@ export async function testFreezeForUser(
   };
 }> {
   try {
-    // 1. Получаем данные пользователя
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { 
-        id: true, 
-        timezone: true, 
-        subscriptionTier: true,
-        habitFreezesUsed: true,
-        habitFreezesResetMonth: true,
-        lastFreezeAppliedDate: true,
-      },
-    });
+    // 1. Получаем данные пользователя (используем raw SQL т.к. поля не в Prisma схеме)
+    const users = await prisma.$queryRaw<Array<{
+      id: string;
+      timezone: string;
+      subscription_tier: string;
+      habit_freezes_used: number;
+      habit_freezes_reset_month: Date | null;
+      last_freeze_applied_date: Date | null;
+    }>>`
+      SELECT id, timezone, subscription_tier, habit_freezes_used, 
+             habit_freezes_reset_month, last_freeze_applied_date
+      FROM app.users WHERE id = ${userId}::uuid
+    `;
     
+    const user = users[0];
     if (!user) {
       return { success: false, message: 'Пользователь не найден' };
     }
@@ -641,10 +643,10 @@ export async function testFreezeForUser(
     }
     
     // 3. Проверяем лимит заморозок
-    const freezeLimit = await getFreezeLimit(user.subscriptionTier);
+    const freezeLimit = await getFreezeLimit(user.subscription_tier);
     const currentMonthStart = new Date(new Date().toISOString().slice(0, 7) + '-01');
-    const needsReset = !user.habitFreezesResetMonth || user.habitFreezesResetMonth < currentMonthStart;
-    const freezesUsed = needsReset ? 0 : user.habitFreezesUsed;
+    const needsReset = !user.habit_freezes_reset_month || user.habit_freezes_reset_month < currentMonthStart;
+    const freezesUsed = needsReset ? 0 : user.habit_freezes_used;
     const freezesRemaining = freezeLimit - freezesUsed;
     
     if (freezesRemaining <= 0) {
@@ -656,14 +658,18 @@ export async function testFreezeForUser(
     const todayStr = getTodayInTimezone(user.timezone);
     
     // 5. Проверяем: есть ли уже completion за вчера?
-    const existingCompletion = await prisma.habitCompletion.findFirst({
-      where: { habitId, completedDate: new Date(yesterdayStr) },
-    });
+    const existingCompletions = await prisma.$queryRaw<Array<{
+      id: string;
+      is_frozen: boolean;
+    }>>`
+      SELECT id, is_frozen FROM app.habit_completions 
+      WHERE habit_id = ${habitId}::uuid AND completed_date = ${yesterdayStr}::date
+    `;
     
-    if (existingCompletion) {
+    if (existingCompletions.length > 0) {
       return { 
         success: false, 
-        message: `Привычка уже выполнена за ${yesterdayStr} (is_frozen: ${existingCompletion.isFrozen})` 
+        message: `Привычка уже выполнена за ${yesterdayStr} (is_frozen: ${existingCompletions[0].is_frozen})` 
       };
     }
     
@@ -703,10 +709,9 @@ export async function testFreezeForUser(
     `;
     
     // 8. Получаем обновлённые данные
-    const updatedUser = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { habitFreezesUsed: true },
-    });
+    const updatedUsers = await prisma.$queryRaw<Array<{ habit_freezes_used: number }>>`
+      SELECT habit_freezes_used FROM app.users WHERE id = ${userId}::uuid
+    `;
     
     dbLogger.info({
       userId,
@@ -724,7 +729,7 @@ export async function testFreezeForUser(
         frozenCompletionCreated: true,
         notificationScheduled: true,
         freezesUsedBefore: freezesUsed,
-        freezesUsedAfter: updatedUser?.habitFreezesUsed ?? freezesUsed + 1,
+        freezesUsedAfter: updatedUsers[0]?.habit_freezes_used ?? freezesUsed + 1,
       },
     };
   } catch (error) {
