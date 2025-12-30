@@ -587,6 +587,211 @@ async function processFreezeNotifications(): Promise<void> {
 }
 
 /**
+ * ТЕСТОВАЯ ФУНКЦИЯ: Симуляция применения заморозки для конкретного пользователя
+ * Используется админами для тестирования логики заморозок
+ * 
+ * @param userId - ID пользователя
+ * @param habitId - ID привычки для симуляции пропуска
+ * @returns Результат тестирования
+ */
+export async function testFreezeForUser(
+  userId: string, 
+  habitId: string
+): Promise<{
+  success: boolean;
+  message: string;
+  details?: {
+    freezeApplied: boolean;
+    frozenCompletionCreated: boolean;
+    notificationScheduled: boolean;
+    freezesUsedBefore: number;
+    freezesUsedAfter: number;
+  };
+}> {
+  try {
+    // 1. Получаем данные пользователя
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { 
+        id: true, 
+        timezone: true, 
+        subscriptionTier: true,
+        habitFreezesUsed: true,
+        habitFreezesResetMonth: true,
+        lastFreezeAppliedDate: true,
+      },
+    });
+    
+    if (!user) {
+      return { success: false, message: 'Пользователь не найден' };
+    }
+    
+    // 2. Получаем привычку
+    const habit = await prisma.habit.findFirst({
+      where: { id: habitId, userId, isActive: true, isArchived: false },
+      select: { id: true, name: true, currentStreak: true, frequency: true, customDays: true, dateCreated: true },
+    });
+    
+    if (!habit) {
+      return { success: false, message: 'Привычка не найдена или неактивна' };
+    }
+    
+    if (habit.currentStreak === 0) {
+      return { success: false, message: 'У привычки нет стрика (streak = 0), заморозка не нужна' };
+    }
+    
+    // 3. Проверяем лимит заморозок
+    const freezeLimit = await getFreezeLimit(user.subscriptionTier);
+    const currentMonthStart = new Date(new Date().toISOString().slice(0, 7) + '-01');
+    const needsReset = !user.habitFreezesResetMonth || user.habitFreezesResetMonth < currentMonthStart;
+    const freezesUsed = needsReset ? 0 : user.habitFreezesUsed;
+    const freezesRemaining = freezeLimit - freezesUsed;
+    
+    if (freezesRemaining <= 0) {
+      return { success: false, message: `Нет доступных заморозок (использовано ${freezesUsed}/${freezeLimit})` };
+    }
+    
+    // 4. Получаем "вчера" в timezone пользователя
+    const yesterdayStr = getYesterdayInTimezone(user.timezone);
+    const todayStr = getTodayInTimezone(user.timezone);
+    
+    // 5. Проверяем: есть ли уже completion за вчера?
+    const existingCompletion = await prisma.habitCompletion.findFirst({
+      where: { habitId, completedDate: new Date(yesterdayStr) },
+    });
+    
+    if (existingCompletion) {
+      return { 
+        success: false, 
+        message: `Привычка уже выполнена за ${yesterdayStr} (is_frozen: ${existingCompletion.isFrozen})` 
+      };
+    }
+    
+    // 6. Применяем заморозку (атомарно)
+    const updateResult = await prisma.$executeRaw`
+      UPDATE app.users 
+      SET 
+        habit_freezes_used = CASE 
+          WHEN habit_freezes_reset_month IS NULL OR habit_freezes_reset_month < ${currentMonthStart}::date 
+          THEN 1 
+          ELSE habit_freezes_used + 1 
+        END,
+        habit_freezes_reset_month = ${currentMonthStart}::date,
+        last_freeze_applied_date = ${todayStr}::date,
+        last_freeze_notification_date = ${todayStr}::date,
+        last_freeze_habit_id = ${habitId}::uuid,
+        last_freeze_streak = ${habit.currentStreak}
+      WHERE id = ${userId}::uuid
+    `;
+    
+    if (updateResult === 0) {
+      return { success: false, message: 'Не удалось обновить данные пользователя' };
+    }
+    
+    // 7. Создаём frozen completion
+    await prisma.$executeRaw`
+      INSERT INTO app.habit_completions (id, habit_id, user_id, completed_date, is_frozen, date_created)
+      VALUES (
+        gen_random_uuid(),
+        ${habitId}::uuid,
+        ${userId}::uuid,
+        ${yesterdayStr}::date,
+        true,
+        NOW()
+      )
+      ON CONFLICT (habit_id, completed_date) DO NOTHING
+    `;
+    
+    // 8. Получаем обновлённые данные
+    const updatedUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { habitFreezesUsed: true },
+    });
+    
+    dbLogger.info({
+      userId,
+      habitId,
+      habitName: habit.name,
+      streak: habit.currentStreak,
+      yesterdayStr,
+    }, 'TEST: Freeze applied manually');
+    
+    return {
+      success: true,
+      message: `Заморозка применена для "${habit.name}" за ${yesterdayStr}`,
+      details: {
+        freezeApplied: true,
+        frozenCompletionCreated: true,
+        notificationScheduled: true,
+        freezesUsedBefore: freezesUsed,
+        freezesUsedAfter: updatedUser?.habitFreezesUsed ?? freezesUsed + 1,
+      },
+    };
+  } catch (error) {
+    dbLogger.error({ error, userId, habitId }, 'TEST: Failed to apply freeze');
+    return { success: false, message: `Ошибка: ${error instanceof Error ? error.message : 'Unknown'}` };
+  }
+}
+
+/**
+ * ТЕСТОВАЯ ФУНКЦИЯ: Немедленная отправка уведомления о заморозке
+ */
+export async function testFreezeNotification(userId: string): Promise<{
+  success: boolean;
+  message: string;
+}> {
+  try {
+    const user = await prisma.$queryRaw<Array<{
+      telegram_id: bigint;
+      habit_name: string;
+      last_freeze_streak: number;
+      freezes_remaining: number;
+    }>>`
+      SELECT 
+        u.telegram_id,
+        h.name as habit_name,
+        u.last_freeze_streak,
+        (
+          COALESCE((
+            SELECT CAST(value AS INTEGER) 
+            FROM app.app_config 
+            WHERE key = 'limits.' || u.subscription_tier || '.habit_freezes'
+          ), 1) - u.habit_freezes_used
+        ) as freezes_remaining
+      FROM app.users u
+      LEFT JOIN app.habits h ON h.id = u.last_freeze_habit_id
+      WHERE u.id = ${userId}::uuid
+        AND u.last_freeze_applied_date IS NOT NULL
+    `;
+    
+    if (user.length === 0) {
+      return { success: false, message: 'Нет данных о примененной заморозке для отправки уведомления' };
+    }
+    
+    const sent = await sendFreezeNotification(
+      user[0].telegram_id,
+      user[0].habit_name || 'привычки',
+      user[0].last_freeze_streak || 0,
+      user[0].freezes_remaining || 0
+    );
+    
+    if (sent) {
+      // Сбрасываем флаг уведомления
+      await prisma.$executeRaw`
+        UPDATE app.users 
+        SET last_freeze_notification_date = NULL
+        WHERE id = ${userId}::uuid
+      `;
+      return { success: true, message: 'Уведомление отправлено' };
+    }
+    
+    return { success: false, message: 'Не удалось отправить уведомление' };
+  } catch (error) {
+    return { success: false, message: `Ошибка: ${error instanceof Error ? error.message : 'Unknown'}` };
+  }
+}
+
+/**
  * Запустить scheduler
  */
 export function startScheduler(): void {

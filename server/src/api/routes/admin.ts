@@ -3,6 +3,7 @@ import { telegramAuth, adminOnly } from '../middleware/auth.js';
 import { getDashboardStats } from '../../services/user.js';
 import { prisma } from '../../services/database.js';
 import { apiLogger } from '../../utils/logger.js';
+import { testFreezeForUser, testFreezeNotification } from '../../services/scheduler.js';
 
 const router = Router();
 
@@ -383,6 +384,113 @@ router.get('/habits-stats', async (_req: Request, res: Response) => {
   } catch (error) {
     apiLogger.error({ error }, 'Failed to get habits stats');
     res.status(500).json({ error: 'Failed to get habits stats' });
+  }
+});
+
+// ============================================
+// ТЕСТОВЫЕ ЭНДПОИНТЫ ДЛЯ ЗАМОРОЗОК
+// ============================================
+
+/**
+ * POST /api/admin/test-freeze
+ * Симуляция применения заморозки для текущего пользователя
+ * 
+ * Body: { habitId: string }
+ * 
+ * Логика:
+ * 1. Проверяет лимит заморозок
+ * 2. Проверяет что привычка не выполнена за вчера
+ * 3. Создаёт frozen completion
+ * 4. Обновляет счётчик заморозок
+ * 5. Планирует уведомление
+ */
+router.post('/test-freeze', async (req: Request, res: Response) => {
+  try {
+    const user = req.user!;
+    const { habitId } = req.body;
+    
+    if (!habitId) {
+      return res.status(400).json({ error: 'habitId is required' });
+    }
+    
+    const result = await testFreezeForUser(user.id, habitId);
+    
+    apiLogger.info({ 
+      userId: user.id, 
+      habitId, 
+      result 
+    }, 'Admin test freeze executed');
+    
+    return res.json(result);
+  } catch (error) {
+    apiLogger.error({ error }, 'Failed to test freeze');
+    return res.status(500).json({ error: 'Failed to test freeze' });
+  }
+});
+
+/**
+ * POST /api/admin/test-freeze-notification
+ * Немедленная отправка уведомления о заморозке (если есть pending)
+ * 
+ * Используется после test-freeze для проверки уведомлений
+ */
+router.post('/test-freeze-notification', async (req: Request, res: Response) => {
+  try {
+    const user = req.user!;
+    
+    const result = await testFreezeNotification(user.id);
+    
+    apiLogger.info({ 
+      userId: user.id, 
+      result 
+    }, 'Admin test freeze notification executed');
+    
+    return res.json(result);
+  } catch (error) {
+    apiLogger.error({ error }, 'Failed to test freeze notification');
+    return res.status(500).json({ error: 'Failed to test freeze notification' });
+  }
+});
+
+/**
+ * POST /api/admin/reset-freeze-data
+ * Сброс данных о заморозках для текущего пользователя (для повторного тестирования)
+ */
+router.post('/reset-freeze-data', async (req: Request, res: Response) => {
+  try {
+    const user = req.user!;
+    
+    // Сбрасываем данные заморозок
+    await prisma.$executeRaw`
+      UPDATE app.users 
+      SET 
+        habit_freezes_used = 0,
+        last_freeze_applied_date = NULL,
+        last_freeze_notification_date = NULL,
+        last_freeze_habit_id = NULL,
+        last_freeze_streak = NULL
+      WHERE id = ${user.id}::uuid
+    `;
+    
+    // Удаляем frozen completions
+    const deleted = await prisma.$executeRaw`
+      DELETE FROM app.habit_completions 
+      WHERE user_id = ${user.id}::uuid AND is_frozen = true
+    `;
+    
+    apiLogger.info({ 
+      userId: user.id,
+      frozenCompletionsDeleted: deleted,
+    }, 'Admin reset freeze data executed');
+    
+    return res.json({ 
+      success: true, 
+      message: 'Данные заморозок сброшены',
+      frozenCompletionsDeleted: Number(deleted),
+    });
+  } catch (error) {
+    apiLogger.error({ error }, 'Failed to reset freeze data');
+    return res.status(500).json({ error: 'Failed to reset freeze data' });
   }
 });
 
