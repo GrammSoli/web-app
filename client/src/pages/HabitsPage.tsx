@@ -368,10 +368,10 @@ function SortableHabitCard({
           <button
             {...attributes}
             {...listeners}
-            className="touch-none p-1 -ml-1 text-gray-300 dark:text-zinc-600 hover:text-gray-400 dark:hover:text-zinc-500 active:text-indigo-500 transition-colors cursor-grab active:cursor-grabbing"
+            className="touch-none select-none p-1 -ml-1 text-gray-300 dark:text-zinc-600 hover:text-gray-400 dark:hover:text-zinc-500 active:text-indigo-500 transition-colors cursor-grab active:cursor-grabbing"
             onClick={(e) => e.stopPropagation()}
           >
-            <GripVertical className="w-5 h-5" />
+            <GripVertical className="w-5 h-5 pointer-events-none" />
           </button>
 
           {/* Clickable area for editing */}
