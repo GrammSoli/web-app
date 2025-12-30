@@ -304,7 +304,9 @@ function SortableHabitCard({
   onDelete,
   isTogglingId,
   isFutureDate,
+  isMissed,
   onFutureTap,
+  onMissedTap,
 }: {
   habit: Habit;
   onToggle: () => void;
@@ -312,7 +314,9 @@ function SortableHabitCard({
   onDelete: () => void;
   isTogglingId: string | null;
   isFutureDate?: boolean;
+  isMissed?: boolean;
   onFutureTap?: () => void;
+  onMissedTap?: () => void;
 }) {
   const { haptic } = useTelegram();
   const {
@@ -323,6 +327,9 @@ function SortableHabitCard({
     transition,
     isDragging,
   } = useSortable({ id: habit.id });
+  
+  // Combined blocked state for future and missed dates
+  const isBlocked = isFutureDate || isMissed;
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -338,6 +345,11 @@ function SortableHabitCard({
     if (isFutureDate) {
       haptic.light();
       onFutureTap?.();
+      return;
+    }
+    if (isMissed) {
+      haptic.light();
+      onMissedTap?.();
       return;
     }
     haptic.medium();
@@ -362,7 +374,7 @@ function SortableHabitCard({
       <div 
         className={`bg-white dark:bg-zinc-900 rounded-2xl p-4 shadow-sm transition-all duration-200 ${
           habit.completedToday ? 'opacity-80' : ''
-        } ${isFutureDate ? 'opacity-60' : ''} ${isDragging ? 'ring-2 ring-indigo-500' : ''}`}
+        } ${isBlocked ? 'opacity-60' : ''} ${isDragging ? 'ring-2 ring-indigo-500' : ''}`}
       >
         <div className="flex items-center gap-3">
           {/* Drag Handle */}
@@ -431,15 +443,15 @@ function SortableHabitCard({
             onClick={handleToggle}
             disabled={isToggling}
             className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 flex-shrink-0 ${
-              isFutureDate 
+              isBlocked 
                 ? 'bg-gray-100 dark:bg-zinc-800 cursor-not-allowed opacity-50'
                 : habit.completedToday 
                   ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/30' 
                   : 'bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700'
             } ${isToggling ? 'animate-pulse' : ''} ${justCompleted ? 'animate-check-pop' : ''}`}
-            style={habit.completedToday && !isFutureDate ? {} : isFutureDate ? {} : { borderColor: habit.color, borderWidth: 2 }}
+            style={habit.completedToday && !isBlocked ? {} : isBlocked ? {} : { borderColor: habit.color, borderWidth: 2 }}
           >
-            {isFutureDate ? (
+            {isBlocked ? (
               <Lock className="w-4 h-4 text-gray-400" />
             ) : habit.completedToday ? (
               <Check className="w-5 h-5" />
@@ -892,6 +904,11 @@ export default function HabitsPage() {
     setToastMessage(`Будущее еще не наступило. Сегодня ${today}-е — живи в моменте!`);
   }, []);
 
+  // Show toast for missed date tap
+  const handleMissedTap = useCallback(() => {
+    setToastMessage('Этот день уже пропущен. Привычки нужно выполнять вовремя!');
+  }, []);
+
   // Admin-only check
   useEffect(() => {
     if (user && !user.isAdmin) {
@@ -1231,7 +1248,9 @@ export default function HabitsPage() {
                     onDelete={() => handleDelete(habit.id)}
                     isTogglingId={isTogglingId}
                     isFutureDate={isFutureDate}
+                    isMissed={habit.isMissed}
                     onFutureTap={handleFutureTap}
+                    onMissedTap={handleMissedTap}
                   />
                 ))}
               </SortableContext>
@@ -1245,6 +1264,10 @@ export default function HabitsPage() {
             {isFutureDate ? (
               <span className="flex items-center justify-center gap-1">
                 <Lock className="w-3 h-3" /> Просмотр будущего дня
+              </span>
+            ) : habits.some(h => h.isMissed) ? (
+              <span className="flex items-center justify-center gap-1">
+                <Lock className="w-3 h-3" /> Просмотр прошлого дня
               </span>
             ) : (
               `${stats.totalHabits} из ${stats.maxHabits} привычек`

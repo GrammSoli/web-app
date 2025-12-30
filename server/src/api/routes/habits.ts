@@ -37,6 +37,8 @@ interface HabitWithStats {
   isActive: boolean;
   completedToday: boolean;
   completedDates: string[]; // For the week view
+  isMissed: boolean; // True if past date with no completion
+  dateCreated: string; // ISO date string for missed calculation
 }
 
 // ============================================
@@ -375,13 +377,25 @@ router.get('/', async (req: Request, res: Response) => {
       shouldShowHabitOnDay(habit.frequency, habit.customDays, targetDayOfWeek)
     );
     
+    // Get actual today for comparison
+    const actualToday = getTodayInTimezone(userTimezone);
+    const isPastDate = todayStr < actualToday;
+    
     // Format response (only habits scheduled for this day)
     const habitsWithStats: HabitWithStats[] = filteredHabits.map(habit => {
       const completedDates = habit.completions.map(c => 
         new Date(c.completedDate).toISOString().split('T')[0]
       );
       
-      const completedToday = completedDates.includes(todayStr);
+      const completedOnDate = completedDates.includes(todayStr);
+      
+      // Get habit creation date as YYYY-MM-DD string
+      const habitCreatedDate = new Date(habit.dateCreated).toISOString().split('T')[0];
+      
+      // isMissed = past date + habit existed then + no completion + was scheduled for that day
+      const isMissed = isPastDate && 
+        habitCreatedDate <= todayStr && 
+        !completedOnDate;
       
       return {
         id: habit.id,
@@ -396,8 +410,10 @@ router.get('/', async (req: Request, res: Response) => {
         totalCompletions: habit.totalCompletions,
         sortOrder: habit.sortOrder,
         isActive: habit.isActive,
-        completedToday,
+        completedToday: completedOnDate,
         completedDates,
+        isMissed,
+        dateCreated: habitCreatedDate,
       };
     });
     
@@ -744,6 +760,19 @@ router.post('/:id/toggle', async (req: Request, res: Response) => {
         },
       },
     });
+    
+    // Block marking missed days (past date with no existing completion)
+    const isPastDate = targetDateStr < todayStr;
+    const habitCreatedDate = new Date(habit.dateCreated).toISOString().split('T')[0];
+    const habitExistedOnDate = habitCreatedDate <= targetDateStr;
+    
+    if (isPastDate && !existing && habitExistedOnDate) {
+      return res.status(400).json({ 
+        error: 'Cannot mark habits as completed for missed dates',
+        code: 'MISSED_DATE',
+        message: 'Этот день уже пропущен. Привычки нужно выполнять вовремя!',
+      });
+    }
     
     let completed: boolean;
     

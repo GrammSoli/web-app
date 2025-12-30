@@ -139,6 +139,8 @@ export interface Habit {
   isActive: boolean;
   completedToday: boolean;
   completedDates: string[]; // YYYY-MM-DD format
+  isMissed?: boolean; // True if past date with no completion
+  dateCreated?: string; // ISO date string
 }
 
 export interface HabitsResponse {
