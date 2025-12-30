@@ -37,7 +37,9 @@ interface HabitWithStats {
   isActive: boolean;
   completedToday: boolean;
   completedDates: string[]; // For the week view
+  frozenDates: string[]; // Dates saved by freeze
   isMissed: boolean; // True if past date with no completion
+  isFrozenToday: boolean; // True if current date was saved by freeze
   dateCreated: string; // ISO date string for missed calculation
 }
 
@@ -352,7 +354,7 @@ router.get('/', async (req: Request, res: Response) => {
     const weekStart = new Date(weekDates[0] + 'T00:00:00Z');
     const weekEnd = new Date(weekDates[weekDates.length - 1] + 'T23:59:59Z');
     
-    // Get habits with completions for the week
+    // Get habits with completions for the week (including frozen flag)
     const habits = await prisma.habit.findMany({
       where: {
         userId: user.id,
@@ -369,6 +371,7 @@ router.get('/', async (req: Request, res: Response) => {
           },
           select: {
             completedDate: true,
+            isFrozen: true,
           },
         },
       },
@@ -395,21 +398,31 @@ router.get('/', async (req: Request, res: Response) => {
     
     // Format response (only habits scheduled for this day)
     const habitsWithStats: HabitWithStats[] = filteredHabits.map(habit => {
-      const completedDates = habit.completions.map(c => 
-        new Date(c.completedDate).toISOString().split('T')[0]
-      );
+      // Separate frozen and real completions
+      const completedDates = habit.completions
+        .filter(c => !c.isFrozen)
+        .map(c => new Date(c.completedDate).toISOString().split('T')[0]);
       
+      const frozenDates = habit.completions
+        .filter(c => c.isFrozen)
+        .map(c => new Date(c.completedDate).toISOString().split('T')[0]);
+      
+      // Check if today has any completion (real or frozen)
+      const hasCompletionOnDate = habit.completions.some(c => 
+        new Date(c.completedDate).toISOString().split('T')[0] === todayStr
+      );
       const completedOnDate = completedDates.includes(todayStr);
+      const isFrozenToday = frozenDates.includes(todayStr);
       
       // Get habit creation date as YYYY-MM-DD string
       const habitCreatedDate = new Date(habit.dateCreated).toISOString().split('T')[0];
       
-      // isMissed = past date (not yesterday) + habit existed then + no completion
+      // isMissed = past date (not yesterday) + habit existed then + no completion (real or frozen)
       // Yesterday is editable, so not "missed" yet
       const isMissed = isPastDate && 
         !isYesterday &&
         habitCreatedDate <= todayStr && 
-        !completedOnDate;
+        !hasCompletionOnDate;
       
       return {
         id: habit.id,
@@ -424,9 +437,11 @@ router.get('/', async (req: Request, res: Response) => {
         totalCompletions: habit.totalCompletions,
         sortOrder: habit.sortOrder,
         isActive: habit.isActive,
-        completedToday: completedOnDate,
-        completedDates,
+        completedToday: completedOnDate || isFrozenToday, // Show as completed if frozen
+        completedDates: [...completedDates, ...frozenDates], // All dates for week view
+        frozenDates,
         isMissed,
+        isFrozenToday,
         dateCreated: habitCreatedDate,
       };
     });

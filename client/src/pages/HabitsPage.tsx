@@ -352,6 +352,11 @@ function SortableHabitCard({
       onMissedTap?.();
       return;
     }
+    // Frozen days cannot be toggled (streak was saved by system)
+    if (habit.isFrozenToday) {
+      haptic.light();
+      return;
+    }
     haptic.medium();
     if (!habit.completedToday) {
       setJustCompleted(true);
@@ -445,14 +450,18 @@ function SortableHabitCard({
             className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 flex-shrink-0 ${
               isBlocked 
                 ? 'bg-gray-100 dark:bg-zinc-800 cursor-not-allowed opacity-50'
-                : habit.completedToday 
-                  ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/30' 
-                  : 'bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700'
+                : habit.isFrozenToday
+                  ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/30'
+                  : habit.completedToday 
+                    ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/30' 
+                    : 'bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700'
             } ${isToggling ? 'animate-pulse' : ''} ${justCompleted ? 'animate-check-pop' : ''}`}
-            style={habit.completedToday && !isBlocked ? {} : isBlocked ? {} : { borderColor: habit.color, borderWidth: 2 }}
+            style={habit.completedToday && !isBlocked && !habit.isFrozenToday ? {} : isBlocked ? {} : habit.isFrozenToday ? {} : { borderColor: habit.color, borderWidth: 2 }}
           >
             {isBlocked ? (
               <Lock className="w-4 h-4 text-gray-400" />
+            ) : habit.isFrozenToday ? (
+              <Snowflake className="w-5 h-5" />
             ) : habit.completedToday ? (
               <Check className="w-5 h-5" />
             ) : (

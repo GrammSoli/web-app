@@ -427,6 +427,12 @@ async function processDailyFreezeCheck(): Promise<void> {
 
       if (actuallyMissed.length === 0) continue;
 
+      // Выбираем привычку с максимальным стриком для уведомления
+      // (заморозка применяется ко всем, но в уведомлении показываем самую важную)
+      const habitWithMaxStreak = actuallyMissed.reduce((max, h) => 
+        h.current_streak > max.current_streak ? h : max
+      );
+
       // Применяем заморозку! (атомарно)
       // Используем todayStrUserTz вместо CURRENT_DATE для корректной работы с timezone
       const updateResult = await prisma.$executeRaw`
@@ -440,8 +446,8 @@ async function processDailyFreezeCheck(): Promise<void> {
           habit_freezes_reset_month = ${currentMonthStart}::date,
           last_freeze_applied_date = ${todayStrUserTz}::date,
           last_freeze_notification_date = ${todayStrUserTz}::date,
-          last_freeze_habit_id = ${actuallyMissed[0].habit_id}::uuid,
-          last_freeze_streak = ${actuallyMissed[0].current_streak}
+          last_freeze_habit_id = ${habitWithMaxStreak.habit_id}::uuid,
+          last_freeze_streak = ${habitWithMaxStreak.current_streak}
         WHERE id = ${user.user_id}::uuid
           AND (last_freeze_applied_date IS NULL OR last_freeze_applied_date < ${todayStrUserTz}::date)
           AND (

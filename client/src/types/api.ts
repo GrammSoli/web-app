@@ -139,7 +139,9 @@ export interface Habit {
   isActive: boolean;
   completedToday: boolean;
   completedDates: string[]; // YYYY-MM-DD format
+  frozenDates?: string[]; // Dates saved by freeze
   isMissed?: boolean; // True if past date with no completion
+  isFrozenToday?: boolean; // True if current date was saved by freeze
   dateCreated?: string; // ISO date string
 }
 
