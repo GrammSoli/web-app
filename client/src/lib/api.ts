@@ -259,11 +259,83 @@ export async function deleteHabit(id: string): Promise<void> {
   });
 }
 
-export async function toggleHabit(id: string, date?: string): Promise<HabitToggleResponse> {
+/**
+ * Direct toggle API call (used by offline queue sync)
+ * Does NOT use offline queue - for internal use only
+ */
+export async function toggleHabitDirect(id: string, date?: string): Promise<HabitToggleResponse> {
   return apiFetch<HabitToggleResponse>(`/habits/${id}/toggle`, {
     method: 'POST',
     body: JSON.stringify({ date }),
   });
+}
+
+/**
+ * Toggle habit with offline support
+ * If online: calls API directly
+ * If offline: queues operation and returns optimistic response
+ */
+export async function toggleHabit(
+  id: string, 
+  date?: string,
+  options?: { 
+    currentState: boolean; // Current completion state (for optimistic update)
+  }
+): Promise<HabitToggleResponse> {
+  const targetDate = date || new Date().toISOString().split('T')[0];
+  const targetState = !(options?.currentState ?? false); // Toggle to opposite
+  
+  // Try direct call first
+  if (navigator.onLine) {
+    try {
+      return await toggleHabitDirect(id, date);
+    } catch (error) {
+      // Network error - fall through to offline handling
+      if (!isNetworkError(error)) {
+        throw error; // Re-throw non-network errors (4xx, 5xx)
+      }
+      console.log('[API] Network error, queuing offline:', error);
+    }
+  }
+  
+  // Queue for offline sync
+  const { offlineQueue } = await import('./offlineQueue');
+  offlineQueue.enqueue({
+    type: 'habit_toggle',
+    payload: {
+      habitId: id,
+      date: targetDate,
+      targetState,
+    },
+  });
+  
+  // Return optimistic response
+  return {
+    completed: targetState,
+    currentStreak: 0, // Will be corrected on sync
+    longestStreak: 0,
+    totalCompletions: 0,
+    allCompleted: false,
+    _offline: true, // Flag for UI to show pending indicator
+  } as HabitToggleResponse & { _offline?: boolean };
+}
+
+/**
+ * Check if error is a network error (not HTTP error)
+ */
+function isNetworkError(error: unknown): boolean {
+  if (error instanceof TypeError && error.message.includes('fetch')) {
+    return true;
+  }
+  if (error instanceof Error) {
+    const msg = error.message.toLowerCase();
+    return msg.includes('network') || 
+           msg.includes('offline') || 
+           msg.includes('время ожидания') ||
+           msg.includes('timeout') ||
+           msg.includes('aborted');
+  }
+  return false;
 }
 
 export async function reorderHabits(order: string[]): Promise<void> {

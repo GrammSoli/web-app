@@ -22,7 +22,7 @@ import {
   Sparkles, Dumbbell, BookOpen, PersonStanding, Droplets, Bike, Target, Moon,
   Salad, Brain, Palette, Music, Heart, Pill, Coffee, Cigarette, Bell, CalendarDays,
   Footprints, Smile, Sun, Zap, Leaf, Apple, Pencil, Gamepad2, Languages, Bed,
-  Snowflake, GripVertical,
+  Snowflake, GripVertical, WifiOff, RefreshCw,
   type LucideIcon
 } from 'lucide-react';
 import {
@@ -45,6 +45,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { useAppStore } from '@/store/useAppStore';
 import { useTelegram } from '@/hooks/useTelegram';
+import { useOfflineStatus } from '@/hooks/useOfflineStatus';
 import { api } from '@/lib/api';
 import type { Habit, HabitsResponse, CreateHabitInput } from '@/types/api';
 import confetti from 'canvas-confetti';
@@ -890,6 +891,7 @@ export default function HabitsPage() {
   const navigate = useNavigate();
   const { user } = useAppStore();
   const { haptic, disableVerticalSwipes, enableVerticalSwipes } = useTelegram();
+  const { isOnline, pendingCount, isSyncing, forceSync } = useOfflineStatus();
   
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [habits, setHabits] = useState<Habit[]>([]);
@@ -951,72 +953,108 @@ export default function HabitsPage() {
     fetchHabits();
   }, [fetchHabits]);
 
-  // Toggle habit
+  // Toggle habit (with offline support)
   const handleToggle = async (habitId: string) => {
+    const habit = habits.find(h => h.id === habitId);
+    if (!habit) return;
+    
+    const dateStr = format(selectedDate, 'yyyy-MM-dd');
+    const currentState = habit.completedToday;
+    
+    // Optimistic update first
+    const newCompleted = !currentState;
+    setHabits(prev => prev.map(h => 
+      h.id === habitId 
+        ? { 
+            ...h, 
+            completedToday: newCompleted,
+            completedDates: newCompleted 
+              ? [...h.completedDates, dateStr]
+              : h.completedDates.filter(d => d !== dateStr),
+          }
+        : h
+    ));
+    
+    setStats(prev => ({
+      ...prev,
+      completedToday: newCompleted 
+        ? prev.completedToday + 1 
+        : prev.completedToday - 1,
+    }));
+    
+    // Update completionDots optimistically
+    setCompletionDots(prev => {
+      const newDots = { ...prev };
+      const currentCount = newDots[dateStr] || 0;
+      if (newCompleted) {
+        newDots[dateStr] = currentCount + 1;
+      } else {
+        if (currentCount <= 1) {
+          delete newDots[dateStr];
+        } else {
+          newDots[dateStr] = currentCount - 1;
+        }
+      }
+      return newDots;
+    });
+    
     setIsTogglingId(habitId);
     try {
-      const dateStr = format(selectedDate, 'yyyy-MM-dd');
-      const response = await api.habits.toggle(habitId, dateStr);
+      const response = await api.habits.toggle(habitId, dateStr, { currentState });
       
-      // Update local state
+      // If not offline response, update with real server data
+      if (!(response as { _offline?: boolean })._offline) {
+        setHabits(prev => prev.map(h => 
+          h.id === habitId 
+            ? { 
+                ...h, 
+                currentStreak: response.currentStreak,
+                longestStreak: response.longestStreak,
+                totalCompletions: response.totalCompletions,
+              }
+            : h
+        ));
+
+        // Update freeze info if returned
+        if (response.freezeInfo) {
+          setFreezeInfo({
+            used: response.freezeInfo.used,
+            limit: response.freezeInfo.limit,
+            remaining: response.freezeInfo.remaining,
+          });
+        }
+
+        // Confetti if all completed!
+        if (response.allCompleted) {
+          haptic.success();
+          confetti({
+            particleCount: 100,
+            spread: 70,
+            origin: { y: 0.6 },
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Failed to toggle habit:', err);
+      // Revert optimistic update on error
       setHabits(prev => prev.map(h => 
         h.id === habitId 
           ? { 
               ...h, 
-              completedToday: response.completed,
-              currentStreak: response.currentStreak,
-              longestStreak: response.longestStreak,
-              totalCompletions: response.totalCompletions,
-              completedDates: response.completed 
+              completedToday: currentState,
+              completedDates: currentState 
                 ? [...h.completedDates, dateStr]
                 : h.completedDates.filter(d => d !== dateStr),
             }
           : h
       ));
-
       setStats(prev => ({
         ...prev,
-        completedToday: response.completed 
+        completedToday: currentState 
           ? prev.completedToday + 1 
           : prev.completedToday - 1,
       }));
-      
-      // Update completionDots for week strip
-      setCompletionDots(prev => {
-        const newDots = { ...prev };
-        const currentCount = newDots[dateStr] || 0;
-        if (response.completed) {
-          newDots[dateStr] = currentCount + 1;
-        } else {
-          if (currentCount <= 1) {
-            delete newDots[dateStr];
-          } else {
-            newDots[dateStr] = currentCount - 1;
-          }
-        }
-        return newDots;
-      });
-
-      // Update freeze info if returned
-      if (response.freezeInfo) {
-        setFreezeInfo({
-          used: response.freezeInfo.used,
-          limit: response.freezeInfo.limit,
-          remaining: response.freezeInfo.remaining,
-        });
-      }
-
-      // Confetti if all completed!
-      if (response.allCompleted) {
-        haptic.success();
-        confetti({
-          particleCount: 100,
-          spread: 70,
-          origin: { y: 0.6 },
-        });
-      }
-    } catch (err) {
-      console.error('Failed to toggle habit:', err);
+      setToastMessage('Не удалось сохранить изменение');
     } finally {
       setIsTogglingId(null);
     }
@@ -1141,8 +1179,11 @@ export default function HabitsPage() {
     }
   };
 
-  // Pull-to-refresh handler
+  // Pull-to-refresh handler (also syncs offline queue)
   const handleRefresh = async (): Promise<void> => {
+    // First sync any pending offline operations
+    await forceSync();
+    // Then fetch fresh data
     await fetchHabits();
   };
 
@@ -1194,6 +1235,51 @@ export default function HabitsPage() {
           onSelectDate={setSelectedDate}
           completionDots={completionDots}
         />
+        
+        {/* Offline/Syncing Banner */}
+        {(!isOnline || pendingCount > 0) && (
+          <div 
+            className={`mt-3 px-4 py-2.5 rounded-xl flex items-center justify-between ${
+              !isOnline 
+                ? 'bg-amber-100 dark:bg-amber-900/30' 
+                : isSyncing
+                  ? 'bg-blue-100 dark:bg-blue-900/30'
+                  : 'bg-amber-50 dark:bg-amber-900/20'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              {!isOnline ? (
+                <WifiOff className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+              ) : isSyncing ? (
+                <RefreshCw className="w-4 h-4 text-blue-500 animate-spin" />
+              ) : (
+                <RefreshCw className="w-4 h-4 text-amber-500" />
+              )}
+              <span className={`text-sm font-medium ${
+                !isOnline 
+                  ? 'text-amber-700 dark:text-amber-300'
+                  : isSyncing
+                    ? 'text-blue-700 dark:text-blue-300'
+                    : 'text-amber-600 dark:text-amber-400'
+              }`}>
+                {!isOnline 
+                  ? 'Офлайн режим' 
+                  : isSyncing 
+                    ? 'Синхронизация...'
+                    : `Ожидает синхр.: ${pendingCount}`
+                }
+              </span>
+            </div>
+            {isOnline && pendingCount > 0 && !isSyncing && (
+              <button
+                onClick={() => forceSync()}
+                className="text-xs font-medium text-amber-700 dark:text-amber-300 hover:underline"
+              >
+                Синхронизировать
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="px-4 space-y-4">
