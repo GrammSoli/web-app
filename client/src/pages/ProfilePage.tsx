@@ -269,15 +269,13 @@ export default function ProfilePage() {
 
         {/* Menu */}
         <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-          {/* Admin-only: Habits Tracker */}
-          {appUser?.isAdmin && (
-            <MenuItem 
-              icon={<Target className="w-6 h-6 text-indigo-500" />} 
-              title="Трекер привычек" 
-              subtitle="Бета-тестирование" 
-              onClick={() => { haptic.light(); navigate('/habits'); }} 
-            />
-          )}
+          {/* Habits Tracker */}
+          <MenuItem 
+            icon={<Target className="w-6 h-6 text-indigo-500" />} 
+            title="Трекер привычек" 
+            subtitle="Формируй полезные привычки" 
+            onClick={() => { haptic.light(); navigate('/habits'); }} 
+          />
           <MenuItem icon={<Gem className="w-6 h-6 text-purple-500" />} title="Premium" subtitle="Открой все возможности" onClick={() => navigate('/premium')} />
           <MenuItem 
             icon={<Settings className="w-6 h-6 text-gray-500" />} 

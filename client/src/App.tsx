@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
-import { Home, BarChart3, PenLine, Crown, User } from 'lucide-react';
+import { Home, BarChart3, PenLine, Target, User } from 'lucide-react';
 
 // Components
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -77,8 +77,8 @@ export default function App() {
 
   // Determine active tab
   const activeTab = () => {
+    if (location.pathname.startsWith('/habits')) return 'habits';
     if (location.pathname.startsWith('/stats')) return 'stats';
-    if (location.pathname.startsWith('/premium')) return 'premium';
     if (location.pathname.startsWith('/profile')) return 'profile';
     if (location.pathname.startsWith('/new')) return 'new';
     return 'home';
@@ -122,12 +122,12 @@ export default function App() {
                 onClick={() => navigate('/')}
               />
               
-              {/* Stats */}
+              {/* Habits */}
               <NavButton 
-                icon={<BarChart3 size={22} strokeWidth={2} />} 
-                label="Статистика"
-                active={activeTab() === 'stats'} 
-                onClick={() => navigate('/stats')}
+                icon={<Target size={22} strokeWidth={2} />} 
+                label="Привычки"
+                active={activeTab() === 'habits'} 
+                onClick={() => navigate('/habits')}
               />
               
               {/* New Entry - Main button */}
@@ -137,12 +137,12 @@ export default function App() {
                 onClick={() => navigate('/new')}
               />
               
-              {/* Premium */}
+              {/* Stats */}
               <NavButton 
-                icon={<Crown size={22} strokeWidth={2} />} 
-                label="Premium"
-                active={activeTab() === 'premium'} 
-                onClick={() => navigate('/premium')}
+                icon={<BarChart3 size={22} strokeWidth={2} />} 
+                label="Анализ"
+                active={activeTab() === 'stats'} 
+                onClick={() => navigate('/stats')}
               />
               
               {/* Profile */}

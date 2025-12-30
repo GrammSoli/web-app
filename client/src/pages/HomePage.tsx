@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Preloader } from 'konsta/react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { Flame, FileText, Smile, CalendarDays, BookOpen, User, AlertCircle, RefreshCw, Eye, EyeOff } from 'lucide-react';
+import { Flame, FileText, Smile, Target, BookOpen, User, AlertCircle, RefreshCw, Eye, EyeOff } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import { useTelegram } from '@/hooks/useTelegram';
 import EntryCard from '@/components/EntryCard';
@@ -237,16 +237,21 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* Today Card */}
-            <div className="bg-white dark:bg-gray-800 p-4 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-3">
+            {/* Habits Widget Card */}
+            <button 
+              onClick={() => navigate('/habits')}
+              className="bg-white dark:bg-gray-800 p-4 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-3 w-full text-left active:scale-[0.98] transition-transform"
+            >
               <span className="bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 w-12 h-12 flex items-center justify-center rounded-2xl flex-shrink-0">
-                <CalendarDays className="w-6 h-6 text-purple-500" />
+                <Target className="w-6 h-6 text-purple-500" />
               </span>
               <div>
-                <p className="text-2xl font-bold text-gray-800 dark:text-white">{stats?.todayEntries || 0}</p>
-                <p className="text-gray-400 text-xs">Сегодня</p>
+                <p className="text-2xl font-bold text-gray-800 dark:text-white">
+                  {stats?.habitsProgress ? `${stats.habitsProgress.completed}/${stats.habitsProgress.total}` : '—'}
+                </p>
+                <p className="text-gray-400 text-xs">Привычки</p>
               </div>
-            </div>
+            </button>
           </div>
 
           {/* Recent Entries Section */}

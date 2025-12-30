@@ -91,6 +91,10 @@ export interface UserStats {
     tag: string;
     count: number;
   }>;
+  habitsProgress?: {
+    completed: number;
+    total: number;
+  };
 }
 
 // Subscription

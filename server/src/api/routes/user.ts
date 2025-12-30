@@ -647,6 +647,58 @@ router.get('/stats', async (req: Request, res: Response) => {
     // Calculate today's voice usage in minutes
     const todayVoiceMinutes = Math.round(todayVoiceSeconds / 60);
     
+    // Calculate habits progress for today (with user timezone)
+    const { prisma } = await import('../../services/database.js');
+    const userTimezone = req.userTimezone || 'UTC';
+    
+    // Get today's date in user timezone
+    const todayFormatter = new Intl.DateTimeFormat('en-CA', { 
+      timeZone: userTimezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+    const todayStr = todayFormatter.format(new Date()); // YYYY-MM-DD
+    
+    // Get day of week (0=Mon, 6=Sun)
+    const todayDate = new Date(todayStr + 'T12:00:00Z');
+    const jsDay = todayDate.getUTCDay();
+    const dayOfWeek = jsDay === 0 ? 6 : jsDay - 1;
+    
+    // Get all active habits with today's completions
+    const habits = await prisma.habit.findMany({
+      where: {
+        userId: user.id,
+        isActive: true,
+        isArchived: false,
+      },
+      include: {
+        completions: {
+          where: {
+            completedDate: {
+              gte: new Date(todayStr + 'T00:00:00Z'),
+              lte: new Date(todayStr + 'T23:59:59Z'),
+            },
+            isFrozen: false, // Only real completions, not frozen
+          },
+        },
+      },
+    });
+    
+    // Filter habits scheduled for today
+    const scheduledHabits = habits.filter(habit => {
+      switch (habit.frequency) {
+        case 'daily': return true;
+        case 'weekdays': return dayOfWeek >= 0 && dayOfWeek <= 4;
+        case 'weekends': return dayOfWeek === 5 || dayOfWeek === 6;
+        case 'custom': return (habit.customDays as number[]).includes(dayOfWeek);
+        default: return true;
+      }
+    });
+    
+    const habitsTotal = scheduledHabits.length;
+    const habitsCompleted = scheduledHabits.filter(h => h.completions.length > 0).length;
+    
     res.json({
       tier,
       totalEntries: entries.length,
@@ -672,6 +724,10 @@ router.get('/stats', async (req: Request, res: Response) => {
       chartData,
       moodDistribution,
       topTags,
+      habitsProgress: {
+        completed: habitsCompleted,
+        total: habitsTotal,
+      },
     });
   } catch (error) {
     apiLogger.error({ error }, 'Failed to get stats');

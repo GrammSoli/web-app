@@ -12,7 +12,6 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
 import PullToRefresh from 'react-simple-pull-to-refresh';
 import { Preloader } from 'konsta/react';
 import { format, addDays, subDays, isToday, isSameDay, startOfWeek, startOfDay } from 'date-fns';
@@ -43,7 +42,6 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { useAppStore } from '@/store/useAppStore';
 import { useTelegram } from '@/hooks/useTelegram';
 import { useOfflineStatus } from '@/hooks/useOfflineStatus';
 import { api } from '@/lib/api';
@@ -888,8 +886,6 @@ function HabitCardSkeleton() {
 // ============================================
 
 export default function HabitsPage() {
-  const navigate = useNavigate();
-  const { user } = useAppStore();
   const { haptic, disableVerticalSwipes, enableVerticalSwipes } = useTelegram();
   const { isOnline, pendingCount, isSyncing, forceSync } = useOfflineStatus();
   
@@ -919,13 +915,6 @@ export default function HabitsPage() {
   const handleMissedTap = useCallback(() => {
     setToastMessage('Этот день уже пропущен. Привычки нужно выполнять вовремя!');
   }, []);
-
-  // Admin-only check
-  useEffect(() => {
-    if (user && !user.isAdmin) {
-      navigate('/');
-    }
-  }, [user, navigate]);
 
   // Fetch habits
   const fetchHabits = useCallback(async () => {
@@ -1186,17 +1175,6 @@ export default function HabitsPage() {
     // Then fetch fresh data
     await fetchHabits();
   };
-
-  // Check admin access
-  if (user && !user.isAdmin) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="text-center">
-          <p className="text-gray-500">Эта функция пока доступна только для тестирования</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <PullToRefresh
