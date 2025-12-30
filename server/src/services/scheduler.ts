@@ -521,7 +521,10 @@ async function sendFreezeNotification(
 async function processFreezeNotifications(): Promise<void> {
   try {
     // Получаем пользователей, у которых есть pending уведомление о заморозке
-    // (last_freeze_notification_date != NULL означает, что нужно отправить уведомление)
+    // Требуется:
+    // - last_freeze_notification_date IS NOT NULL (pending notification)
+    // - last_freeze_applied_date IS NOT NULL (freeze was actually applied)
+    // - привычка активна и не архивирована
     const usersWithFreezeUsed = await prisma.$queryRaw<Array<{
       telegram_id: bigint;
       timezone: string;
@@ -542,8 +545,11 @@ async function processFreezeNotifications(): Promise<void> {
           ), 1) - u.habit_freezes_used
         ) as freezes_remaining
       FROM app.users u
-      LEFT JOIN app.habits h ON h.id = u.last_freeze_habit_id
+      LEFT JOIN app.habits h ON h.id = u.last_freeze_habit_id 
+        AND h.is_active = true 
+        AND h.is_archived = false
       WHERE u.last_freeze_notification_date IS NOT NULL
+        AND u.last_freeze_applied_date IS NOT NULL
         AND u.status = 'active'
     `;
 

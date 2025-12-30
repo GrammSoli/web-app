@@ -676,6 +676,17 @@ router.delete('/:id', async (req: Request, res: Response) => {
       data: { isArchived: true, isActive: false },
     });
     
+    // Clear freeze reference if it points to this habit
+    await prisma.$executeRaw`
+      UPDATE app.users 
+      SET 
+        last_freeze_habit_id = NULL,
+        last_freeze_streak = NULL,
+        last_freeze_notification_date = NULL
+      WHERE id = ${user.id}::uuid 
+        AND last_freeze_habit_id = ${id}::uuid
+    `;
+    
     apiLogger.info({ userId: user.id, habitId: id }, 'Habit archived');
     
     return res.json({ success: true });
