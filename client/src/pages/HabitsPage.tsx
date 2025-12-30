@@ -5,6 +5,7 @@
  * - Week strip calendar
  * - Daily progress ring
  * - Habit cards with streaks
+ * - Drag & drop reordering
  * - Haptic feedback
  * - Confetti on all habits completed
  */
@@ -20,16 +21,27 @@ import {
   Sparkles, Dumbbell, BookOpen, PersonStanding, Droplets, Bike, Target, Moon,
   Salad, Brain, Palette, Music, Heart, Pill, Coffee, Cigarette, Bell, CalendarDays,
   Footprints, Smile, Sun, Zap, Leaf, Apple, Pencil, Gamepad2, Languages, Bed,
-  Snowflake,
+  Snowflake, GripVertical,
   type LucideIcon
 } from 'lucide-react';
 import {
-  SwipeableList,
-  SwipeableListItem,
-  SwipeAction,
-  TrailingActions,
-} from 'react-swipeable-list';
-import 'react-swipeable-list/dist/styles.css';
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { useAppStore } from '@/store/useAppStore';
 import { useTelegram } from '@/hooks/useTelegram';
 import { api } from '@/lib/api';
@@ -283,23 +295,41 @@ function ProgressRing({
   );
 }
 
-// Habit Card
-function HabitCard({ 
-  habit, 
-  onToggle, 
+// Sortable wrapper for HabitCard with drag handle
+function SortableHabitCard({
+  habit,
+  onToggle,
   onEdit,
+  onDelete,
   isTogglingId,
   isFutureDate,
   onFutureTap,
-}: { 
-  habit: Habit; 
+}: {
+  habit: Habit;
   onToggle: () => void;
   onEdit: () => void;
+  onDelete: () => void;
   isTogglingId: string | null;
   isFutureDate?: boolean;
   onFutureTap?: () => void;
 }) {
   const { haptic } = useTelegram();
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: habit.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 50 : 'auto',
+    opacity: isDragging ? 0.9 : 1,
+  };
+
   const isToggling = isTogglingId === habit.id;
   const [justCompleted, setJustCompleted] = useState(false);
 
@@ -323,79 +353,100 @@ function HabitCard({
   };
 
   return (
-    <div 
-      className={`bg-white dark:bg-zinc-900 rounded-2xl p-4 shadow-sm transition-all duration-200 ${
-        habit.completedToday ? 'opacity-80' : ''
-      } ${isFutureDate ? 'opacity-60' : ''}`}
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`mb-3 ${isDragging ? 'scale-[1.02] shadow-xl' : ''}`}
     >
-      <div className="flex items-center gap-4">
-        {/* Clickable area for editing */}
-        <div 
-          className="flex items-center gap-4 flex-1 min-w-0 cursor-pointer active:opacity-70"
-          onClick={handleEdit}
-        >
-          {/* Icon */}
-          <div 
-            className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ backgroundColor: `${habit.color}20` }}
+      <div 
+        className={`bg-white dark:bg-zinc-900 rounded-2xl p-4 shadow-sm transition-all duration-200 ${
+          habit.completedToday ? 'opacity-80' : ''
+        } ${isFutureDate ? 'opacity-60' : ''} ${isDragging ? 'ring-2 ring-indigo-500' : ''}`}
+      >
+        <div className="flex items-center gap-3">
+          {/* Drag Handle */}
+          <button
+            {...attributes}
+            {...listeners}
+            className="touch-none p-1 -ml-1 text-gray-300 dark:text-zinc-600 hover:text-gray-400 dark:hover:text-zinc-500 active:text-indigo-500 transition-colors cursor-grab active:cursor-grabbing"
+            onClick={(e) => e.stopPropagation()}
           >
-            <HabitIcon name={habit.emoji} color={habit.color} size="lg" />
-          </div>
+            <GripVertical className="w-5 h-5" />
+          </button>
 
-          {/* Content */}
-          <div className="flex-1 min-w-0">
-            <h4 className={`font-semibold text-gray-900 dark:text-white truncate ${
-              habit.completedToday ? 'line-through text-gray-400' : ''
-            }`}>
-              {habit.name}
-            </h4>
-            <div className="flex items-center gap-3 mt-1">
-              {/* Streak */}
-              {habit.currentStreak > 0 && (
-                <div className="flex items-center gap-1 text-orange-500">
-                  <Flame className="w-4 h-4" />
-                  <span className="text-sm font-medium">{habit.currentStreak}</span>
-                </div>
-              )}
-              {/* Reminder time */}
-              {habit.reminderTime && (
-                <div className="flex items-center gap-1 text-gray-400">
-                  <Clock className="w-3 h-3" />
-                  <span className="text-xs">{habit.reminderTime}</span>
-                </div>
-              )}
-              {/* Future date indicator */}
-              {isFutureDate && (
-                <div className="flex items-center gap-1 text-gray-400">
-                  <Lock className="w-3 h-3" />
-                  <span className="text-xs">Будущее</span>
-                </div>
-              )}
+          {/* Clickable area for editing */}
+          <div 
+            className="flex items-center gap-4 flex-1 min-w-0 cursor-pointer active:opacity-70"
+            onClick={handleEdit}
+          >
+            {/* Icon */}
+            <div 
+              className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ backgroundColor: `${habit.color}20` }}
+            >
+              <HabitIcon name={habit.emoji} color={habit.color} size="md" />
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 min-w-0">
+              <h4 className={`font-semibold text-gray-900 dark:text-white truncate ${
+                habit.completedToday ? 'line-through text-gray-400' : ''
+              }`}>
+                {habit.name}
+              </h4>
+              <div className="flex items-center gap-3 mt-0.5">
+                {/* Streak */}
+                {habit.currentStreak > 0 && (
+                  <div className="flex items-center gap-1 text-orange-500">
+                    <Flame className="w-3.5 h-3.5" />
+                    <span className="text-xs font-medium">{habit.currentStreak}</span>
+                  </div>
+                )}
+                {/* Reminder time */}
+                {habit.reminderTime && (
+                  <div className="flex items-center gap-1 text-gray-400">
+                    <Clock className="w-3 h-3" />
+                    <span className="text-xs">{habit.reminderTime}</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Checkbox with animation */}
-        <button
-          onClick={handleToggle}
-          disabled={isToggling}
-          className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-200 flex-shrink-0 ${
-            isFutureDate 
-              ? 'bg-gray-100 dark:bg-zinc-800 cursor-not-allowed opacity-50'
-              : habit.completedToday 
-                ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/30' 
-                : 'bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700'
-          } ${isToggling ? 'animate-pulse' : ''} ${justCompleted ? 'animate-check-pop' : ''}`}
-          style={habit.completedToday && !isFutureDate ? {} : isFutureDate ? {} : { borderColor: habit.color, borderWidth: 2 }}
-        >
-          {isFutureDate ? (
-            <Lock className="w-5 h-5 text-gray-400" />
-          ) : habit.completedToday ? (
-            <Check className="w-6 h-6" />
-          ) : (
-            <div className="w-6 h-6" />
-          )}
-        </button>
+          {/* Delete button (visible on long press / swipe alternative) */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              haptic.medium();
+              onDelete();
+            }}
+            className="p-2 text-gray-300 dark:text-zinc-600 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+
+          {/* Checkbox with animation */}
+          <button
+            onClick={handleToggle}
+            disabled={isToggling}
+            className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 flex-shrink-0 ${
+              isFutureDate 
+                ? 'bg-gray-100 dark:bg-zinc-800 cursor-not-allowed opacity-50'
+                : habit.completedToday 
+                  ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/30' 
+                  : 'bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700'
+            } ${isToggling ? 'animate-pulse' : ''} ${justCompleted ? 'animate-check-pop' : ''}`}
+            style={habit.completedToday && !isFutureDate ? {} : isFutureDate ? {} : { borderColor: habit.color, borderWidth: 2 }}
+          >
+            {isFutureDate ? (
+              <Lock className="w-4 h-4 text-gray-400" />
+            ) : habit.completedToday ? (
+              <Check className="w-5 h-5" />
+            ) : (
+              <div className="w-5 h-5" />
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -1005,6 +1056,50 @@ export default function HabitsPage() {
     }
   };
 
+  // Drag & drop sensors with delay for touch devices
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // Minimum drag distance before activating
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 200, // Hold for 200ms before drag starts
+        tolerance: 5,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // Handle drag end - reorder habits
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    if (over && active.id !== over.id) {
+      haptic.light();
+      
+      const oldIndex = habits.findIndex(h => h.id === active.id);
+      const newIndex = habits.findIndex(h => h.id === over.id);
+      
+      // Optimistic update
+      const newHabits = arrayMove(habits, oldIndex, newIndex);
+      setHabits(newHabits);
+      
+      // Save to server
+      try {
+        await api.habits.reorder(newHabits.map(h => h.id));
+      } catch (err) {
+        console.error('Failed to reorder habits:', err);
+        // Revert on error
+        setHabits(habits);
+        setToastMessage('Не удалось сохранить порядок');
+      }
+    }
+  };
+
   // Pull-to-refresh handler
   const handleRefresh = async (): Promise<void> => {
     await fetchHabits();
@@ -1098,38 +1193,32 @@ export default function HabitsPage() {
               </button>
             </div>
           ) : (
-            <SwipeableList threshold={0.25} className="w-full">
-              {habits.map(habit => (
-                <SwipeableListItem
-                  key={habit.id}
-                  trailingActions={
-                    <TrailingActions>
-                      <SwipeAction
-                        destructive={false}
-                        onClick={() => handleDelete(habit.id)}
-                      >
-                        <div className="bg-red-500 text-white flex items-center justify-center w-20 h-full rounded-r-2xl ml-[-10px]">
-                          <Trash2 className="w-6 h-6" />
-                        </div>
-                      </SwipeAction>
-                    </TrailingActions>
-                  }
-                  className="mb-3 block w-full"
-                >
-                  <HabitCard
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={habits.map(h => h.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                {habits.map(habit => (
+                  <SortableHabitCard
+                    key={habit.id}
                     habit={habit}
                     onToggle={() => handleToggle(habit.id)}
                     onEdit={() => {
                       setEditingHabit(habit);
                       setIsModalOpen(true);
                     }}
+                    onDelete={() => handleDelete(habit.id)}
                     isTogglingId={isTogglingId}
                     isFutureDate={isFutureDate}
                     onFutureTap={handleFutureTap}
                   />
-                </SwipeableListItem>
-              ))}
-            </SwipeableList>
+                ))}
+              </SortableContext>
+            </DndContext>
           )}
         </div>
 
