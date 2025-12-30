@@ -110,6 +110,12 @@ model User {
   habitFreezesAvailable Int             @default(1) @map("habit_freezes_available")
   habitFreezesUsed      Int             @default(0) @map("habit_freezes_used")
   habitFreezesResetMonth DateTime?      @map("habit_freezes_reset_month") @db.Date
+  
+  // Last freeze tracking (for notifications)
+  lastFreezeNotificationDate DateTime?  @map("last_freeze_notification_date") @db.Date
+  lastFreezeHabitId     String?         @map("last_freeze_habit_id") @db.Uuid
+  lastFreezeStreak      Int?            @default(0) @map("last_freeze_streak")
+  lastFreezeAppliedDate DateTime?       @map("last_freeze_applied_date") @db.Date
 
   // Aggregated stats
   totalEntriesCount   Int               @default(0) @map("total_entries_count")

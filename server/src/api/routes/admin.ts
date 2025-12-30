@@ -494,4 +494,64 @@ router.post('/reset-freeze-data', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * GET /api/admin/test-habits
+ * Test habits API without signature validation (admin only)
+ */
+router.get('/test-habits', async (req: Request, res: Response) => {
+  try {
+    const user = req.user!;
+    const dateParam = req.query.date as string | undefined;
+    
+    // Get habits directly from database
+    const habits = await prisma.habit.findMany({
+      where: {
+        userId: user.id,
+        isActive: true,
+        isArchived: false,
+      },
+      include: {
+        completions: {
+          select: {
+            completedDate: true,
+            isFrozen: true,
+          },
+        },
+      },
+      orderBy: [
+        { sortOrder: 'asc' },
+        { dateCreated: 'asc' },
+      ],
+    });
+    
+    // Format response with frozen info
+    const targetDate = dateParam || new Date().toISOString().split('T')[0];
+    
+    const habitsWithFrozen = habits.map(habit => {
+      const completions = habit.completions.map(c => ({
+        date: new Date(c.completedDate).toISOString().split('T')[0],
+        isFrozen: c.isFrozen,
+      }));
+      
+      const todayCompletion = completions.find(c => c.date === targetDate);
+      
+      return {
+        id: habit.id,
+        name: habit.name,
+        completions,
+        isFrozenToday: todayCompletion?.isFrozen || false,
+        hasCompletionToday: !!todayCompletion,
+      };
+    });
+    
+    return res.json({
+      date: targetDate,
+      habits: habitsWithFrozen,
+    });
+  } catch (error) {
+    apiLogger.error({ error }, 'Failed to test habits');
+    return res.status(500).json({ error: 'Failed to test habits' });
+  }
+});
+
 export default router;

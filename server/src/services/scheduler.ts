@@ -433,52 +433,64 @@ async function processDailyFreezeCheck(): Promise<void> {
         h.current_streak > max.current_streak ? h : max
       );
 
-      // Применяем заморозку! (атомарно)
-      // Используем todayStrUserTz вместо CURRENT_DATE для корректной работы с timezone
-      const updateResult = await prisma.$executeRaw`
-        UPDATE app.users 
-        SET 
-          habit_freezes_used = CASE 
-            WHEN habit_freezes_reset_month IS NULL OR habit_freezes_reset_month < ${currentMonthStart}::date 
-            THEN 1 
-            ELSE habit_freezes_used + 1 
-          END,
-          habit_freezes_reset_month = ${currentMonthStart}::date,
-          last_freeze_applied_date = ${todayStrUserTz}::date,
-          last_freeze_notification_date = ${todayStrUserTz}::date,
-          last_freeze_habit_id = ${habitWithMaxStreak.habit_id}::uuid,
-          last_freeze_streak = ${habitWithMaxStreak.current_streak}
-        WHERE id = ${user.user_id}::uuid
-          AND (last_freeze_applied_date IS NULL OR last_freeze_applied_date < ${todayStrUserTz}::date)
-          AND (
-            (habit_freezes_reset_month IS NULL OR habit_freezes_reset_month < ${currentMonthStart}::date)
-            OR habit_freezes_used < ${freezeLimit}
-          )
-      `;
-
-      if (updateResult > 0) {
-        // Создаём "frozen" записи для пропущенных привычек
-        for (const habit of actuallyMissed) {
-          await prisma.$executeRaw`
-            INSERT INTO app.habit_completions (id, habit_id, user_id, completed_date, is_frozen, date_created)
-            VALUES (
-              gen_random_uuid(),
-              ${habit.habit_id}::uuid,
-              ${user.user_id}::uuid,
-              ${yesterdayStr}::date,
-              true,
-              NOW()
-            )
-            ON CONFLICT (habit_id, completed_date) DO NOTHING
+      // Применяем заморозку в транзакции (атомарно UPDATE users + INSERT completions)
+      try {
+        await prisma.$transaction(async (tx) => {
+          // Используем todayStrUserTz вместо CURRENT_DATE для корректной работы с timezone
+          const updateResult = await tx.$executeRaw`
+            UPDATE app.users 
+            SET 
+              habit_freezes_used = CASE 
+                WHEN habit_freezes_reset_month IS NULL OR habit_freezes_reset_month < ${currentMonthStart}::date 
+                THEN 1 
+                ELSE habit_freezes_used + 1 
+              END,
+              habit_freezes_reset_month = ${currentMonthStart}::date,
+              last_freeze_applied_date = ${todayStrUserTz}::date,
+              last_freeze_notification_date = ${todayStrUserTz}::date,
+              last_freeze_habit_id = ${habitWithMaxStreak.habit_id}::uuid,
+              last_freeze_streak = ${habitWithMaxStreak.current_streak}
+            WHERE id = ${user.user_id}::uuid
+              AND (last_freeze_applied_date IS NULL OR last_freeze_applied_date < ${todayStrUserTz}::date)
+              AND (
+                (habit_freezes_reset_month IS NULL OR habit_freezes_reset_month < ${currentMonthStart}::date)
+                OR habit_freezes_used < ${freezeLimit}
+              )
           `;
-        }
 
-        dbLogger.info({
-          userId: user.user_id,
-          telegramId: user.telegram_id.toString(),
-          habitsCount: actuallyMissed.length,
-          habitNames: actuallyMissed.map(h => h.habit_name),
-        }, 'Freeze applied for missed habits');
+          if (updateResult === 0) {
+            // Freeze already applied or no freezes remaining - skip
+            return;
+          }
+
+          // Создаём "frozen" записи для пропущенных привычек (с проверкой дубликатов)
+          let insertedCount = 0;
+          for (const habit of actuallyMissed) {
+            const inserted = await tx.$executeRaw`
+              INSERT INTO app.habit_completions (id, habit_id, user_id, completed_date, is_frozen, date_created)
+              VALUES (
+                gen_random_uuid(),
+                ${habit.habit_id}::uuid,
+                ${user.user_id}::uuid,
+                ${yesterdayStr}::date,
+                true,
+                NOW()
+              )
+              ON CONFLICT (habit_id, completed_date) DO NOTHING
+            `;
+            insertedCount += Number(inserted);
+          }
+
+          dbLogger.info({
+            userId: user.user_id,
+            telegramId: user.telegram_id.toString(),
+            habitsCount: actuallyMissed.length,
+            insertedCount,
+            habitNames: actuallyMissed.map(h => h.habit_name),
+          }, 'Freeze applied for missed habits');
+        });
+      } catch (txError) {
+        dbLogger.error({ txError, userId: user.user_id }, 'Freeze transaction failed');
       }
     }
   } catch (error) {
@@ -534,22 +546,18 @@ async function processFreezeNotifications(): Promise<void> {
     const usersWithFreezeUsed = await prisma.$queryRaw<Array<{
       telegram_id: bigint;
       timezone: string;
-      habit_name: string;
-      last_freeze_streak: number;
-      freezes_remaining: number;
+      habit_name: string | null;
+      last_freeze_streak: number | null;
+      subscription_tier: string;
+      habit_freezes_used: number;
     }>>`
       SELECT 
         u.telegram_id,
         u.timezone,
         h.name as habit_name,
         u.last_freeze_streak,
-        (
-          COALESCE((
-            SELECT CAST(value AS INTEGER) 
-            FROM app.app_config 
-            WHERE key = 'limits.' || u.subscription_tier || '.habit_freezes'
-          ), 1) - u.habit_freezes_used
-        ) as freezes_remaining
+        u.subscription_tier::text,
+        u.habit_freezes_used
       FROM app.users u
       LEFT JOIN app.habits h ON h.id = u.last_freeze_habit_id 
         AND h.is_active = true 
@@ -570,11 +578,15 @@ async function processFreezeNotifications(): Promise<void> {
       const currentTime = getCurrentTimeInTimezone(user.timezone);
       
       if (currentTime === '09:00') {
+        // Calculate freezes remaining using configService (safer than SQL cast)
+        const freezeLimit = await getFreezeLimit(user.subscription_tier);
+        const freezesRemaining = Math.max(0, freezeLimit - user.habit_freezes_used);
+        
         await sendFreezeNotification(
           user.telegram_id,
           user.habit_name || 'привычки',
           user.last_freeze_streak || 0,
-          user.freezes_remaining || 0
+          freezesRemaining
         );
         
         // Сбрасываем дату уведомления чтобы не отправлять повторно

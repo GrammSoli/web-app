@@ -417,11 +417,16 @@ router.get('/', async (req: Request, res: Response) => {
       // Get habit creation date as YYYY-MM-DD string
       const habitCreatedDate = new Date(habit.dateCreated).toISOString().split('T')[0];
       
-      // isMissed = past date (not yesterday) + habit existed then + no completion (real or frozen)
+      // Check if habit was scheduled on this day (for proper isMissed calculation)
+      const wasScheduledOnDate = shouldShowHabitOnDay(habit.frequency, habit.customDays, targetDayOfWeek);
+      
+      // isMissed = past date (not yesterday) + habit existed then + was scheduled + no completion (real or frozen)
       // Yesterday is editable, so not "missed" yet
+      // Only mark as missed if habit was actually scheduled on that day
       const isMissed = isPastDate && 
         !isYesterday &&
         habitCreatedDate <= todayStr && 
+        wasScheduledOnDate &&
         !hasCompletionOnDate;
       
       return {
@@ -809,23 +814,38 @@ router.post('/:id/toggle', async (req: Request, res: Response) => {
     
     let completed: boolean;
     
-    if (existing) {
-      // Remove completion
-      await prisma.habitCompletion.delete({
-        where: { id: existing.id },
-      });
-      completed = false;
-    } else {
-      // Add completion
-      await prisma.habitCompletion.create({
-        data: {
-          habitId: id,
-          userId: user.id,
-          completedDate: targetDate,
-        },
-      });
-      completed = true;
-    }
+    // Use transaction to prevent race conditions
+    // Atomic toggle: DELETE returns count, if 0 then INSERT
+    const result = await prisma.$transaction(async (tx) => {
+      if (existing) {
+        // Remove completion (atomic check via WHERE id)
+        const deleted = await tx.habitCompletion.deleteMany({
+          where: { id: existing.id },
+        });
+        return { completed: deleted.count === 0 }; // If nothing deleted, someone else did it
+      } else {
+        // Add completion with conflict handling
+        try {
+          await tx.habitCompletion.create({
+            data: {
+              habitId: id,
+              userId: user.id,
+              completedDate: targetDate,
+              isFrozen: false,
+            },
+          });
+          return { completed: true };
+        } catch (e: unknown) {
+          // Unique constraint violation - already exists (race condition)
+          if (e && typeof e === 'object' && 'code' in e && e.code === 'P2002') {
+            return { completed: true }; // Treat as success
+          }
+          throw e;
+        }
+      }
+    });
+    
+    completed = result.completed;
     
     // Recalculate streak (considering habit frequency and freeze)
     const allCompletions = await prisma.habitCompletion.findMany({
@@ -879,12 +899,15 @@ router.post('/:id/toggle', async (req: Request, res: Response) => {
       freezesUsed = 0;
     }
     
-    // Update habit stats
+    // Update habit stats (ensure streak is never negative)
+    const safeCurrentStreak = Math.max(0, current);
+    const safeLongestStreak = Math.max(habit.longestStreak, longest, 0);
+    
     await prisma.habit.update({
       where: { id },
       data: {
-        currentStreak: current,
-        longestStreak: Math.max(habit.longestStreak, longest),
+        currentStreak: safeCurrentStreak,
+        longestStreak: safeLongestStreak,
         totalCompletions: allCompletions.length,
       },
     });
@@ -921,15 +944,15 @@ router.post('/:id/toggle', async (req: Request, res: Response) => {
       userId: user.id, 
       habitId: id, 
       completed, 
-      streak: current,
+      streak: safeCurrentStreak,
       allCompleted,
       scheduledCount: scheduledHabits.length,
     }, 'Habit toggled');
     
     return res.json({
       completed,
-      currentStreak: current,
-      longestStreak: Math.max(habit.longestStreak, longest),
+      currentStreak: safeCurrentStreak,
+      longestStreak: safeLongestStreak,
       totalCompletions: allCompletions.length,
       allCompleted, // For triggering confetti!
       freezeInfo: {

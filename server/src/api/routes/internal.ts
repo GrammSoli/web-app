@@ -212,4 +212,79 @@ router.get('/config', async (_req: Request, res: Response) => {
   });
 });
 
+/**
+ * GET /api/internal/test-habits
+ * Тестовый эндпоинт для проверки frozen habits
+ * Query params: userId, date (YYYY-MM-DD)
+ */
+router.get('/test-habits', async (req: Request, res: Response) => {
+  try {
+    const userId = req.query.userId as string;
+    const dateParam = req.query.date as string;
+    
+    if (!userId) {
+      return res.status(400).json({ error: 'userId is required' });
+    }
+    
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const targetDate = dateParam || new Date().toISOString().split('T')[0];
+    // Convert to full DateTime for Prisma (start of day UTC)
+    const targetDateTime = new Date(`${targetDate}T00:00:00.000Z`);
+    
+    // Get habits with completions
+    const habits = await prisma.habit.findMany({
+      where: {
+        userId: userId,
+        isActive: true,
+      },
+      include: {
+        completions: {
+          where: {
+            completedDate: targetDateTime,
+          },
+        },
+      },
+    });
+    
+    const habitsWithFrozen = habits.map(habit => {
+      const completion = habit.completions[0];
+      return {
+        id: habit.id,
+        name: habit.name,
+        hasCompletion: !!completion,
+        isFrozen: completion?.isFrozen || false,
+        completionDetails: completion || null,
+      };
+    });
+    
+    // Also get user's freeze data via raw query (avoiding Prisma mapping issues)
+    const freezeData = await prisma.$queryRaw`
+      SELECT 
+        habit_freezes_available as "freezesAvailable", 
+        habit_freezes_used as "freezesUsed",
+        last_freeze_applied_date as "lastFreezeDate", 
+        last_freeze_habit_id as "lastFreezeHabitId", 
+        last_freeze_streak as "lastFreezeStreak"
+      FROM app.users
+      WHERE id = ${userId}::uuid
+    `;
+    
+    return res.json({
+      date: targetDate,
+      habits: habitsWithFrozen,
+      freezeData,
+    });
+  } catch (error) {
+    apiLogger.error({ error }, 'Failed to test habits');
+    return res.status(500).json({ error: 'Failed to test habits' });
+  }
+});
+
 export default router;
