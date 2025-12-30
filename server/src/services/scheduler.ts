@@ -434,6 +434,9 @@ async function processDailyFreezeCheck(): Promise<void> {
       );
 
       // Применяем заморозку в транзакции (атомарно UPDATE users + INSERT completions)
+      let freezeApplied = false;
+      let newFreezesUsed = 0;
+      
       try {
         await prisma.$transaction(async (tx) => {
           // Используем todayStrUserTz вместо CURRENT_DATE для корректной работы с timezone
@@ -447,7 +450,6 @@ async function processDailyFreezeCheck(): Promise<void> {
               END,
               habit_freezes_reset_month = ${currentMonthStart}::date,
               last_freeze_applied_date = ${todayStrUserTz}::date,
-              last_freeze_notification_date = ${todayStrUserTz}::date,
               last_freeze_habit_id = ${habitWithMaxStreak.habit_id}::uuid,
               last_freeze_streak = ${habitWithMaxStreak.current_streak}
             WHERE id = ${user.user_id}::uuid
@@ -462,6 +464,10 @@ async function processDailyFreezeCheck(): Promise<void> {
             // Freeze already applied or no freezes remaining - skip
             return;
           }
+          
+          freezeApplied = true;
+          // Calculate new freezes used count
+          newFreezesUsed = needsReset ? 1 : freezesUsed + 1;
 
           // Создаём "frozen" записи для пропущенных привычек (с проверкой дубликатов)
           let insertedCount = 0;
@@ -489,6 +495,20 @@ async function processDailyFreezeCheck(): Promise<void> {
             habitNames: actuallyMissed.map(h => h.habit_name),
           }, 'Freeze applied for missed habits');
         });
+        
+        // Отправляем уведомление сразу после успешного применения заморозки
+        if (freezeApplied) {
+          const freezesRemaining = Math.max(0, freezeLimit - newFreezesUsed);
+          await sendFreezeNotification(
+            user.telegram_id,
+            habitWithMaxStreak.habit_name,
+            habitWithMaxStreak.current_streak,
+            freezesRemaining
+          );
+          
+          // Небольшая задержка между уведомлениями
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
       } catch (txError) {
         dbLogger.error({ txError, userId: user.user_id }, 'Freeze transaction failed');
       }
@@ -530,77 +550,6 @@ async function sendFreezeNotification(
   } catch (error) {
     dbLogger.error({ error, telegramId: telegramId.toString() }, 'Failed to send freeze notification');
     return false;
-  }
-}
-
-/**
- * Обработать утренние уведомления о заморозках (запускается в 09:00 по таймзоне пользователя)
- */
-async function processFreezeNotifications(): Promise<void> {
-  try {
-    // Получаем пользователей, у которых есть pending уведомление о заморозке
-    // Требуется:
-    // - last_freeze_notification_date IS NOT NULL (pending notification)
-    // - last_freeze_applied_date IS NOT NULL (freeze was actually applied)
-    // - привычка активна и не архивирована
-    const usersWithFreezeUsed = await prisma.$queryRaw<Array<{
-      telegram_id: bigint;
-      timezone: string;
-      habit_name: string | null;
-      last_freeze_streak: number | null;
-      subscription_tier: string;
-      habit_freezes_used: number;
-    }>>`
-      SELECT 
-        u.telegram_id,
-        u.timezone,
-        h.name as habit_name,
-        u.last_freeze_streak,
-        u.subscription_tier::text,
-        u.habit_freezes_used
-      FROM app.users u
-      LEFT JOIN app.habits h ON h.id = u.last_freeze_habit_id 
-        AND h.is_active = true 
-        AND h.is_archived = false
-      WHERE u.last_freeze_notification_date IS NOT NULL
-        AND u.last_freeze_applied_date IS NOT NULL
-        AND u.status = 'active'
-    `;
-
-    if (usersWithFreezeUsed.length === 0) {
-      return;
-    }
-
-    dbLogger.debug({ count: usersWithFreezeUsed.length }, 'Checking freeze notifications');
-
-    // Отправляем уведомления в 09:00 по таймзоне пользователя
-    for (const user of usersWithFreezeUsed) {
-      const currentTime = getCurrentTimeInTimezone(user.timezone);
-      
-      if (currentTime === '09:00') {
-        // Calculate freezes remaining using configService (safer than SQL cast)
-        const freezeLimit = await getFreezeLimit(user.subscription_tier);
-        const freezesRemaining = Math.max(0, freezeLimit - user.habit_freezes_used);
-        
-        await sendFreezeNotification(
-          user.telegram_id,
-          user.habit_name || 'привычки',
-          user.last_freeze_streak || 0,
-          freezesRemaining
-        );
-        
-        // Сбрасываем дату уведомления чтобы не отправлять повторно
-        await prisma.$executeRaw`
-          UPDATE app.users 
-          SET last_freeze_notification_date = NULL
-          WHERE telegram_id = ${user.telegram_id}
-        `;
-        
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
-    }
-  } catch (error) {
-    dbLogger.error({ error }, 'Error processing freeze notifications');
   }
 }
 
@@ -822,8 +771,7 @@ export function startScheduler(): void {
   scheduledTask = cron.schedule('* * * * *', async () => {
     await processReminders();
     await processHabitReminders();
-    await processDailyFreezeCheck(); // Применение заморозок (в 00:05 по timezone пользователя)
-    await processFreezeNotifications(); // Уведомления (в 09:00)
+    await processDailyFreezeCheck(); // Применение заморозок + уведомление сразу (в 00:05 по timezone пользователя)
   });
 
   dbLogger.info('✅ Reminder scheduler started (every minute)');
